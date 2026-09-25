@@ -1,0 +1,48 @@
+import type { PipelineCard } from '../types/models'
+
+export const MOCK_PIPELINE: PipelineCard[] = [
+  {
+    id: 'p1',
+    codigo: 'LP-SM-8-2024-MPC-1',
+    objeto: 'Obra',
+    etapa: 'Convocado',
+    entidad: 'Municipalidad Provincial de Casma',
+    titulo: 'Ampliación de red de agua potable sector centro',
+    monto: 17648,
+    responsable: 'Jorge Balarezo',
+    estado: 'sin-estado',
+  },
+  {
+    id: 'p2',
+    codigo: 'SIE-SM-3-2024-GRA-1',
+    objeto: 'Obra',
+    etapa: 'En evaluación',
+    entidad: 'Gobierno Regional de Áncash',
+    titulo: 'Rehabilitación de vía vecinal tramo norte',
+    monto: 41220,
+    responsable: 'Jorge Balarezo',
+    estado: 'revisada',
+  },
+  {
+    id: 'p3',
+    codigo: 'LP-ABR-2-2024-MPC-1',
+    objeto: 'Obra',
+    etapa: 'Convocado',
+    entidad: 'Municipalidad Provincial de Casma',
+    titulo: 'Mejoramiento de la transitabilidad vehicular en la zona urbana',
+    monto: 74335,
+    responsable: 'Jorge Balarezo',
+    estado: 'negociando',
+  },
+  {
+    id: 'p4',
+    codigo: 'AS-ABR-1-2024-MDL-2',
+    objeto: 'Obra',
+    etapa: 'Buena Pro',
+    entidad: 'Municipalidad Distrital de Los Olivos',
+    titulo: 'Mejoramiento de espacios públicos urbanos',
+    monto: 1750,
+    responsable: 'Jorge Balarezo',
+    estado: 'vendida',
+  },
+]
