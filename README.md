@@ -1,32 +1,67 @@
-# React + TypeScript + Vite
+# Lici
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Plataforma de inteligencia para contrataciones del Estado peruano (SEACE): valida la empresa por RUC, sugiere los
+términos más licitados de su rubro, lista las licitaciones vigentes que le calzan y avisa por Telegram cuando sale
+una nueva.
 
-Currently, two official plugins are available:
+📘 Documentación completa del sistema (arquitectura, flujo, recomendación, n8n, API, tablas): [docs/DOCUMENTACION.md](docs/DOCUMENTACION.md)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Stack
 
-## React Compiler
+| Capa | Tecnología |
+|---|---|
+| Frontend | React 19 + TypeScript + Vite + Tailwind CSS 4 |
+| Backend | Python + FastAPI (`backend/`) |
+| Base de datos | Supabase (PostgreSQL) |
+| Datos por RUC | API MIGO (SUNAT) + ficha RNP del OECE |
+| Análisis ISO con IA | Flujo n8n + Google Gemini (`n8n/`) |
+| Alertas | Bot de Telegram (`python-telegram-bot`) |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Cómo correrlo
 
-## Expanding the Oxlint configuration
+Requisitos: Node 20+, Python 3.12+.
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+1. **Frontend**
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+   ```bash
+   npm install
+   npm run dev
+   ```
+
+   Abre http://localhost:5173/. Las llamadas a `/api` se redirigen al backend (ver `vite.config.ts`).
+
+2. **Backend** — ver [backend/README.md](backend/README.md) para crear el entorno y el `.env`. Luego, desde la raíz:
+
+   ```bash
+   backend\.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000 --app-dir backend
+   ```
+
+3. **Bot de Telegram** (opcional, en otra terminal):
+
+   ```bash
+   cd backend
+   .venv\Scripts\python -m app.bot
+   ```
+
+## Pantallas
+
+- **Ingresar**: registro e inicio de sesión (Supabase Auth a través del backend).
+- **Onboarding**: ingreso de RUC con datos reales de SUNAT/RNP, términos más licitados del rubro como keywords
+  sugeridas y elección del canal de alertas.
+- **Descubrimiento**: licitaciones vigentes filtradas por keywords/CIIU, con afinidad, fecha de cierre y desbloqueo
+  (bases + análisis ISO con IA, 5 por cuenta).
+- **Mis desbloqueos**: licitaciones desbloqueadas con sus bases y la recomendación de la IA.
+- **Mi perfil**: cuenta, empresa, actividades CIIU, keywords, cupo, historial en el SEACE y alertas por Telegram.
+- **Mi equipo**: pipeline de seguimiento (hoy con datos de ejemplo).
+
+## Pendiente
+
+- Bot de Telegram: configurar el token, pruebas con usuarios reales y despliegue 24/7.
+- Página "Mi equipo" conectada al backend (hoy usa datos de ejemplo).
+
+## Otros comandos
+
+```bash
+npm run build   # build de producción en dist/
+npm run lint    # oxlint
 ```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.

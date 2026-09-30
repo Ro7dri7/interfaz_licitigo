@@ -8,7 +8,8 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        // API_URL permite apuntar a otro backend en desarrollo (por defecto el de este repo en :8000)
+        target: process.env.API_URL ?? 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
         timeout: 70_000,

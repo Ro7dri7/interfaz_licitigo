@@ -19,8 +19,9 @@ const columns: ColumnDef[] = [
   { estado: 'perdida', label: 'Perdida', dot: '#dc2626', emptyHint: 'Registra el motivo al perder; sirve para el histórico.' },
 ]
 
-const chip = 'inline-flex items-center gap-1.5 rounded-full border border-line-strong bg-white px-3.5 py-[7px] text-[12.5px] font-semibold text-muted'
-const chipActive = 'bg-primary border-primary text-white'
+const chipBase = 'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-[7px] text-[12.5px] font-semibold'
+const chip = (activo: boolean) =>
+  `${chipBase} ${activo ? 'border-primary bg-primary text-white' : 'border-line-strong bg-white text-muted'}`
 
 function currency(value: number): string {
   return 'S/ ' + value.toLocaleString('es-PE')
@@ -64,7 +65,7 @@ export function EquipoPage() {
         <section className="grid grid-cols-4 gap-4 max-[1300px]:grid-cols-2">
           <div className={`${card} flex flex-col gap-2 px-5 py-[18px]`}>
             <span className="text-[11px] font-bold tracking-[0.04em] text-faint uppercase">En juego por etapa · todo el equipo</span>
-            <strong className="text-2xl font-bold">{currency(enJuego)}</strong>
+            <strong className="text-[24px] font-bold">{currency(enJuego)}</strong>
             <div className="flex h-1.5 overflow-hidden rounded-full bg-canvas">
               <span style={{ flex: cardsFor('sin-estado').length || 0.001, background: '#94a3b8' }} />
               <span style={{ flex: cardsFor('revisada').length || 0.001, background: '#2f5bea' }} />
@@ -83,15 +84,15 @@ export function EquipoPage() {
           </div>
           <div className={`${card} flex flex-col gap-2 px-5 py-[18px]`}>
             <span className="text-[11px] font-bold tracking-[0.04em] text-faint uppercase">Cerradas este mes · equipo</span>
-            <p className="flex items-baseline gap-1.5 text-sm text-muted">
-              <strong className="mr-0.5 text-xl text-success">{ganadas}</strong> ganadas
-              <strong className="mr-0.5 text-xl text-danger">{perdidas}</strong> perdidas
+            <p className="flex items-baseline gap-1.5 text-[14px] text-muted">
+              <strong className="mr-0.5 text-[20px] text-success">{ganadas}</strong> ganadas
+              <strong className="mr-0.5 text-[20px] text-danger">{perdidas}</strong> perdidas
             </p>
             <span className="text-[12.5px] text-muted">Cierres del mes en curso.</span>
           </div>
           <div className={`${card} flex flex-col gap-2 px-5 py-[18px]`}>
             <span className="text-[11px] font-bold tracking-[0.04em] text-faint uppercase">Plazos cerca · equipo</span>
-            <strong className="text-2xl font-bold">
+            <strong className="text-[24px] font-bold">
               2 <span className="ml-1 text-[13px] font-medium text-muted">con plazo cerca</span>
             </strong>
             <span className="text-[12.5px] text-muted">Etapas del cronograma en los próximos 15 días</span>
@@ -101,18 +102,18 @@ export function EquipoPage() {
         <section className={`${card} flex flex-col gap-3.5 px-[22px] py-[18px]`}>
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="mr-1.5 text-[11px] font-bold tracking-[0.05em] text-faint">LÍNEA DE NEGOCIO</span>
-            <button className={`${chip} ${chipActive}`} type="button">Todas</button>
-            <button className={chip} type="button">maquinaria</button>
+            <button className={chip(true)} type="button">Todas</button>
+            <button className={chip(false)} type="button">maquinaria</button>
           </div>
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="mr-1.5 text-[11px] font-bold tracking-[0.05em] text-faint">RESPONSABLES</span>
-            <button className={`${chip} ${responsableFilter === null ? chipActive : ''}`} type="button" onClick={() => setResponsableFilter(null)}>
+            <button className={chip(responsableFilter === null)} type="button" onClick={() => setResponsableFilter(null)}>
               👥 Todo el equipo · {cards.length}
             </button>
             {responsables.map((name) => (
               <button
                 key={name}
-                className={`${chip} ${responsableFilter === name ? chipActive : ''}`}
+                className={chip(responsableFilter === name)}
                 type="button"
                 onClick={() => setResponsableFilter(name)}
               >
@@ -140,7 +141,7 @@ export function EquipoPage() {
           </div>
         </section>
 
-        <section className="grid grid-cols-5 items-start gap-4 max-[1300px]:grid-cols-2 max-[700px]:grid-cols-1">
+        <section className="grid grid-cols-5 items-start gap-4 max-[1300px]:grid-cols-2 max-[700px]:grid-cols-[1fr]">
           {columns.map((column) => {
             const columnCards = cardsFor(column.estado)
             return (
@@ -167,9 +168,9 @@ export function EquipoPage() {
                         </div>
                         <span className="text-[11.5px] font-bold tracking-[0.02em] text-faint uppercase">{cardItem.entidad}</span>
                         <strong className="text-[13.5px] leading-snug font-semibold">{cardItem.titulo}</strong>
-                        <span className="text-sm font-bold">{currency(cardItem.monto)}</span>
+                        <span className="text-[14px] font-bold">{currency(cardItem.monto)}</span>
                         <select
-                          className="mt-1 rounded-sm border border-line bg-canvas px-2 py-1.5 text-xs text-muted"
+                          className="mt-1 rounded-sm border border-line bg-canvas px-2 py-1.5 text-[12px] text-muted"
                           value={cardItem.estado}
                           onChange={(event) => moveCard(cardItem, event.target.value as PipelineEstado)}
                         >

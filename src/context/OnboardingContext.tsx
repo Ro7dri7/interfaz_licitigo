@@ -3,7 +3,7 @@ import type { AlertChannel, Company, KeywordSuggestion, OnboardingStep } from '.
 
 const STORAGE_KEY = 'lici.onboarding'
 
-interface SavedProfile {
+interface Guardado {
   company: Company | null
   keywords: KeywordSuggestion[]
   alertChannel: AlertChannel | null
@@ -14,10 +14,11 @@ interface OnboardingContextValue {
   company: Company | null
   keywords: KeywordSuggestion[]
   alertChannel: AlertChannel | null
-  userName: string
   selectedKeywords: string[]
   ciius: string[]
   setCompany: (company: Company) => void
+  /** «No, otro RUC»: vuelve al paso del RUC sin empresa. */
+  volverARuc: () => void
   confirmKeywords: (keywords: KeywordSuggestion[]) => void
   confirmAlertChannel: (channel: AlertChannel) => void
   reset: () => void
@@ -25,40 +26,43 @@ interface OnboardingContextValue {
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null)
 
-function readSaved(): SavedProfile {
+// Conserva el perfil al recargar (p. ej. al entrar directo a Descubrimiento).
+function leerGuardado(): Guardado {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return { company: null, keywords: [], alertChannel: null }
-    const parsed = JSON.parse(raw) as Partial<SavedProfile>
-    return {
-      company: parsed.company ?? null,
-      keywords: parsed.keywords ?? [],
-      alertChannel: parsed.alertChannel ?? null,
-    }
+    const g = JSON.parse(raw) as Partial<Guardado>
+    return { company: g.company ?? null, keywords: g.keywords ?? [], alertChannel: g.alertChannel ?? null }
   } catch {
+    // sin almacenamiento disponible: se empieza de cero
     return { company: null, keywords: [], alertChannel: null }
   }
 }
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
-  const saved = readSaved()
-  const [step, setStep] = useState<OnboardingStep>(saved.company ? 'keywords' : 'ruc')
-  const [company, setCompanyState] = useState<Company | null>(saved.company)
-  const [keywords, setKeywords] = useState<KeywordSuggestion[]>(saved.keywords)
-  const [alertChannel, setAlertChannel] = useState<AlertChannel | null>(saved.alertChannel)
+  const [guardado] = useState(leerGuardado)
+  const [step, setStep] = useState<OnboardingStep>('ruc')
+  const [company, setCompanyState] = useState<Company | null>(guardado.company)
+  const [keywords, setKeywords] = useState<KeywordSuggestion[]>(guardado.keywords)
+  const [alertChannel, setAlertChannel] = useState<AlertChannel | null>(guardado.alertChannel)
 
   useEffect(() => {
-    const payload: SavedProfile = { company, keywords, alertChannel }
+    const g: Guardado = { company, keywords, alertChannel }
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(g))
     } catch {
-      /* sin almacenamiento disponible */
+      /* ignorar */
     }
   }, [company, keywords, alertChannel])
 
   const setCompany = useCallback((next: Company) => {
     setCompanyState(next)
     setStep('keywords')
+  }, [])
+
+  const volverARuc = useCallback(() => {
+    setStep('ruc')
+    setCompanyState(null)
   }, [])
 
   const confirmKeywords = useCallback((next: KeywordSuggestion[]) => {
@@ -78,21 +82,22 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     setAlertChannel(null)
   }, [])
 
-  const value = useMemo<OnboardingContextValue>(() => {
-    return {
+  const value = useMemo<OnboardingContextValue>(
+    () => ({
       step,
       company,
       keywords,
       alertChannel,
-      userName: 'Jorge',
-      selectedKeywords: keywords.filter((item) => item.selected).map((item) => item.label),
-      ciius: company?.ciius.map((item) => item.codigo) ?? [],
+      selectedKeywords: keywords.filter((k) => k.selected).map((k) => k.label),
+      ciius: company?.ciius.map((c) => c.codigo) ?? [],
       setCompany,
+      volverARuc,
       confirmKeywords,
       confirmAlertChannel,
       reset,
-    }
-  }, [alertChannel, company, confirmAlertChannel, confirmKeywords, keywords, reset, setCompany, step])
+    }),
+    [alertChannel, company, confirmAlertChannel, confirmKeywords, keywords, reset, setCompany, step, volverARuc],
+  )
 
   return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>
 }

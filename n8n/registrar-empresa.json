@@ -1,0 +1,536 @@
+{
+  "name": "Registrar Empresa (Perfil RUC) - base unificada",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "registrar-empresa",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "12e64354-a5cc-4a36-bcb6-2d1fd77481a1",
+      "name": "Webhook Registrar Empresa",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "a472141f-40a3-43cc-b6a0-c47c0eb0b1b7"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sb-url",
+              "name": "supabaseUrl",
+              "value": "https://jwxdwszinjdhzoierizm.supabase.co",
+              "type": "string"
+            },
+            {
+              "id": "sb-key",
+              "name": "supabaseKey",
+              "value": "PEGA_AQUI_LA_SECRET_KEY_DE_SUPABASE",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "83f2a122-08e4-4ef0-b475-cf9d3bb3bdfc",
+      "name": "Config Supabase",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst ruc = String(body.ruc || '').replace(/\\D/g, '');\nconst perfilId = /^[0-9a-f-]{36}$/i.test(String(body.perfil_id || '')) ? body.perfil_id : null;\nreturn [{ json: { ruc, perfilId, rucValido: ruc.length === 11 } }];"
+      },
+      "id": "f6e2812f-a33b-4a35-b1f0-c506d442a1b1",
+      "name": "Validar RUC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "ruc-ok",
+              "leftValue": "={{ $json.rucValido }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7e14808b-ca23-47ec-9b3a-25e22b8474c9",
+      "name": "¿RUC válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        600,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'ruc_invalido', mensaje: 'El RUC debe tener 11 dígitos.' } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "215112c3-258e-41b5-9f47-6dd28828ff24",
+      "name": "Respuesta RUC Inválido",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        460
+      ]
+    },
+    {
+      "id": "954f7336-49fc-4fad-bc92-235888d39876",
+      "name": "Consultar RNP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        300
+      ],
+      "parameters": {
+        "url": "=https://eap.oece.gob.pe/perfilprov-bus/1.0/ficha/{{ $json.ruc }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Origin",
+              "value": "https://apps.oece.gob.pe"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "timeout": 15000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "bb4a1316-4214-4464-ba5c-fee57cc60578",
+      "name": "Consultar SUNAT Ubicacion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        300
+      ],
+      "parameters": {
+        "url": "=https://eap.oece.gob.pe/ficha-proveedor-cns/1.0/ficha/{{ $('Validar RUC').first().json.ruc }}/resumen",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Origin",
+              "value": "https://apps.oece.gob.pe"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "timeout": 15000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "e6542b5f-f9e7-4431-bbd0-803310db9d3a",
+      "name": "Config API MIGO",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1200,
+        300
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "migo-token",
+              "name": "apimigoToken",
+              "value": "586387ee-c778-4247-a234-e5709b124a6e",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "19a6b57b-4b29-47b1-a1dd-4b4e6e0c228f",
+      "name": "Consultar CIIU (API MIGO)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        300
+      ],
+      "parameters": {
+        "url": "=https://api.migo.pe/api/v2/ruc/{{ $('Validar RUC').first().json.ruc }}/sunat",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.apimigoToken }}"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 4000
+    },
+    {
+      "id": "96f14a9a-6eff-4cda-8987-31451d348d24",
+      "name": "Combinar Perfil Proveedor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        300
+      ],
+      "parameters": {
+        "jsCode": "function tryGet(nodeName) {\n  try { return $(nodeName).first().json; } catch (e) { return null; }\n}\nconst rnp = tryGet('Consultar RNP') || {};\nconst sunat = tryGet('Consultar SUNAT Ubicacion') || {};\nconst migoRaw = tryGet('Consultar CIIU (API MIGO)') || {};\nconst ruc = $('Validar RUC').first().json.ruc;\n\n// El nodo MIGO usa fullResponse + neverError: { statusCode, body }. Si fallo la red llega { error }.\nlet ciiuResp = migoRaw.body !== undefined ? migoRaw.body : migoRaw;\nif (typeof ciiuResp === 'string') { try { ciiuResp = JSON.parse(ciiuResp); } catch (e) { ciiuResp = { message: ciiuResp.slice(0, 200) }; } }\nciiuResp = ciiuResp || {};\nconst migoStatus = migoRaw.statusCode;\nlet ciiuOficialError = null;\nif (migoRaw.error) {\n  ciiuOficialError = 'API MIGO: ' + (migoRaw.error.message || String(migoRaw.error));\n} else if ((migoStatus && migoStatus >= 400) || ciiuResp.success === false) {\n  ciiuOficialError = `API MIGO HTTP ${migoStatus || '?'}: ${ciiuResp.message || 'sin mensaje'}`;\n  if (migoStatus === 403) ciiuOficialError += ' (plan/suscripción de API MIGO vencida: renovar en api.migo.pe)';\n  if (migoStatus === 401) ciiuOficialError += ' (token de API MIGO inválido)';\n}\n\nconst prov = rnp.proveedorT01 || {};\nconst tels = prov.telefonos || [];\nconst emails = prov.emails || [];\nconst tipReg = String(prov.lscIdTipReg || '');\nconst tiposRnp = [];\nif (tipReg.includes('1')) tiposRnp.push('Bienes');\nif (tipReg.includes('2')) tiposRnp.push('Servicios');\nif (tipReg.includes('3')) tiposRnp.push('Consultoria de Obras');\nif (tipReg.includes('4')) tiposRnp.push('Obras');\n\nconst especialidades = (prov.espProvT01s || []).map((e) => {\n  const des = (e.desEsp || '').trim();\n  const cat = (e.desCat || '').trim();\n  return des ? (cat ? `${des} (Cat. ${cat})` : des) : null;\n}).filter(Boolean);\n\nconst ds = sunat.datosSunat || {};\n\n// Parsea \"Principal - 4100 - CONSTRUCCION DE EDIFICIOS\" / \"Secundaria 1 - ...\" de la API MIGO (SUNAT en vivo).\nconst ciius = [];\nconst ciiuDetalle = [];\nfor (const linea of (ciiuResp.actividades_economicas || [])) {\n  const m = String(linea).match(/^\\s*(Principal|Secundaria\\s*\\d*)\\s*-\\s*(\\d{4})\\s*-\\s*(.+?)\\s*$/i);\n  if (m) {\n    const [, etiqueta, cod, texto] = m;\n    if (!ciius.includes(cod)) {\n      ciius.push(cod);\n      ciiuDetalle.push({ codigo: cod, texto, fuente: `${etiqueta} (SUNAT tiempo real)` });\n    }\n  }\n}\nconst ciiuOficialOk = ciius.length > 0;\nif (!ciiuOficialOk && !ciiuOficialError) ciiuOficialError = 'API MIGO respondió sin actividades económicas para este RUC';\n\nconst razonSocial = (prov.nomRzsProv || ds.razon || ciiuResp.nombre_o_razon_social || 'No identificada').trim();\n// MIGO (/sunat) tambien trae estado, condicion y ubicacion: sirven de respaldo si OECE no respondio.\nconst txt = (v) => (v && String(v).trim() && String(v).trim() !== '-' ? String(v).trim().toUpperCase() : null);\nconst estadoSunat = txt(ciiuResp.estado_del_contribuyente) || txt(ds.estado) || 'No registra';\nconst condicionSunat = txt(ciiuResp.condicion_de_domicilio) || txt(ds.condicion) || 'No registra';\nconst contribuyenteOk = estadoSunat === 'ACTIVO' && condicionSunat === 'HABIDO';\n\n// Metodo 2 (RNP / Heuristica): igual que deducir_ciius_perfil() del script Python.\n// No depende de los diccionarios grandes, solo palabras clave sobre especialidad/razon social/tipo RNP.\n// Sirve para cuando el CIIU oficial de SUNAT esta desactualizado o vacio.\nfunction deducirCiiusHeuristica(razonSocial, especialidadesObras, tiposRnp) {\n  const ciiusSet = new Set();\n  const norm = (s) => s.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();\n  const rz = norm(razonSocial);\n  const esps = norm(especialidadesObras.join(' '));\n\n  if (esps.includes('vial') || esps.includes('carretera') || esps.includes('puente')) { ciiusSet.add('4210'); ciiusSet.add('7110'); }\n  if (esps.includes('saneamiento') || esps.includes('agua')) { ciiusSet.add('4220'); ciiusSet.add('7110'); }\n  if (esps.includes('edificac') || esps.includes('urbana')) { ciiusSet.add('4100'); ciiusSet.add('7110'); }\n  if (esps.includes('electromec') || esps.includes('energ')) { ciiusSet.add('4321'); ciiusSet.add('7110'); }\n  if (esps.includes('represa') || esps.includes('irrigac')) { ciiusSet.add('4290'); ciiusSet.add('7110'); }\n\n  if (tiposRnp.includes('Consultoria de Obras')) ciiusSet.add('7110');\n  if (tiposRnp.includes('Obras') && ciiusSet.size === 0) { ciiusSet.add('4100'); ciiusSet.add('4210'); }\n\n  const kw = (arr) => arr.some((k) => rz.includes(k));\n  if (kw(['constructora', 'construccion', 'edificaciones', 'obras'])) { ciiusSet.add('4100'); ciiusSet.add('4210'); }\n  if (kw(['ingenieros', 'ingenieria', 'consultores', 'consultoria', 'arquitect'])) ciiusSet.add('7110');\n  if (kw(['seguridad', 'vigilancia', 'resguardo', 'security'])) ciiusSet.add('8010');\n  if (kw(['limpieza', 'servicios generales', 'mantenimiento'])) ciiusSet.add('8121');\n  if (kw(['software', 'sistemas', 'tecnologia', 'tech', 'soluciones ti'])) { ciiusSet.add('6201'); ciiusSet.add('6202'); }\n  if (kw(['farma', 'medica', 'salud', 'laboratorio', 'drogueria'])) { ciiusSet.add('4646'); ciiusSet.add('2100'); }\n  if (kw(['transporte', 'logistica', 'flete', 'cargo'])) ciiusSet.add('4923');\n\n  if (ciiusSet.size === 0) {\n    if (tiposRnp.includes('Servicios')) ciiusSet.add('7020');\n    else if (tiposRnp.includes('Bienes')) ciiusSet.add('4651');\n  }\n  return Array.from(ciiusSet);\n}\n\nconst ciiusRnp = deducirCiiusHeuristica(razonSocial, especialidades, tiposRnp);\nfor (const cod of ciiusRnp) {\n  if (!ciius.includes(cod)) {\n    ciius.push(cod);\n    ciiuDetalle.push({ codigo: cod, texto: 'Inferido por especialidad RNP / rubro declarado', fuente: 'RNP / Heurística' });\n  }\n}\n\nconst perfilProveedor = {\n  ruc,\n  razonSocial,\n  habilitadoRnp: prov.esHabilitado ? 'SI' : 'No',\n  aptoContratar: prov.esAptoContratar ? 'SI' : 'No',\n  tiposRnp,\n  especialidadesObras: especialidades,\n  telefono: tels.length ? tels.filter(Boolean).join(' / ') : 'No registra',\n  email: emails.length ? emails.filter(Boolean).join(' / ') : 'No registra',\n  estadoSunat,\n  condicionSunat,\n  contribuyenteOk,\n  departamento: txt(ds.departamento) || txt(ciiuResp.departamento) || 'NO REGISTRA',\n  provincia: txt(ds.provincia) || txt(ciiuResp.provincia) || 'NO REGISTRA',\n  distrito: txt(ds.distrito) || txt(ciiuResp.distrito) || 'NO REGISTRA',\n  ciius,\n  ciiuDetalle,\n  ciiuOficialOk,\n  ciiuOficialError\n};\n\nreturn [{ json: { perfilProveedor } }];"
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config Supabase').first().json.supabaseUrl }}/rest/v1/rpc/guardar_perfil_empresa",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Supabase').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Supabase').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "options": {},
+        "specifyBody": "json",
+        "jsonBody": "={{ { p: $('Combinar Perfil Proveedor').first().json.perfilProveedor } }}"
+      },
+      "id": "ebd35ada-809b-4ecb-8fab-3e728201bcfc",
+      "name": "Guardar Perfil Empresa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1800,
+        300
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Config Supabase').first().json.supabaseUrl }}/rest/v1/perfiles?id=eq.{{ $('Validar RUC').first().json.perfilId || '00000000-0000-0000-0000-000000000000' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Supabase').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Supabase').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "options": {},
+        "specifyBody": "json",
+        "jsonBody": "={{ { ruc_empresa: $('Validar RUC').first().json.ruc } }}"
+      },
+      "id": "d36e64e8-fc8d-4f2b-b23d-56ad2ac12a61",
+      "name": "Vincular RUC al Perfil",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        300
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ (() => { const p = $('Combinar Perfil Proveedor').first().json.perfilProveedor; return { status: 'ok', ruc: p.ruc, razon_social: p.razonSocial, estado_sunat: p.estadoSunat, condicion_sunat: p.condicionSunat, habilitado_rnp: p.habilitadoRnp, ciiu_oficial_ok: p.ciiuOficialOk, aviso_ciiu: p.ciiuOficialError, ciius: p.ciiuDetalle.map((d) => ({ codigo: d.codigo, origen: /SUNAT/.test(d.fuente) ? 'oficial' : 'inferido', detalle: d.fuente })), licitaciones_recomendadas: $('Recomendar Licitaciones Abiertas').all().map((i) => i.json).filter((x) => x.convocatoria_id) }; })() }}",
+        "options": {}
+      },
+      "id": "1d85a3c3-e2b2-4d71-8cc6-758bd7c0d23b",
+      "name": "Respuesta Perfil",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config Supabase').first().json.supabaseUrl }}/rest/v1/rpc/recomendar_licitaciones",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Supabase').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Supabase').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { p_ruc: $('Validar RUC').first().json.ruc, p_limite: 10 } }}",
+        "options": {}
+      },
+      "id": "59f07d9c-04f3-4437-8529-7833781285ea",
+      "name": "Recomendar Licitaciones Abiertas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2220,
+        300
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Registrar Empresa": {
+      "main": [
+        [
+          {
+            "node": "Config Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config Supabase": {
+      "main": [
+        [
+          {
+            "node": "Validar RUC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar RUC": {
+      "main": [
+        [
+          {
+            "node": "¿RUC válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿RUC válido?": {
+      "main": [
+        [
+          {
+            "node": "Consultar RNP",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta RUC Inválido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar RNP": {
+      "main": [
+        [
+          {
+            "node": "Consultar SUNAT Ubicacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar SUNAT Ubicacion": {
+      "main": [
+        [
+          {
+            "node": "Config API MIGO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config API MIGO": {
+      "main": [
+        [
+          {
+            "node": "Consultar CIIU (API MIGO)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar CIIU (API MIGO)": {
+      "main": [
+        [
+          {
+            "node": "Combinar Perfil Proveedor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combinar Perfil Proveedor": {
+      "main": [
+        [
+          {
+            "node": "Guardar Perfil Empresa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Perfil Empresa": {
+      "main": [
+        [
+          {
+            "node": "Vincular RUC al Perfil",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vincular RUC al Perfil": {
+      "main": [
+        [
+          {
+            "node": "Recomendar Licitaciones Abiertas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recomendar Licitaciones Abiertas": {
+      "main": [
+        [
+          {
+            "node": "Respuesta Perfil",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}

@@ -1,0 +1,2119 @@
+{
+  "name": "Analizador ISO Licitaciones (Gemini) - base unificada",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "e0ce4b0c-9dc7-4b5f-b3dc-753373c56c8b",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -464,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8f2b1e2a-0000-4000-8000-000000000002",
+              "name": "licitacion",
+              "value": "CM-602-2026-GRLL-GRA",
+              "type": "string"
+            },
+            {
+              "id": "8f2b1e2a-0000-4000-8000-000000000003",
+              "name": "ruc",
+              "value": "20601206481 ",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "95a92d12-fe2f-48c9-ab12-ada26d1750fc",
+      "name": "Edit Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -272,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "desbloquear-licitacion-gemini",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "d0efd48d-b5e0-4f11-a99d-49732b3d1129",
+      "name": "Webhook Desbloqueo",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -272,
+        48
+      ],
+      "webhookId": "4cb06443-e641-4065-8952-2e52b9f629c1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sb-url",
+              "name": "supabaseUrl",
+              "value": "https://jwxdwszinjdhzoierizm.supabase.co",
+              "type": "string"
+            },
+            {
+              "id": "sb-key",
+              "name": "supabaseKey",
+              "value": "PEGA_AQUI_LA_SECRET_KEY_DE_SUPABASE",
+              "type": "string"
+            },
+            {
+              "id": "gemini-key",
+              "name": "geminiApiKey",
+              "value": "PON_AQUI_TU_API_KEY_DE_GEMINI",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "912023ba-60d9-41d0-b713-f3e51a19129f",
+      "name": "Config Supabase",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -48,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config Supabase').first().json.supabaseUrl }}/rest/v1/convocatorias?nomenclatura_norm=eq.{{ encodeURIComponent(String($('Config Supabase').first().json.body?.licitacion || $('Config Supabase').first().json.licitacion || '').toUpperCase().replace(/\\s+/g, '')) }}&select=*&order=abierta.desc,fecha_publicacion.desc&limit=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Supabase').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Supabase').first().json.supabaseKey }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bd569151-7b22-422b-881d-a9aa8a88a73a",
+      "name": "Consultar Convocatoria",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        128,
+        80
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "node-check-cache-cond",
+              "leftValue": "={{ /^ESTADO:/.test(String($json.requiere_iso || '').trim()) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7f8033f1-cda8-4cea-8f94-4f28edbf98bd",
+      "name": "¿Ya fue analizado antes?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        448,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'cached', licitacion: $json.licitacion, requiere_iso: $json.requiere_iso, recomendacion_ia: null, aviso: $json.avisoRuc || 'Envía un RUC para obtener la recomendación personalizada para tu empresa.', mensaje: 'Análisis ISO entregado desde la memoria caché de Supabase' } }}",
+        "options": {}
+      },
+      "id": "2f582a2c-ce52-4c9d-9f3e-b7ceb07b39a5",
+      "name": "Respuesta Inmediata (Caché)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        4576,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst url = item.url_bases_pdf || item.url_bases || '';\nif (!url) { throw new Error('No hay url_bases_pdf/url_bases para esta convocatoria: ' + JSON.stringify(item)); }\n// Ya es la URL final y estable de SEACE (prod1 Alfresco o prod6 archivos-publico).\n// No hace falta resolver ningun ticket ni pasar por ScraperAPI.\nconst mUuid = url.match(/fileCode=([a-f0-9-]{36})/i);\nconst mProd6 = url.match(/descargar-archivo-contrato\\/(\\d+)/i);\nconst fileCode = mUuid ? mUuid[1] : (mProd6 ? mProd6[1] : 'archivo');\nconst licitacion = item.nomenclatura_norm || item.licitacion;\nreturn [{ json: { licitacion, downloadUrl: url, fileCode } }];"
+      },
+      "id": "b2949136-36f8-4a20-94a6-55d324b41710",
+      "name": "Construir URL Directa",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "proxy-host",
+              "name": "proxyHost",
+              "value": "geo.iproyal.com",
+              "type": "string"
+            },
+            {
+              "id": "proxy-port",
+              "name": "proxyPort",
+              "value": "12321",
+              "type": "string"
+            },
+            {
+              "id": "proxy-user",
+              "name": "proxyUser",
+              "value": "QfRVRj9qYoB4d4f5",
+              "type": "string"
+            },
+            {
+              "id": "proxy-pass",
+              "name": "proxyPass",
+              "value": "nqYcpE4hHWryXetS_country-pe",
+              "type": "string"
+            },
+            {
+              "id": "proxy-url",
+              "name": "proxyUrl",
+              "value": "http://QfRVRj9qYoB4d4f5:nqYcpE4hHWryXetS_country-pe@geo.iproyal.com:12321",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "9d1ee809-fde1-4111-9eb8-606afbbcef2c",
+      "name": "Config Proxy IPRoyal",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        688,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "method": "HEAD",
+        "url": "={{ $json.downloadUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "text"
+            }
+          },
+          "proxy": "={{ $('Config Proxy IPRoyal').first().json.proxyUrl }}"
+        }
+      },
+      "id": "c6cba9b5-14be-4571-8c53-c7bbb0735aaa",
+      "name": "Verificar Tamaño (HEAD)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        784,
+        192
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp = $input.first().json;\nconst headers = resp.headers || {};\nconst lenRaw = headers['content-length'] || headers['Content-Length'];\nconst bytes = lenRaw ? parseInt(lenRaw, 10) : null;\nconst contentType = headers['content-type'] || headers['Content-Type'] || '';\nconst info = $('Construir URL Directa').first().json;\nreturn [{ json: { ...info, fileSizeBytesHead: bytes, contentType, tamanoConocido: bytes !== null } }];"
+      },
+      "id": "8f511b56-0686-47b5-883f-8de3d707e1f8",
+      "name": "Evaluar Tamaño",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cond-size-known",
+              "leftValue": "={{ $json.tamanoConocido }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "cond-size-big",
+              "leftValue": "={{ $json.fileSizeBytesHead }}",
+              "rightValue": 62914560,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5c94eaec-0693-42cf-8fe4-f50045ec2828",
+      "name": "¿Archivo Demasiado Grande? (>60MB)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'too_large', licitacion: $json.licitacion, fileSizeBytes: $json.fileSizeBytesHead, mensaje: 'El documento supera el límite configurado para procesar en esta ruta; requiere manejo aparte.' } }}",
+        "options": {}
+      },
+      "id": "2060ae84-837a-4a1a-9b29-38099392e8c8",
+      "name": "Respuesta Archivo Muy Grande",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1376,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.downloadUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "proxy": "={{ $('Config Proxy IPRoyal').first().json.proxyUrl }}"
+        }
+      },
+      "id": "67ee0efd-b0f2-4d17-8ec4-218578a33cdc",
+      "name": "Descargar Archivo (Proxy IPRoyal)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1376,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const info = $('Construir URL Directa').first().json;\nconst input = $input.first();\nif (!input.binary || Object.keys(input.binary).length === 0) {\n  throw new Error(`No llego ningun binario para fileCode=${info.fileCode}. Revisa la salida real de 'Descargar Archivo (Proxy IPRoyal)'.`);\n}\nconst binKey = Object.keys(input.binary)[0];\nconst bin = input.binary[binKey];\nconst buffer = await this.helpers.getBinaryDataBuffer(0, binKey);\nconst head = buffer.subarray(0, 4);\nlet tipo = 'otro';\nif (head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46) tipo = 'pdf'; // %PDF\nelse if (head[0] === 0x50 && head[1] === 0x4b) {\n  // PK..: un DOCX tambien es ZIP; se distingue porque lista word/document.xml en su directorio central.\n  tipo = buffer.includes('word/document.xml') ? 'docx' : 'zip';\n}\nconst fileName = info.fileCode + (tipo === 'pdf' ? '.pdf' : tipo === 'zip' ? '.zip' : tipo === 'docx' ? '.docx' : '');\nif (tipo === 'pdf') { bin.mimeType = 'application/pdf'; bin.fileExtension = 'pdf'; bin.fileName = fileName; }\n// El nodo Compression solo descomprime si fileExtension es 'zip', por eso el DOCX se marca como zip.\nif (tipo === 'zip' || tipo === 'docx') { bin.mimeType = 'application/zip'; bin.fileExtension = 'zip'; bin.fileName = fileName + (tipo === 'docx' ? '.zip' : ''); }\nreturn [{ json: { tipo, fileName, licitacion: info.licitacion }, binary: { data: bin } }];"
+      },
+      "id": "e0ee97a9-8b79-4467-81ab-1f9f0509853d",
+      "name": "Detectar Tipo de Archivo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "node-if-pdf-cond",
+              "leftValue": "={{ $json.tipo }}",
+              "rightValue": "pdf",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "82caeadf-a2ea-414d-9a32-80413e228a50",
+      "name": "¿Es PDF?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "node-if-zip-cond",
+              "leftValue": "={{ $json.tipo }}",
+              "rightValue": "zip",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "40c14291-f2bf-4fc9-9170-df60f341a443",
+      "name": "¿Es ZIP?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "node-if-docx-cond",
+              "leftValue": "={{ $json.tipo }}",
+              "rightValue": "docx",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2c263bcf-65af-49a6-ab74-730f150b4981",
+      "name": "¿Es DOCX?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        480
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "2194e4e9-900d-43db-b676-9c7593bcb8a3",
+      "name": "Descomprimir ZIP",
+      "type": "n8n-nodes-base.compression",
+      "typeVersion": 1.1,
+      "position": [
+        1984,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const bins = $input.first().binary || {};\nfunction parseSize(s) {\n  if (!s) return 0;\n  const m = String(s).match(/([\\d.]+)\\s*(B|kB|KB|MB|GB)/i);\n  if (!m) return 0;\n  const mult = { B: 1, KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3 }[m[2].toUpperCase()] || 1;\n  return parseFloat(m[1]) * mult;\n}\nfunction score(fullName) {\n  const n = fullName.toUpperCase().replace(/_/g, ' ');\n  const base = n.split('/').pop();\n  const ext = base.includes('.') ? base.split('.').pop().toLowerCase() : '';\n  if (!['pdf', 'docx'].includes(ext)) return -1;\n  let s = 0;\n  if (base.includes('BASES')) s += 100;\n  if (n.includes('BASES')) s += 20;\n  if (base.includes('ACTA')) s -= 80;\n  if (base.includes('INTEGRADA')) s += 30;\n  if (ext === 'pdf') s += 10;\n  return s;\n}\nconst candidatos = [];\nfor (const key of Object.keys(bins)) {\n  const b = bins[key];\n  // n8n separa la ruta interna del ZIP en directory + fileName; se reconstruye para puntuar carpetas 'BASES'.\n  const name = (b.directory ? b.directory + '/' : '') + (b.fileName || key);\n  if (name.endsWith('/')) continue;\n  const sc = score(name);\n  if (sc >= 0) candidatos.push({ key, name, sc, size: parseSize(b.fileSize) });\n}\nif (!candidatos.length) {\n  throw new Error('El ZIP no contiene ningún PDF/DOCX. Archivos: ' + Object.values(bins).map(b => b.fileName).join(', '));\n}\ncandidatos.sort((a, b) => (b.sc - a.sc) || (b.size - a.size));\nconst elegido = candidatos[0];\nconst bin = bins[elegido.key];\nconst ext = elegido.name.split('.').pop().toLowerCase();\nconst tipo = ext === 'pdf' ? 'pdf' : 'docx';\nbin.fileName = elegido.name.split('/').pop();\nif (tipo === 'pdf') { bin.mimeType = 'application/pdf'; bin.fileExtension = 'pdf'; }\nif (tipo === 'docx') { bin.mimeType = 'application/zip'; bin.fileExtension = 'zip'; bin.fileName = bin.fileName + '.zip'; }\nreturn [{ json: { tipo, fileName: elegido.name.split('/').pop() }, binary: { data: bin } }];"
+      },
+      "id": "9fbb8bf0-ee8f-49f1-b4a6-6a8eaccd6bcb",
+      "name": "Seleccionar Bases del ZIP",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "node-if-zip-pdf-cond",
+              "leftValue": "={{ $json.tipo }}",
+              "rightValue": "pdf",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "61c3fcb6-9fdd-4bd9-8ab3-e33e5fbe31d4",
+      "name": "¿Bases del ZIP es PDF?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2384,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "outputPrefix": "docx_"
+      },
+      "id": "63644048-d663-44cc-80e5-7f37228ffe91",
+      "name": "Descomprimir DOCX",
+      "type": "n8n-nodes-base.compression",
+      "typeVersion": 1.1,
+      "position": [
+        2592,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const bins = $input.first().binary || {};\n// n8n guarda la ruta interna como directory='word' + fileName='document.xml'.\nconst rutaCompleta = (b) => ((b.directory ? b.directory + '/' : '') + (b.fileName || '')).replace(/\\\\/g, '/');\nconst key = Object.keys(bins).find(k => rutaCompleta(bins[k]).endsWith('word/document.xml'));\nif (!key) { throw new Error('El DOCX no contiene word/document.xml. Archivos: ' + Object.values(bins).map(rutaCompleta).join(', ')); }\nconst bin = bins[key];\nbin.mimeType = 'text/xml'; bin.fileExtension = 'xml'; bin.fileName = 'document.xml';\nreturn [{ json: { fileName: $input.first().json.fileName }, binary: { data: bin } }];"
+      },
+      "id": "e18645ba-0aa4-4483-bbb8-e6fde4ad7843",
+      "name": "Seleccionar document.xml",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2784,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "options": {}
+      },
+      "id": "5c1d36a3-83b7-4817-aee1-dc5b29e510e3",
+      "name": "Leer XML como Texto",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        2992,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const xml = $input.first().json.data || '';\nlet t = xml.replace(/<\\/w:p>/g, '\\n').replace(/<w:tab\\/>/g, '\\t').replace(/<w:br[^>]*\\/>/g, '\\n')\n  .replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')\n  .replace(/&quot;/g, '\"').replace(/&apos;/g, \"'\").replace(/[ \\t]+/g, ' ').replace(/\\n{3,}/g, '\\n\\n').trim();\nreturn [{ json: { textoDocx: t, fileName: $('Seleccionar document.xml').first().json.fileName } }];"
+      },
+      "id": "fa82d546-d922-4942-9fd7-8a99c92a1423",
+      "name": "Limpiar XML a Texto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3184,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{ json: { fileSizeBytes: buffer.length, fileName: $input.first().json.fileName || $input.first().json['fileName'] || 'bases.pdf' }, binary: $input.first().binary }];"
+      },
+      "id": "6d2d7167-bbc8-4da9-a42d-cb820f0e3a7c",
+      "name": "Calcular Tamaño Binario",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1984,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/upload/v1beta/files?key={{ $('Config Supabase').first().json.geminiApiKey }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Goog-Upload-Protocol",
+              "value": "resumable"
+            },
+            {
+              "name": "X-Goog-Upload-Command",
+              "value": "start"
+            },
+            {
+              "name": "X-Goog-Upload-Header-Content-Length",
+              "value": "={{ $json.fileSizeBytes }}"
+            },
+            {
+              "name": "X-Goog-Upload-Header-Content-Type",
+              "value": "application/pdf"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { file: { display_name: $json.fileName } } }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "512baee1-11c4-44cd-bd19-0bd01b14b460",
+      "name": "Iniciar Subida Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2384,
+        144
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const headers = $input.first().json.headers || {};\nconst uploadUrl = headers['x-goog-upload-url'] || headers['X-Goog-Upload-URL'];\nif (!uploadUrl) { throw new Error('Gemini no devolvió X-Goog-Upload-URL. Headers: ' + JSON.stringify(headers)); }\nreturn [{ json: { uploadUrl, fileSizeBytes: $('Calcular Tamaño Binario').first().json.fileSizeBytes }, binary: $('Calcular Tamaño Binario').first().binary }];"
+      },
+      "id": "3bef0438-6c9a-47d1-8860-1ff446f59318",
+      "name": "Extraer Upload URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2592,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.uploadUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Goog-Upload-Offset",
+              "value": "0"
+            },
+            {
+              "name": "X-Goog-Upload-Command",
+              "value": "upload, finalize"
+            },
+            {
+              "name": "Content-Length",
+              "value": "={{ $json.fileSizeBytes }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "id": "903a48f9-0201-440b-b112-d476cc67033b",
+      "name": "Subir Bytes a Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2784,
+        144
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const info = $input.first().json;\nconst fileUri = info.file?.uri;\nconst mimeType = info.file?.mimeType || 'application/pdf';\nif (!fileUri) { throw new Error('Gemini no devolvió file.uri: ' + JSON.stringify(info)); }\nreturn [{ json: { fileUri, mimeType, modo: 'archivo_pdf' } }];"
+      },
+      "id": "8a43bf41-3174-444a-9492-2444dc94cd86",
+      "name": "Extraer File URI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2992,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "let itemArchivo = null;\nlet modo = null;\ntry { itemArchivo = $('Extraer File URI').first().json; modo = 'archivo_grande'; } catch (e) {}\nif (!itemArchivo) {\n  try { itemArchivo = $('Codificar Base64 (Inline)').first().json; modo = 'inline'; } catch (e) {}\n}\nlet textoDocx = null;\nif (!itemArchivo) {\n  try { textoDocx = $('Limpiar XML a Texto').first().json.textoDocx; } catch (e) {}\n}\n\nconst conv = $('Consultar Convocatoria').first().json;\nconst catalogo = $('Catálogo ISO Empresa').first().json.catalogoIso;\nconst listaCatalogo = catalogo.normas.map((n) => `- ${n.codigo}: ${n.alcance}`).join('\\n');\n\nconst contexto = 'Entidad: ' + (conv.entidad || conv.entidad_convocante || 'No especificada')\n  + '\\nObjeto: ' + (conv.objeto || conv.objeto_contratacion || 'No especificado')\n  + '\\nDescripción: ' + (conv.descripcion || conv.objeto_descripcion || 'No especificada')\n  + '\\nCategoría: ' + (conv.categoria || 'No especificada')\n  + '\\nMonto Referencial: ' + (conv.monto || conv.monto_referencial || 'No especificado');\n\nconst instruccion = 'Eres un auditor senior experto en contrataciones públicas de Perú (SEACE/OSCE) y normas ISO. '\n  + 'Analiza la convocatoria y el documento de bases (si está adjunto) y determina qué certificaciones ISO se mencionan '\n  + 'o se exigen, y cuáles convendría tener para ganar ventaja competitiva en ESTA convocatoria. Si no hay documento legible, '\n  + 'usa el contexto de la convocatoria para inferir con criterio profesional (nunca respondas \"no se puede determinar\").\\n\\n'\n  + 'REGLAS:\\n'\n  + '1) \"normas_solicitadas\": SOLO las normas que las bases realmente piden o puntúan, tal como aparecen (aunque no estén en el catálogo).\\n'\n  + '2) \"iso_recomendadas\": entre 1 y 3 normas, ÚNICAMENTE del CATÁLOGO de abajo, escritas exactamente como en el catálogo. '\n  + 'Prioriza primero las normas solicitadas por las bases que estén en el catálogo; luego las que más ventaja den según el objeto '\n  + '(p.ej. obras/servicios con personal en campo → 45001; calidad del bien o servicio → 9001; impacto ambiental → 14001; '\n  + 'integridad/anticorrupción → 37001; TI/datos → 27001). Nunca recomiendes normas fuera del catálogo.\\n'\n  + '3) \"motivo\": 1-2 líneas concretas de por qué esa norma conviene para esta convocatoria. No menciones precios.\\n\\n'\n  + 'CATÁLOGO DE CERTIFICACIONES ISO DISPONIBLES:\\n' + listaCatalogo + '\\n\\n'\n  + 'Responde ÚNICAMENTE con un objeto JSON sin markdown con este formato:\\n'\n  + '{\\n  \"requiere_iso\": \"Sí (especificar ISOs)\" | \"Recomendado: Sí (inferido)\" | \"No requiere\",\\n'\n  + '  \"pide_iso\": true|false,\\n  \"normas_solicitadas\": [\"ISO 9001\", ...],\\n'\n  + '  \"es_obligatorio_o_puntaje\": \"Obligatorio / Factor de Evaluación / No aplica / Recomendado\",\\n'\n  + '  \"iso_recomendadas\": [{ \"norma\": \"ISO 45001:2015\", \"motivo\": \"...\" }],\\n'\n  + '  \"resumen_requisitos\": \"Resumen de 2 líneas\"\\n}\\n\\n'\n  + 'DATOS DE LA CONVOCATORIA:\\n' + contexto;\n\nconst parts = [];\nlet archivoAnalizado;\nif (modo === 'archivo_grande') {\n  parts.push({ file_data: { mime_type: itemArchivo.mimeType, file_uri: itemArchivo.fileUri } });\n  parts.push({ text: instruccion + '\\n\\n(El documento de bases va adjunto arriba en PDF, subido via File API por ser grande)' });\n  archivoAnalizado = 'PDF grande (leído directo por Gemini via File API)';\n} else if (modo === 'inline') {\n  parts.push({ inline_data: { mime_type: itemArchivo.mimeType, data: itemArchivo.inlineBase64 } });\n  parts.push({ text: instruccion + '\\n\\n(El documento de bases va adjunto arriba en PDF, inline)' });\n  archivoAnalizado = 'PDF (leído directo por Gemini, inline)';\n} else if (textoDocx) {\n  parts.push({ text: instruccion + '\\n\\nTEXTO DE LAS BASES (extraído de un DOCX):\\n\\n' + textoDocx.substring(0, 150000) });\n  archivoAnalizado = 'DOCX (texto extraído)';\n} else {\n  parts.push({ text: instruccion + '\\n\\n[No se pudo obtener el documento de bases. Basa tu respuesta solo en los datos de la convocatoria.]' });\n  archivoAnalizado = 'Sin documento - solo metadata';\n}\n\nreturn [{ json: { parts, archivo_analizado: archivoAnalizado } }];"
+      },
+      "id": "2ed26d86-5d9c-4b34-886a-2717503bcde3",
+      "name": "Preparar Prompt Gemini",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3392,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={{ $('Config Supabase').first().json.geminiApiKey }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { contents: [ { parts: $json.parts } ], generationConfig: { responseMimeType: 'application/json' } } }}",
+        "options": {}
+      },
+      "id": "bef8a849-5fee-4359-ae4d-ff339c02e8a5",
+      "name": "Analizar con Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3584,
+        192
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp = $input.first().json;\nconst cand = (resp.candidates || [])[0];\nconst responseContent = ((cand && cand.content && cand.content.parts) || [])\n  .filter((p) => typeof p.text === 'string' && !p.thought).map((p) => p.text).join('').trim();\nif (!responseContent) {\n  throw new Error('Gemini no devolvió texto (finishReason: ' + (cand && cand.finishReason) + ', promptFeedback: ' + JSON.stringify(resp.promptFeedback || null) + ')');\n}\nlet parsed = {};\ntry {\n  const cleanJson = responseContent.replace(/```json/g, '').replace(/```/g, '').trim();\n  parsed = JSON.parse(cleanJson);\n} catch (e) {\n  parsed = { requiere_iso: responseContent.includes('ISO') ? 'Menciona ISO' : 'No requiere', detalle: responseContent };\n}\n\n// --- Solo se recomiendan normas del catálogo de la empresa (se valida por número, p.ej. \"45001\") ---\nconst catalogo = $('Catálogo ISO Empresa').first().json.catalogoIso;\nconst porNumero = Object.fromEntries(catalogo.normas.map((n) => [n.numero, n]));\nconst numerosDe = (txt) => (String(txt || '').match(/\\d{3,5}/g) || []).filter((num) => porNumero[num]);\nconst solicitadas = Array.isArray(parsed.normas_solicitadas) ? parsed.normas_solicitadas : [];\n\nconst recomendadas = [];\nconst agregar = (num, motivo) => {\n  if (porNumero[num] && !recomendadas.some((r) => r.numero === num) && recomendadas.length < 3) {\n    const n = porNumero[num];\n    recomendadas.push({ norma: n.codigo, numero: num, alcance: n.alcance, motivo: String(motivo || '').trim() });\n  }\n};\nlet propuestas = Array.isArray(parsed.iso_recomendadas) ? parsed.iso_recomendadas : [];\nif (!propuestas.length && parsed.iso_recomendada) propuestas = [{ norma: parsed.iso_recomendada, motivo: parsed.iso_recomendada }];\nfor (const r of propuestas) {\n  for (const num of numerosDe(typeof r === 'string' ? r : r.norma)) agregar(num, typeof r === 'string' ? '' : r.motivo);\n}\n// Respaldo: si la IA no dejó ninguna válida, se usan las solicitadas por las bases que estén en el catálogo, o ISO 9001.\nfor (const s of solicitadas) for (const num of numerosDe(s)) agregar(num, 'Las bases de la convocatoria mencionan o exigen esta norma.');\nif (!recomendadas.length) agregar('9001', 'Acredita un sistema de gestión de calidad, la certificación más valorada por las entidades públicas en cualquier rubro.');\nfor (const r of recomendadas) {\n  if (!r.motivo) r.motivo = solicitadas.some((s) => numerosDe(s).includes(r.numero))\n    ? 'Las bases de la convocatoria mencionan o exigen esta norma.'\n    : `Aporta ventaja competitiva al demostrar un ${r.alcance.toLowerCase()} certificado.`;\n}\nconst numsRec = recomendadas.map((r) => r.numero).sort();\nconst pack = recomendadas.length > 1\n  ? catalogo.packs.find((p) => p.numeros.length === numsRec.length && [...p.numeros].sort().every((n, i) => n === numsRec[i]))\n  : null;\n\nconst MENSAJE_COMERCIAL = (recomendadas.length > 1 ? 'Puede obtener estas certificaciones' : 'Puede obtener esta certificación')\n  + ' con nosotros. Comuníquese con nuestra área comercial o con uno de nuestros asesores para acompañarlo en el proceso.';\nparsed.iso_recomendadas = recomendadas;\nparsed.pack_disponible = pack ? pack.nombre : null;\nparsed.mensaje_comercial = MENSAJE_COMERCIAL;\ndelete parsed.iso_recomendada;\n\nconst normas = solicitadas.length ? solicitadas.join(', ') : 'Ninguna';\nconst estado = parsed.requiere_iso || (parsed.pide_iso ? 'Sí' : 'No requiere');\nconst archivo = $('Preparar Prompt Gemini').first().json.archivo_analizado;\nconst requiereIsoCompleto = [\n  `ESTADO: ${estado}`,\n  `NORMAS SOLICITADAS: ${normas}`,\n  `MODALIDAD: ${parsed.es_obligatorio_o_puntaje || 'No aplica'}`,\n  `RESUMEN: ${parsed.resumen_requisitos || parsed.detalle || 'Sin detalle'}`,\n  `ARCHIVO ANALIZADO: ${archivo}`\n].join('\\n');\nreturn [{ json: { licitacion: $('Consultar Convocatoria').first().json.nomenclatura_norm, requiere_iso: requiereIsoCompleto, analisis_completo: parsed, origen: 'nuevo' } }];"
+      },
+      "id": "cf4aabd8-fe4b-40fe-bf70-64aea94142d6",
+      "name": "Procesar Respuesta JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3776,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://eap.oece.gob.pe/perfilprov-bus/1.0/ficha/{{ $json.ruc }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Origin",
+              "value": "https://apps.oece.gob.pe"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "timeout": 15000
+        }
+      },
+      "id": "389d1d1b-8071-44e5-b8f3-1e29e5f36eac",
+      "name": "Consultar RNP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4576,
+        192
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "=https://eap.oece.gob.pe/ficha-proveedor-cns/1.0/ficha/{{ $('Resultado ISO').first().json.ruc }}/resumen",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Origin",
+              "value": "https://apps.oece.gob.pe"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "timeout": 15000
+        }
+      },
+      "id": "096a04b5-463f-4b07-9dab-239c103b705c",
+      "name": "Consultar SUNAT Ubicacion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4784,
+        192
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "migo-token",
+              "name": "apimigoToken",
+              "value": "586387ee-c778-4247-a234-e5709b124a6e",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "17b75d01-a9ef-419d-bf0d-63fb9abae55d",
+      "name": "Config API MIGO",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4976,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.migo.pe/api/v2/ruc/{{ $('Resultado ISO').first().json.ruc }}/sunat",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.apimigoToken }}"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "79fc27f7-384c-4d92-ac99-dd1cee1ab2ed",
+      "name": "Consultar CIIU (API MIGO)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5184,
+        192
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 4000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "function tryGet(nodeName) {\n  try { return $(nodeName).first().json; } catch (e) { return null; }\n}\nconst rnp = tryGet('Consultar RNP') || {};\nconst sunat = tryGet('Consultar SUNAT Ubicacion') || {};\nconst migoRaw = tryGet('Consultar CIIU (API MIGO)') || {};\nconst ruc = $('Resultado ISO').first().json.ruc;\n\n// El nodo MIGO usa fullResponse + neverError: { statusCode, body }. Si fallo la red llega { error }.\nlet ciiuResp = migoRaw.body !== undefined ? migoRaw.body : migoRaw;\nif (typeof ciiuResp === 'string') { try { ciiuResp = JSON.parse(ciiuResp); } catch (e) { ciiuResp = { message: ciiuResp.slice(0, 200) }; } }\nciiuResp = ciiuResp || {};\nconst migoStatus = migoRaw.statusCode;\nlet ciiuOficialError = null;\nif (migoRaw.error) {\n  ciiuOficialError = 'API MIGO: ' + (migoRaw.error.message || String(migoRaw.error));\n} else if ((migoStatus && migoStatus >= 400) || ciiuResp.success === false) {\n  ciiuOficialError = `API MIGO HTTP ${migoStatus || '?'}: ${ciiuResp.message || 'sin mensaje'}`;\n  if (migoStatus === 403) ciiuOficialError += ' (plan/suscripción de API MIGO vencida: renovar en api.migo.pe)';\n  if (migoStatus === 401) ciiuOficialError += ' (token de API MIGO inválido)';\n}\n\nconst prov = rnp.proveedorT01 || {};\nconst tels = prov.telefonos || [];\nconst emails = prov.emails || [];\nconst tipReg = String(prov.lscIdTipReg || '');\nconst tiposRnp = [];\nif (tipReg.includes('1')) tiposRnp.push('Bienes');\nif (tipReg.includes('2')) tiposRnp.push('Servicios');\nif (tipReg.includes('3')) tiposRnp.push('Consultoria de Obras');\nif (tipReg.includes('4')) tiposRnp.push('Obras');\n\nconst especialidades = (prov.espProvT01s || []).map((e) => {\n  const des = (e.desEsp || '').trim();\n  const cat = (e.desCat || '').trim();\n  return des ? (cat ? `${des} (Cat. ${cat})` : des) : null;\n}).filter(Boolean);\n\nconst ds = sunat.datosSunat || {};\n\n// Parsea \"Principal - 4100 - CONSTRUCCION DE EDIFICIOS\" / \"Secundaria 1 - ...\" de la API MIGO (SUNAT en vivo).\nconst ciius = [];\nconst ciiuDetalle = [];\nfor (const linea of (ciiuResp.actividades_economicas || [])) {\n  const m = String(linea).match(/^\\s*(Principal|Secundaria\\s*\\d*)\\s*-\\s*(\\d{4})\\s*-\\s*(.+?)\\s*$/i);\n  if (m) {\n    const [, etiqueta, cod, texto] = m;\n    if (!ciius.includes(cod)) {\n      ciius.push(cod);\n      ciiuDetalle.push({ codigo: cod, texto, fuente: `${etiqueta} (SUNAT tiempo real)` });\n    }\n  }\n}\nconst ciiuOficialOk = ciius.length > 0;\nif (!ciiuOficialOk && !ciiuOficialError) ciiuOficialError = 'API MIGO respondió sin actividades económicas para este RUC';\n\nconst razonSocial = (prov.nomRzsProv || ds.razon || ciiuResp.nombre_o_razon_social || 'No identificada').trim();\n// MIGO (/sunat) tambien trae estado, condicion y ubicacion: sirven de respaldo si OECE no respondio.\nconst txt = (v) => (v && String(v).trim() && String(v).trim() !== '-' ? String(v).trim().toUpperCase() : null);\nconst estadoSunat = txt(ciiuResp.estado_del_contribuyente) || txt(ds.estado) || 'No registra';\nconst condicionSunat = txt(ciiuResp.condicion_de_domicilio) || txt(ds.condicion) || 'No registra';\nconst contribuyenteOk = estadoSunat === 'ACTIVO' && condicionSunat === 'HABIDO';\n\n// Metodo 2 (RNP / Heuristica): igual que deducir_ciius_perfil() del script Python.\n// No depende de los diccionarios grandes, solo palabras clave sobre especialidad/razon social/tipo RNP.\n// Sirve para cuando el CIIU oficial de SUNAT esta desactualizado o vacio.\nfunction deducirCiiusHeuristica(razonSocial, especialidadesObras, tiposRnp) {\n  const ciiusSet = new Set();\n  const norm = (s) => s.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();\n  const rz = norm(razonSocial);\n  const esps = norm(especialidadesObras.join(' '));\n\n  if (esps.includes('vial') || esps.includes('carretera') || esps.includes('puente')) { ciiusSet.add('4210'); ciiusSet.add('7110'); }\n  if (esps.includes('saneamiento') || esps.includes('agua')) { ciiusSet.add('4220'); ciiusSet.add('7110'); }\n  if (esps.includes('edificac') || esps.includes('urbana')) { ciiusSet.add('4100'); ciiusSet.add('7110'); }\n  if (esps.includes('electromec') || esps.includes('energ')) { ciiusSet.add('4321'); ciiusSet.add('7110'); }\n  if (esps.includes('represa') || esps.includes('irrigac')) { ciiusSet.add('4290'); ciiusSet.add('7110'); }\n\n  if (tiposRnp.includes('Consultoria de Obras')) ciiusSet.add('7110');\n  if (tiposRnp.includes('Obras') && ciiusSet.size === 0) { ciiusSet.add('4100'); ciiusSet.add('4210'); }\n\n  const kw = (arr) => arr.some((k) => rz.includes(k));\n  if (kw(['constructora', 'construccion', 'edificaciones', 'obras'])) { ciiusSet.add('4100'); ciiusSet.add('4210'); }\n  if (kw(['ingenieros', 'ingenieria', 'consultores', 'consultoria', 'arquitect'])) ciiusSet.add('7110');\n  if (kw(['seguridad', 'vigilancia', 'resguardo', 'security'])) ciiusSet.add('8010');\n  if (kw(['limpieza', 'servicios generales', 'mantenimiento'])) ciiusSet.add('8121');\n  if (kw(['software', 'sistemas', 'tecnologia', 'tech', 'soluciones ti'])) { ciiusSet.add('6201'); ciiusSet.add('6202'); }\n  if (kw(['farma', 'medica', 'salud', 'laboratorio', 'drogueria'])) { ciiusSet.add('4646'); ciiusSet.add('2100'); }\n  if (kw(['transporte', 'logistica', 'flete', 'cargo'])) ciiusSet.add('4923');\n\n  if (ciiusSet.size === 0) {\n    if (tiposRnp.includes('Servicios')) ciiusSet.add('7020');\n    else if (tiposRnp.includes('Bienes')) ciiusSet.add('4651');\n  }\n  return Array.from(ciiusSet);\n}\n\nconst ciiusRnp = deducirCiiusHeuristica(razonSocial, especialidades, tiposRnp);\nfor (const cod of ciiusRnp) {\n  if (!ciius.includes(cod)) {\n    ciius.push(cod);\n    ciiuDetalle.push({ codigo: cod, texto: 'Inferido por especialidad RNP / rubro declarado', fuente: 'RNP / Heurística' });\n  }\n}\n\nconst perfilProveedor = {\n  ruc,\n  razonSocial,\n  habilitadoRnp: prov.esHabilitado ? 'SI' : 'No',\n  aptoContratar: prov.esAptoContratar ? 'SI' : 'No',\n  tiposRnp,\n  especialidadesObras: especialidades,\n  telefono: tels.length ? tels.filter(Boolean).join(' / ') : 'No registra',\n  email: emails.length ? emails.filter(Boolean).join(' / ') : 'No registra',\n  estadoSunat,\n  condicionSunat,\n  contribuyenteOk,\n  departamento: txt(ds.departamento) || txt(ciiuResp.departamento) || 'NO REGISTRA',\n  provincia: txt(ds.provincia) || txt(ciiuResp.provincia) || 'NO REGISTRA',\n  distrito: txt(ds.distrito) || txt(ciiuResp.distrito) || 'NO REGISTRA',\n  ciius,\n  ciiuDetalle,\n  ciiuOficialOk,\n  ciiuOficialError\n};\n\nreturn [{ json: { perfilProveedor } }];"
+      },
+      "id": "b247ba9c-c9fc-49a4-986e-7aa45606099c",
+      "name": "Combinar Perfil Proveedor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5376,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const resultadoIso = $('Resultado ISO').first().json;\nconst conv = $('Consultar Convocatoria').first().json;\nconst perfil = $('Combinar Perfil Proveedor').first().json.perfilProveedor;\nconst catalogo = $('Catálogo ISO Empresa').first().json.catalogoIso;\n\nconst contextoConvocatoria = [\n  `Nomenclatura: ${conv.licitacion || conv.nomenclatura_norm || 'N/D'}`,\n  `Entidad: ${conv.entidad_convocante || conv.entidad || 'N/D'}`,\n  `Objeto: ${conv.objeto_contratacion || conv.objeto || 'N/D'}`,\n  `Descripción: ${conv.objeto_descripcion || conv.descripcion || 'N/D'}`,\n  `Tipo de procedimiento: ${conv.tipo_procedimiento || 'N/D'}`,\n  `Monto referencial: ${conv.monto_referencial ? 'S/ ' + conv.monto_referencial : 'No publicado'}`,\n  `Ubicación: ${conv.departamento || 'N/D'}`,\n  `Fecha límite de ofertas: ${conv.fecha_limite || 'N/D'}`\n].join('\\n');\n\n// Solo lo que exigen las bases (se guarda por licitación). Se quitan recomendaciones ISO antiguas guardadas junto a la licitación.\nconst contextoIso = String(resultadoIso.requiere_iso || 'No evaluado').replace(/^=/, '')\n  .replace(/ISO RECOMENDADA:[\\s\\S]*?(?=RESUMEN:)/, '')\n  .replace(/CÓMO OBTENERLA:[^\\n]*\\n?/, '')\n  .trim();\n\nconst ciiusConFuente = (perfil.ciiuDetalle || []).map((d) => `${d.codigo} ${d.texto ? '(' + d.texto + ') ' : ''}[${d.fuente}]`).join('; ')\n  || perfil.ciius.join(', ') || 'No identificada';\nconst avisoCiiu = perfil.ciiuOficialOk\n  ? 'Los códigos marcados \"SUNAT tiempo real\" están confirmados en SUNAT; los marcados \"RNP / Heurística\" son solo una estimación por rubro/especialidad declarada.'\n  : `No se pudo confirmar el CIIU oficial en SUNAT${perfil.ciiuOficialError ? ' (error: ' + perfil.ciiuOficialError + ')' : ''}. TODOS los códigos son estimaciones por rubro RNP y razón social.`;\nconst contextoProveedor = [\n  `Razón Social: ${perfil.razonSocial}`,\n  `RUC: ${perfil.ruc}`,\n  `Habilitado RNP: ${perfil.habilitadoRnp} | Apto para contratar: ${perfil.aptoContratar}`,\n  `Estado SUNAT: ${perfil.estadoSunat} | Condición de domicilio: ${perfil.condicionSunat}`,\n  `Registros RNP: ${perfil.tiposRnp.join(', ') || 'Ninguno'}`,\n  `Especialidades de obra: ${perfil.especialidadesObras.join(', ') || 'Ninguna'}`,\n  `Actividad económica (CIIU): ${ciiusConFuente}`,\n  `AVISO SOBRE EL CIIU: ${avisoCiiu}`,\n  `Ubicación: ${perfil.distrito}, ${perfil.provincia}, ${perfil.departamento}`\n].join('\\n');\n\nconst catalogoTxt = catalogo.normas.map((n) => `- ${n.codigo}: ${n.alcance}`).join('\\n');\n\nconst instruccion = 'Eres un asesor comercial experto en contrataciones públicas del Perú. '\n  + 'Con los bloques de datos de abajo (la convocatoria, lo que exigen sus bases en materia ISO, el perfil de UNA empresa y nuestro catálogo ISO), '\n  + 'da una recomendación sobre si ESTA empresa debería postular a ESTA licitación y por qué.\\n\\n'\n  + 'PERSONALIZACIÓN: la respuesta debe ser específica para esta empresa. Menciona su razón social y relaciona su actividad CIIU, '\n  + 'sus registros RNP y su ubicación concretos con lo que se contrata. Dos empresas distintas NO deben recibir el mismo texto ni las mismas ISO '\n  + 'si sus rubros o registros son distintos.\\n\\n'\n  + 'REGLA sobre habilitación: si la empresa no está habilitada en RNP, no está apta para contratar, o su estado SUNAT no es ACTIVO '\n  + 'o su condición no es HABIDO (y ese dato no dice \"No registra\"), la recomendación debe ser \"No recomendado\" y esa causa debe ir en brechas.\\n\\n'\n  + 'REGLA ESTRICTA sobre el CIIU: nunca digas que la empresa \"tiene registrado\" un CIIU salvo que venga marcado \"SUNAT tiempo real\". '\n  + 'Para los marcados \"RNP / Heurística\" usa \"su rubro declarado sugiere afinidad con\" u otra frase de estimación.\\n\\n'\n  + 'REGLA sobre ISO: elige de 1 a 3 normas SOLO del CATÁLOGO ISO de abajo, las que más le sirvan a ESTA empresa para ESTA licitación según su rubro '\n  + 'y lo que exigen las bases. Si las bases exigen una norma del catálogo, va primero. En \"motivo\" explica por qué le sirve a esta empresa en particular. '\n  + 'Si las bases exigen una norma que no está en el catálogo, menciónala solo en brechas como requisito de las bases. No menciones precios.\\n\\n'\n  + 'Responde ÚNICAMENTE con un objeto JSON sin markdown:\\n'\n  + '{\\n  \"recomendacion\": \"Postular\" | \"Postular con reservas\" | \"No recomendado\",\\n'\n  + '  \"encaje_actividad\": \"qué tan bien calza el CIIU/RNP de esta empresa con el objeto\",\\n'\n  + '  \"brechas\": [\"lo que le falta a esta empresa para calificar, si algo\"],\\n'\n  + '  \"iso_recomendadas\": [{ \"norma\": \"código del catálogo\", \"motivo\": \"por qué a esta empresa\" }],\\n'\n  + '  \"resumen\": \"resumen ejecutivo de 2-3 líneas para esta empresa\"\\n}\\n\\n'\n  + 'DATOS DE LA CONVOCATORIA:\\n' + contextoConvocatoria\n  + '\\n\\nLO QUE EXIGEN LAS BASES (ISO):\\n' + contextoIso\n  + '\\n\\nPERFIL DE LA EMPRESA:\\n' + contextoProveedor\n  + '\\n\\nCATÁLOGO ISO (únicas normas que puedes recomendar):\\n' + catalogoTxt;\n\nreturn [{ json: { parts: [{ text: instruccion }] } }];"
+      },
+      "id": "93e63a8a-fa34-49ce-af9f-f920488dc7b6",
+      "name": "Preparar Prompt Recomendación Final",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5584,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={{ $('Config Supabase').first().json.geminiApiKey }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { contents: [ { parts: $json.parts } ], generationConfig: { responseMimeType: 'application/json' } } }}",
+        "options": {}
+      },
+      "id": "9128ff5c-0d05-48b5-9619-ca5743489a77",
+      "name": "Generar Recomendación Final",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5776,
+        192
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp = $input.first().json;\nconst cand = (resp.candidates || [])[0];\nconst responseContent = ((cand && cand.content && cand.content.parts) || [])\n  .filter((p) => typeof p.text === 'string' && !p.thought).map((p) => p.text).join('').trim();\nif (!responseContent) {\n  throw new Error('Gemini no devolvió texto (finishReason: ' + (cand && cand.finishReason) + ', promptFeedback: ' + JSON.stringify(resp.promptFeedback || null) + ')');\n}\nlet parsed = {};\ntry {\n  parsed = JSON.parse(responseContent.replace(/```json/g, '').replace(/```/g, '').trim());\n} catch (e) {\n  parsed = { recomendacion: 'No determinado', resumen: responseContent };\n}\n\n// ISO recomendadas PARA ESTA EMPRESA: solo normas del catálogo (validadas por número, p.ej. \"45001\").\nconst catalogo = $('Catálogo ISO Empresa').first().json.catalogoIso;\nconst porNumero = Object.fromEntries(catalogo.normas.map((n) => [n.numero, n]));\nconst numerosDe = (txt) => (String(txt || '').match(/\\d{3,5}/g) || []).filter((num) => porNumero[num]);\nconst iso = $('Resultado ISO').first().json;\nconst isoTexto = String(iso.requiere_iso || '');\nconst solicitadas = (iso.analisis_completo && Array.isArray(iso.analisis_completo.normas_solicitadas))\n  ? iso.analisis_completo.normas_solicitadas\n  : ((isoTexto.match(/NORMAS SOLICITADAS: (.*)/) || [])[1] || '').split(',').map((s) => s.trim()).filter((s) => s && s !== 'Ninguna');\n\nconst recomendadas = [];\nconst agregar = (num, motivo) => {\n  if (porNumero[num] && !recomendadas.some((r) => r.numero === num) && recomendadas.length < 3) {\n    const n = porNumero[num];\n    recomendadas.push({ norma: n.codigo, numero: num, alcance: n.alcance, motivo: String(motivo || '').trim() });\n  }\n};\nfor (const s of solicitadas) for (const num of numerosDe(s)) agregar(num, 'Las bases de la convocatoria mencionan o exigen esta norma.');\nfor (const r of (Array.isArray(parsed.iso_recomendadas) ? parsed.iso_recomendadas : [])) {\n  for (const num of numerosDe(typeof r === 'string' ? r : r.norma)) agregar(num, typeof r === 'string' ? '' : r.motivo);\n}\nif (!recomendadas.length) agregar('9001', 'Acredita un sistema de gestión de calidad, la certificación más valorada por las entidades públicas en cualquier rubro.');\nfor (const r of recomendadas) if (!r.motivo) r.motivo = `Aporta ventaja competitiva al demostrar un ${r.alcance.toLowerCase()} certificado.`;\n\nconst numsRec = recomendadas.map((r) => r.numero).sort();\nconst pack = recomendadas.length > 1\n  ? catalogo.packs.find((p) => p.numeros.length === numsRec.length && [...p.numeros].sort().every((n, i) => n === numsRec[i]))\n  : null;\nconst mensajeComercial = (recomendadas.length > 1 ? 'Puede obtener estas certificaciones' : 'Puede obtener esta certificación')\n  + ' con nosotros. Comuníquese con nuestra área comercial o con uno de nuestros asesores para acompañarlo en el proceso.';\n\nconst brechas = Array.isArray(parsed.brechas) ? parsed.brechas : [parsed.brechas].filter(Boolean);\nconst recomendacionTexto = [\n  `RECOMENDACIÓN: ${parsed.recomendacion || 'No determinado'}`,\n  `ENCAJE: ${parsed.encaje_actividad || 'N/D'}`,\n  `BRECHAS: ${brechas.join('; ') || 'Ninguna'}`,\n  `RESUMEN: ${parsed.resumen || 'Sin detalle'}`,\n  'ISO RECOMENDADA PARA SU EMPRESA:',\n  ...recomendadas.map((r) => `- ${r.norma} (${r.alcance}): ${r.motivo}`),\n  ...(pack ? [`- Disponible también como ${pack.nombre} (certificación integrada).`] : []),\n  `CÓMO OBTENERLA: ${mensajeComercial}`\n].join('\\n');\n\nparsed.brechas = brechas;\nparsed.iso_recomendadas = recomendadas;\nparsed.pack_disponible = pack ? pack.nombre : null;\nparsed.mensaje_comercial = mensajeComercial;\nreturn [{ json: { licitacion: iso.licitacion, requiere_iso: iso.requiere_iso, recomendacion_ia: recomendacionTexto, recomendacion_completa: parsed } }];"
+      },
+      "id": "d7f4011a-53f1-498e-82ef-35854af631fc",
+      "name": "Procesar Recomendación Final",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5984,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Config Supabase').first().json.supabaseUrl }}/rest/v1/convocatorias?nomenclatura_norm=eq.{{ encodeURIComponent($json.licitacion) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Supabase').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Supabase').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { requiere_iso: $('Resultado ISO').first().json.requiere_iso } }}",
+        "options": {}
+      },
+      "id": "c6fe3435-d386-4fab-9822-175dc53dffb3",
+      "name": "Actualizar Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6176,
+        192
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'processed', licitacion: $('Procesar Recomendación Final').first().json.licitacion, origen_iso: $('Resultado ISO').first().json.origen, requiere_iso: $('Resultado ISO').first().json.requiere_iso, resultado_iso: $('Resultado ISO').first().json.analisis_completo, recomendacion: $('Procesar Recomendación Final').first().json.recomendacion_completa, recomendacion_texto: $('Procesar Recomendación Final').first().json.recomendacion_ia, perfil_proveedor: $('Combinar Perfil Proveedor').first().json.perfilProveedor, licitaciones_recomendadas: $('Recomendar Licitaciones Abiertas').all().map((i) => i.json).filter((x) => x.convocatoria_id), ruc_origen: $('Resultado ISO').first().json.rucOrigen, aviso: $('Resultado ISO').first().json.avisoRuc } }}",
+        "options": {}
+      },
+      "id": "08b459e8-7ab5-4787-bbf2-6337ba0f6837",
+      "name": "Respuesta al Usuario",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        6480,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'not_supported', licitacion: $('Consultar Convocatoria').first().json.nomenclatura_norm, tipo_archivo: $('Detectar Tipo de Archivo').first().json.tipo, mensaje: 'Formato de bases no soportado por ahora.' } }}",
+        "options": {}
+      },
+      "id": "783decf5-8ecd-4958-a364-3360da731c9d",
+      "name": "Respuesta No Soportada",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1984,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-inline",
+              "leftValue": "={{ $json.fileSizeBytes }}",
+              "rightValue": 15728640,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "277dae33-bce9-472e-b792-27c2bc495563",
+      "name": "¿Archivo Pequeño (<15MB)?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{ json: {\n  inlineBase64: buffer.toString('base64'),\n  mimeType: 'application/pdf',\n  modo: 'inline'\n} }];"
+      },
+      "id": "0aca6502-1e98-41dd-855b-7554e30fb298",
+      "name": "Codificar Base64 (Inline)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2384,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1a1e020-0000-4000-8000-000000000020-cond",
+              "leftValue": "={{ !!$json.nomenclatura_norm }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f378d1c9-6cac-401d-93ca-e08238d1ed51",
+      "name": "¿Existe la Convocatoria?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        240,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'not_found', licitacion: $('Config Supabase').first().json.body?.licitacion || $('Config Supabase').first().json.licitacion, mensaje: 'La licitación no existe en la tabla convocatorias.' } }}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "id": "cb23042a-bcab-438f-bb75-8a0e4075de9c",
+      "name": "Respuesta No Encontrada",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        336,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const conv = $('Consultar Convocatoria').first().json;\n// El ISO depende solo de la licitación: se reutiliza. La recomendación depende del RUC, así que se recalcula.\nreturn [{ json: { licitacion: conv.nomenclatura_norm, requiere_iso: conv.requiere_iso, analisis_completo: null, origen: 'cache' } }];"
+      },
+      "id": "55fa3397-cb2e-4363-bf0c-64793fc98cbc",
+      "name": "Usar ISO en Caché",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function tryGet(nodeName) {\n  try { return $(nodeName).first().json; } catch (e) { return null; }\n}\nconst webhookData = tryGet('Webhook Desbloqueo');\nconst testData = tryGet('Edit Fields');\nconst body = (webhookData && webhookData.body) || webhookData || testData || {};\n// Prioridad: RUC enviado explícitamente (puede ser otra empresa) > RUC registrado en el perfil del usuario.\nconst rucPerfil = String((tryGet('Buscar RUC del Perfil') || {}).ruc_empresa || '').replace(/\\D/g, '');\nconst rucRecibido = String(body.ruc ?? '').trim();\nconst rucExplicito = rucRecibido.replace(/\\D/g, '');\nconst ruc = rucExplicito.length === 11 ? rucExplicito : rucPerfil;\nconst tieneRuc = ruc.length === 11;\nconst perfilId = /^[0-9a-f-]{36}$/i.test(String(body.perfil_id || '')) ? body.perfil_id : null;\n// El RUC es opcional: sin RUC se entrega (y guarda) solo el análisis ISO en vez de romper el flujo.\nconst avisoRuc = rucRecibido && rucExplicito.length !== 11\n  ? `RUC inválido ('${rucRecibido}'): debe tener 11 dígitos.` + (tieneRuc ? ' Se usó el RUC de tu perfil.' : ' Se devolvió solo el análisis ISO.')\n  : null;\nreturn [{ json: { ...$input.first().json, ruc: tieneRuc ? ruc : null, tieneRuc, avisoRuc, perfilId,\n  rucOrigen: rucExplicito.length === 11 ? 'enviado' : (tieneRuc ? 'perfil' : null) } }];"
+      },
+      "id": "88bf12f5-c145-45fa-b57e-1b7e5addb1b5",
+      "name": "Resultado ISO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3984,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1a1e023-0000-4000-8000-000000000023-cond",
+              "leftValue": "={{ $json.tieneRuc }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8fb1761d-f390-444d-8766-63cb2961c065",
+      "name": "¿Viene RUC?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        4176,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1a1e024-0000-4000-8000-000000000024-cond",
+              "leftValue": "={{ $json.origen === 'nuevo' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "68a3813b-ce22-4b28-a521-9b6308929b26",
+      "name": "¿Análisis ISO Nuevo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        4384,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Config Supabase').first().json.supabaseUrl }}/rest/v1/convocatorias?nomenclatura_norm=eq.{{ encodeURIComponent($json.licitacion) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Supabase').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Supabase').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"requiere_iso\": {{ JSON.stringify($json.requiere_iso) }}\n}",
+        "options": {}
+      },
+      "id": "6fbebdf4-f79b-45c8-a0c4-61d2f6023143",
+      "name": "Guardar ISO en Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4576,
+        384
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'processed', licitacion: $('Resultado ISO').first().json.licitacion, requiere_iso: $('Resultado ISO').first().json.requiere_iso, resultado_iso: $('Resultado ISO').first().json.analisis_completo, recomendacion: null, perfil_proveedor: null, aviso: $('Resultado ISO').first().json.avisoRuc || 'Envía un RUC para obtener la recomendación personalizada para tu empresa.' } }}",
+        "options": {}
+      },
+      "id": "ae3f112d-e98d-4dc4-a272-38e6e49f9498",
+      "name": "Respuesta Solo ISO",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        4784,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generado por extraer_catalogo_iso.py desde el export de productos de HubSpot.\n// Solo certificaciones ISO que brinda la empresa (sin precios ni cursos).\nconst catalogoIso = {\n  \"normas\": [\n    {\n      \"codigo\": \"ISO/IEC 2382:2015\",\n      \"numero\": \"2382\",\n      \"alcance\": \"Vocabulario de Tecnologías de la Información\"\n    },\n    {\n      \"codigo\": \"ISO 9001:2015\",\n      \"numero\": \"9001\",\n      \"alcance\": \"Sistema de Gestión de la Calidad\"\n    },\n    {\n      \"codigo\": \"ISO 10002:2018\",\n      \"numero\": \"10002\",\n      \"alcance\": \"Gestión de Quejas y Reclamos (satisfacción del cliente)\"\n    },\n    {\n      \"codigo\": \"ISO 13485:2016\",\n      \"numero\": \"13485\",\n      \"alcance\": \"Sistema de Gestión de Calidad para Dispositivos Médicos\"\n    },\n    {\n      \"codigo\": \"ISO 14001:2015\",\n      \"numero\": \"14001\",\n      \"alcance\": \"Sistema de Gestión Ambiental\"\n    },\n    {\n      \"codigo\": \"ISO 17020:2012\",\n      \"numero\": \"17020\",\n      \"alcance\": \"Organismos de Inspección\"\n    },\n    {\n      \"codigo\": \"ISO 17021:2015\",\n      \"numero\": \"17021\",\n      \"alcance\": \"Organismos de Certificación de Sistemas de Gestión\"\n    },\n    {\n      \"codigo\": \"ISO 17025:2017\",\n      \"numero\": \"17025\",\n      \"alcance\": \"Laboratorios de Ensayo y Calibración\"\n    },\n    {\n      \"codigo\": \"ISO 20000:2018\",\n      \"numero\": \"20000\",\n      \"alcance\": \"Sistema de Gestión de Servicios de TI\"\n    },\n    {\n      \"codigo\": \"ISO 21001:2018\",\n      \"numero\": \"21001\",\n      \"alcance\": \"Sistema de Gestión para Organizaciones Educativas\"\n    },\n    {\n      \"codigo\": \"ISO 22000:2018\",\n      \"numero\": \"22000\",\n      \"alcance\": \"Sistema de Gestión de Inocuidad Alimentaria\"\n    },\n    {\n      \"codigo\": \"ISO 22005:2007\",\n      \"numero\": \"22005\",\n      \"alcance\": \"Trazabilidad en la cadena de alimentos\"\n    },\n    {\n      \"codigo\": \"ISO 22301:2019\",\n      \"numero\": \"22301\",\n      \"alcance\": \"Sistema de Gestión de Continuidad del Negocio\"\n    },\n    {\n      \"codigo\": \"ISO 26000:2010\",\n      \"numero\": \"26000\",\n      \"alcance\": \"Responsabilidad Social\"\n    },\n    {\n      \"codigo\": \"ISO 27001:2022\",\n      \"numero\": \"27001\",\n      \"alcance\": \"Sistema de Gestión de Seguridad de la Información\"\n    },\n    {\n      \"codigo\": \"ISO 27701:2019\",\n      \"numero\": \"27701\",\n      \"alcance\": \"Gestión de la Privacidad de la Información (datos personales)\"\n    },\n    {\n      \"codigo\": \"ISO 28000:2007\",\n      \"numero\": \"28000\",\n      \"alcance\": \"Sistema de Gestión de Seguridad de la Cadena de Suministro\"\n    },\n    {\n      \"codigo\": \"ISO/IEC 29119\",\n      \"numero\": \"29119\",\n      \"alcance\": \"Pruebas de Software\"\n    },\n    {\n      \"codigo\": \"ISO 31000:2018\",\n      \"numero\": \"31000\",\n      \"alcance\": \"Gestión del Riesgo\"\n    },\n    {\n      \"codigo\": \"ISO 37001:2025\",\n      \"numero\": \"37001\",\n      \"alcance\": \"Sistema de Gestión Antisoborno\"\n    },\n    {\n      \"codigo\": \"ISO 39001:2012\",\n      \"numero\": \"39001\",\n      \"alcance\": \"Sistema de Gestión de Seguridad Vial\"\n    },\n    {\n      \"codigo\": \"ISO 45001:2015\",\n      \"numero\": \"45001\",\n      \"alcance\": \"Sistema de Gestión de Seguridad y Salud en el Trabajo\"\n    },\n    {\n      \"codigo\": \"ISO 50001:2018\",\n      \"numero\": \"50001\",\n      \"alcance\": \"Sistema de Gestión de la Energía\"\n    },\n    {\n      \"codigo\": \"ISO 56002:2019\",\n      \"numero\": \"56002\",\n      \"alcance\": \"Gestión de la Innovación\"\n    },\n    {\n      \"codigo\": \"ISO 90003:2018\",\n      \"numero\": \"90003\",\n      \"alcance\": \"Aplicación de ISO 9001 al software\"\n    }\n  ],\n  \"packs\": [\n    {\n      \"nombre\": \"Pack ISO 14001 + ISO 37001\",\n      \"numeros\": [\n        \"14001\",\n        \"37001\"\n      ]\n    },\n    {\n      \"nombre\": \"Pack ISO 14001 + ISO 45001\",\n      \"numeros\": [\n        \"14001\",\n        \"45001\"\n      ]\n    },\n    {\n      \"nombre\": \"Pack ISO 45001 + ISO 37001\",\n      \"numeros\": [\n        \"45001\",\n        \"37001\"\n      ]\n    },\n    {\n      \"nombre\": \"Pack ISO 9001 + ISO 14001\",\n      \"numeros\": [\n        \"9001\",\n        \"14001\"\n      ]\n    },\n    {\n      \"nombre\": \"Pack ISO 9001 + ISO 37001\",\n      \"numeros\": [\n        \"9001\",\n        \"37001\"\n      ]\n    },\n    {\n      \"nombre\": \"Pack ISO 9001 + ISO 45001\",\n      \"numeros\": [\n        \"9001\",\n        \"45001\"\n      ]\n    },\n    {\n      \"nombre\": \"Pack ISO 14001 + ISO 45001 + ISO 37001\",\n      \"numeros\": [\n        \"14001\",\n        \"45001\",\n        \"37001\"\n      ]\n    },\n    {\n      \"nombre\": \"Pack ISO 9001 + ISO 14001 + ISO 37001\",\n      \"numeros\": [\n        \"9001\",\n        \"14001\",\n        \"37001\"\n      ]\n    },\n    {\n      \"nombre\": \"Pack ISO 9001 + ISO 14001 + ISO 45001\",\n      \"numeros\": [\n        \"9001\",\n        \"14001\",\n        \"45001\"\n      ]\n    },\n    {\n      \"nombre\": \"Pack ISO 9001 + ISO 45001 + ISO 37001\",\n      \"numeros\": [\n        \"9001\",\n        \"45001\",\n        \"37001\"\n      ]\n    },\n    {\n      \"nombre\": \"Pack ISO 9001 + ISO 14001 + ISO 45001 + ISO 37001\",\n      \"numeros\": [\n        \"9001\",\n        \"14001\",\n        \"45001\",\n        \"37001\"\n      ]\n    }\n  ]\n};\nreturn [{ json: { ...$input.first().json, catalogoIso } }];"
+      },
+      "id": "8f2c63d3-e42a-4579-ad8e-d72671bbebf7",
+      "name": "Catálogo ISO Empresa",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        288,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config Supabase').first().json.supabaseUrl }}/rest/v1/perfiles?select=ruc_empresa&id=eq.{{ $('Config Supabase').first().json.body?.perfil_id || $('Config Supabase').first().json.perfil_id || '00000000-0000-0000-0000-000000000000' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Supabase').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Supabase').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2950d6f3-dee7-42a1-9171-0cfa025ed20d",
+      "name": "Buscar RUC del Perfil",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        80,
+        -80
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config Supabase').first().json.supabaseUrl }}/rest/v1/rpc/guardar_perfil_empresa",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Supabase').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Supabase').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { p: $('Combinar Perfil Proveedor').first().json.perfilProveedor } }}",
+        "options": {}
+      },
+      "id": "a9b6d24e-524b-48e5-a0b8-3fe113dd7b47",
+      "name": "Guardar Perfil Empresa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5488,
+        384
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config Supabase').first().json.supabaseUrl }}/rest/v1/analisis_empresa_licitacion?on_conflict=ruc,convocatoria_id",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Supabase').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Supabase').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const r = $('Procesar Recomendación Final').first().json; const c = r.recomendacion_completa || {}; const iso = $('Resultado ISO').first().json; const conv = $('Consultar Convocatoria').first().json; let perfilExiste = false; try { perfilExiste = 'ruc_empresa' in $('Buscar RUC del Perfil').first().json; } catch (e) {} return { ruc: iso.ruc, convocatoria_id: conv.id, nomenclatura_norm: conv.nomenclatura_norm, recomendacion: c.recomendacion || null, encaje: c.encaje_actividad || null, brechas: c.brechas || [], iso_recomendadas: c.iso_recomendadas || [], texto: r.recomendacion_ia, solicitado_por: perfilExiste ? iso.perfilId : null, updated_at: new Date().toISOString() }; })() }}",
+        "options": {}
+      },
+      "id": "cfaa50ff-7ba9-4417-a37a-07cf39133945",
+      "name": "Guardar Análisis por RUC",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6288,
+        384
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config Supabase').first().json.supabaseUrl }}/rest/v1/rpc/recomendar_licitaciones",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Supabase').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Supabase').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { p_ruc: $('Resultado ISO').first().json.ruc, p_limite: 10 } }}",
+        "options": {}
+      },
+      "id": "4125bf65-0ec2-4552-bb77-c002b968665c",
+      "name": "Recomendar Licitaciones Abiertas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6508,
+        544
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Config Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Desbloqueo": {
+      "main": [
+        [
+          {
+            "node": "Config Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config Supabase": {
+      "main": [
+        [
+          {
+            "node": "Catálogo ISO Empresa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Convocatoria": {
+      "main": [
+        [
+          {
+            "node": "¿Existe la Convocatoria?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Ya fue analizado antes?": {
+      "main": [
+        [
+          {
+            "node": "Usar ISO en Caché",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Construir URL Directa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construir URL Directa": {
+      "main": [
+        [
+          {
+            "node": "Config Proxy IPRoyal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config Proxy IPRoyal": {
+      "main": [
+        [
+          {
+            "node": "Verificar Tamaño (HEAD)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Tamaño (HEAD)": {
+      "main": [
+        [
+          {
+            "node": "Evaluar Tamaño",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluar Tamaño": {
+      "main": [
+        [
+          {
+            "node": "¿Archivo Demasiado Grande? (>60MB)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Archivo Demasiado Grande? (>60MB)": {
+      "main": [
+        [
+          {
+            "node": "Respuesta Archivo Muy Grande",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Descargar Archivo (Proxy IPRoyal)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descargar Archivo (Proxy IPRoyal)": {
+      "main": [
+        [
+          {
+            "node": "Detectar Tipo de Archivo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detectar Tipo de Archivo": {
+      "main": [
+        [
+          {
+            "node": "¿Es PDF?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es PDF?": {
+      "main": [
+        [
+          {
+            "node": "Calcular Tamaño Binario",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Es ZIP?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calcular Tamaño Binario": {
+      "main": [
+        [
+          {
+            "node": "¿Archivo Pequeño (<15MB)?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Iniciar Subida Gemini": {
+      "main": [
+        [
+          {
+            "node": "Extraer Upload URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer Upload URL": {
+      "main": [
+        [
+          {
+            "node": "Subir Bytes a Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Subir Bytes a Gemini": {
+      "main": [
+        [
+          {
+            "node": "Extraer File URI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer File URI": {
+      "main": [
+        [
+          {
+            "node": "Preparar Prompt Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es ZIP?": {
+      "main": [
+        [
+          {
+            "node": "Descomprimir ZIP",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Es DOCX?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es DOCX?": {
+      "main": [
+        [
+          {
+            "node": "Descomprimir DOCX",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta No Soportada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descomprimir ZIP": {
+      "main": [
+        [
+          {
+            "node": "Seleccionar Bases del ZIP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seleccionar Bases del ZIP": {
+      "main": [
+        [
+          {
+            "node": "¿Bases del ZIP es PDF?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Bases del ZIP es PDF?": {
+      "main": [
+        [
+          {
+            "node": "Calcular Tamaño Binario",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Descomprimir DOCX",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descomprimir DOCX": {
+      "main": [
+        [
+          {
+            "node": "Seleccionar document.xml",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seleccionar document.xml": {
+      "main": [
+        [
+          {
+            "node": "Leer XML como Texto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer XML como Texto": {
+      "main": [
+        [
+          {
+            "node": "Limpiar XML a Texto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limpiar XML a Texto": {
+      "main": [
+        [
+          {
+            "node": "Preparar Prompt Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Prompt Gemini": {
+      "main": [
+        [
+          {
+            "node": "Analizar con Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analizar con Gemini": {
+      "main": [
+        [
+          {
+            "node": "Procesar Respuesta JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar Respuesta JSON": {
+      "main": [
+        [
+          {
+            "node": "Resultado ISO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar RNP": {
+      "main": [
+        [
+          {
+            "node": "Consultar SUNAT Ubicacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar SUNAT Ubicacion": {
+      "main": [
+        [
+          {
+            "node": "Config API MIGO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config API MIGO": {
+      "main": [
+        [
+          {
+            "node": "Consultar CIIU (API MIGO)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar CIIU (API MIGO)": {
+      "main": [
+        [
+          {
+            "node": "Combinar Perfil Proveedor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combinar Perfil Proveedor": {
+      "main": [
+        [
+          {
+            "node": "Guardar Perfil Empresa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Prompt Recomendación Final": {
+      "main": [
+        [
+          {
+            "node": "Generar Recomendación Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar Recomendación Final": {
+      "main": [
+        [
+          {
+            "node": "Procesar Recomendación Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar Recomendación Final": {
+      "main": [
+        [
+          {
+            "node": "Actualizar Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar Supabase": {
+      "main": [
+        [
+          {
+            "node": "Guardar Análisis por RUC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Archivo Pequeño (<15MB)?": {
+      "main": [
+        [
+          {
+            "node": "Codificar Base64 (Inline)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Iniciar Subida Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Codificar Base64 (Inline)": {
+      "main": [
+        [
+          {
+            "node": "Preparar Prompt Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Existe la Convocatoria?": {
+      "main": [
+        [
+          {
+            "node": "¿Ya fue analizado antes?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta No Encontrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Usar ISO en Caché": {
+      "main": [
+        [
+          {
+            "node": "Resultado ISO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resultado ISO": {
+      "main": [
+        [
+          {
+            "node": "¿Viene RUC?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Viene RUC?": {
+      "main": [
+        [
+          {
+            "node": "Consultar RNP",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Análisis ISO Nuevo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Análisis ISO Nuevo?": {
+      "main": [
+        [
+          {
+            "node": "Guardar ISO en Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta Inmediata (Caché)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar ISO en Supabase": {
+      "main": [
+        [
+          {
+            "node": "Respuesta Solo ISO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Catálogo ISO Empresa": {
+      "main": [
+        [
+          {
+            "node": "Buscar RUC del Perfil",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar RUC del Perfil": {
+      "main": [
+        [
+          {
+            "node": "Consultar Convocatoria",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Perfil Empresa": {
+      "main": [
+        [
+          {
+            "node": "Preparar Prompt Recomendación Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Análisis por RUC": {
+      "main": [
+        [
+          {
+            "node": "Recomendar Licitaciones Abiertas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recomendar Licitaciones Abiertas": {
+      "main": [
+        [
+          {
+            "node": "Respuesta al Usuario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "meta": {
+    "instanceId": "2db450f9422335b5dbb97707dddd2d8484ac2c97071c4ddebf33b30dc99561f3"
+  },
+  "nodeGroups": [],
+  "tags": []
+}
