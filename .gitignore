@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+backend/data/
+backend/.venv/
+__pycache__/
+*.pyc
+.playwright-cli/
+test-results/
+playwright-report/
+Diseño/
+referencia-crm.png
+*.log
