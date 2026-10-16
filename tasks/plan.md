@@ -1,6 +1,6 @@
 # Lici CRM — propuesta de producto y plan inicial
 
-Fecha: 15 de octubre de 2026. Estado: borrador para conversar; no es una especificación aprobada ni una implementación.
+Fecha del plan: 15 de octubre de 2026. Actualización: 16 de octubre de 2026. El usuario autorizó comenzar el desarrollo con lo disponible y documentar lo pendiente. Se entregó un primer flujo local sobre React/FastAPI; este plan conserva el alcance de producto, que excede lo implementado. Estado comprobado en [../docs/ESTADO.md](../docs/ESTADO.md) y tareas en [todo.md](todo.md).
 
 ## Objetivo confirmado
 
