@@ -71,7 +71,7 @@ class Task(Input):
     def aware_date(cls, value):
         if value.tzinfo is None:
             raise ValueError('La tarea requiere fecha con zona horaria.')
-        return value
+        return value.astimezone(timezone.utc)
 
 
 class Complete(Input):
@@ -108,9 +108,13 @@ def log(state, deal_id, kind, text, actor):
     state['activities'].append(dict(id=uid(), dealId=deal_id, kind=kind, text=text, actor=actor, createdAt=now()))
 
 
-def open_deal(state, prospect, actor):
-    deal = next((d for d in state['deals'] if d['companyId'] == prospect['companyId']
+def matching_deal(state, prospect):
+    return next((d for d in state['deals'] if d['companyId'] == prospect['companyId']
                  and d['service'].casefold() == prospect['service'].casefold() and d['stage'] not in ['won', 'lost']), None)
+
+
+def open_deal(state, prospect, actor):
+    deal = matching_deal(state, prospect)
     if not deal:
         deal = dict(id=uid(), companyId=prospect['companyId'], contactId=prospect['contactId'],
                     service=prospect['service'], origin=prospect['origin'], owner=prospect['owner'], stage='new',
@@ -146,6 +150,9 @@ def receive_intake(state, data, actor):
     if data.kind in ['advice', 'quote']:
         deal = open_deal(state, prospect, actor)
         log(state, deal['id'], 'request', 'Cotización solicitada' if data.kind == 'quote' else 'Asesoría solicitada', actor)
+    elif data.kind == 'signal' and matching_deal(state, prospect):
+        deal = open_deal(state, prospect, actor)
+        log(state, deal['id'], 'signal', 'Nueva señal vinculada al negocio existente; no implica una solicitud.', actor)
 
 
 def cents(value):
@@ -187,6 +194,8 @@ def apply_command(original, operation, payload, actor, request_id):
         receive_intake(state, data, actor)
     elif operation == 'convert':
         p = find(state['prospects'], data.prospectId)
+        if p['dealId']:
+            raise ValueError('Este prospecto ya está asociado a un negocio. Abre su ficha para continuar.')
         deal = open_deal(state, p, actor)
         log(state, deal['id'], 'qualification', 'Interés confirmado por el asesor desde prospectos.', actor)
     elif operation == 'stage':

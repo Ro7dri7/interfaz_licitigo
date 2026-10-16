@@ -1,8 +1,9 @@
 import tempfile
 import unittest
+from unittest.mock import AsyncMock, patch
 from pathlib import Path
 from fastapi.testclient import TestClient
-from backend.main import create_app, Settings
+from backend.main import create_app, Settings, Login
 from backend.domain import empty_state
 from backend.repository import LocalRepository
 
@@ -46,6 +47,47 @@ class ApiTests(unittest.TestCase):
     def test_supabase_mode_fails_closed_without_credentials(self):
         with self.assertRaises(ValueError):
             create_app(Settings(mode='supabase'))
+
+    def test_password_whitespace_is_preserved(self):
+        self.assertEqual(Login(email='test@example.com', password=' pass word ').password, ' pass word ')
+
+    def test_restart_preserves_saved_state(self):
+        self.command()
+        repo = LocalRepository(self.repo.path, empty_state())
+        with TestClient(create_app(Settings(mode='demo'), repo)) as client:
+            self.assertEqual(len(client.get('/api/crm/state').json()['data']['deals']), 1)
+
+    def test_ingestion_authentication_and_replay(self):
+        event = {'requestId': 'lici-test', 'payload': {'company': 'Evento Lici', 'service': 'ISO 9001', 'origin': 'Lici', 'kind': 'advice'}}
+        with TestClient(create_app(Settings(mode='demo', ingest_key='test-key'), self.repo)) as client:
+            self.assertEqual(client.post('/api/crm/events', json=event).status_code, 401)
+            first = client.post('/api/crm/events', json=event, headers={'x-crm-ingest-key': 'test-key'})
+            self.assertEqual(first.json(), {'accepted': True, 'duplicate': False})
+            second = client.post('/api/crm/events', json=event, headers={'x-crm-ingest-key': 'test-key'})
+            self.assertEqual(second.json(), {'accepted': True, 'duplicate': True})
+            self.assertEqual(len(client.get('/api/crm/state').json()['data']['deals']), 1)
+
+    def test_demo_refuses_remote_clients_and_oversized_writes(self):
+        with TestClient(create_app(Settings(mode='demo'), self.repo), client=('198.51.100.5', 4000)) as client:
+            self.assertEqual(client.get('/api/crm/state').status_code, 403)
+        self.assertEqual(self.client.post('/api/crm/commands', content='a' * 65537).status_code, 413)
+
+    def test_production_requires_session_and_active_membership_and_catalog_role(self):
+        config = Settings(mode='supabase', origin='https://crm.example.com', supabase_url='https://project.example.com', supabase_secret_key='test-only', workspace_id='workspace-test')
+        self.repo.member = AsyncMock(return_value=None)
+        with TestClient(create_app(config, self.repo), base_url=config.origin) as client:
+            self.assertEqual(client.get('/api/crm/state').status_code, 401)
+            client.cookies.set('lici_crm_session', 'test-token')
+            response = unittest.mock.Mock(status_code=200)
+            response.json.return_value = {'id': 'test-user'}
+            with patch('backend.main.httpx.AsyncClient') as mock_client:
+                mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=response)
+                self.assertEqual(client.get('/api/crm/state').status_code, 403)
+                self.repo.member.return_value = {'display_name': 'Asesor', 'role': 'commercial'}
+                self.assertEqual(client.get('/api/crm/state').status_code, 200)
+                result = client.post('/api/crm/commands', headers={'Origin': config.origin}, json={'revision': 0, 'requestId': 'denied', 'operation': 'product', 'payload': {'name': 'ISO', 'price': 100}})
+                self.assertEqual(result.status_code, 403)
+                self.assertEqual(client.get('/api/crm/state').json()['revision'], 0)
 
 
 if __name__ == '__main__':

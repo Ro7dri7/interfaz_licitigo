@@ -41,6 +41,8 @@ class Event(Input):
 
 
 class Login(Input):
+    # Password whitespace is significant; never normalize credentials.
+    model_config = {'str_strip_whitespace': False}
     email: str = Field(min_length=3, max_length=254)
     password: str = Field(min_length=1, max_length=256)
 
@@ -125,7 +127,8 @@ def create_app(settings=None, repository=None):
         if auth.status_code != 200:
             raise HTTPException(401, 'No pudimos iniciar sesión. Revisa tus credenciales.')
         result = auth.json()
-        if not await repo.member(result['user']['id']):
+        member = await repo.member(result['user']['id'])
+        if not member or member['role'] not in ['admin', 'commercial']:
             raise HTTPException(403, 'Esta cuenta no tiene acceso comercial.')
         response.set_cookie('lici_crm_session', result['access_token'], httponly=True, secure=True,
                             samesite='strict', max_age=min(result.get('expires_in', 3600), 3600), path='/api/crm')
@@ -159,7 +162,7 @@ def create_app(settings=None, repository=None):
         if not config.ingest_key:
             raise HTTPException(503, 'La recepción de eventos de Lici no está habilitada.')
         supplied = request.headers.get('x-crm-ingest-key', '')
-        if not secrets.compare_digest(supplied, config.ingest_key):
+        if not secrets.compare_digest(supplied.encode(), config.ingest_key.encode()):
             raise HTTPException(401, 'Credencial de integración no válida.')
         if data.payload.get('origin') != 'Lici':
             raise HTTPException(422, 'Este canal solo recibe eventos de Lici.')

@@ -60,8 +60,13 @@ class CommercialFlowTests(unittest.TestCase):
         self.assertEqual(quote['subtotal'], 30015)
         self.assertEqual(quote['discountAmount'], 3002)
         self.assertEqual(quote['total'], 31875)
-        product['price'] = 999999
+        self.state['products'][0]['price'] = 999999
         self.assertEqual(quote['unitPrice'], 10005)
+        self.run_command('quote', {'dealId': self.state['deals'][0]['id'], 'productId': product['id'],
+                                  'quantity': 1, 'validUntil': '2026-12-31'})
+        self.assertEqual(self.state['quotes'][0]['total'], 31875)
+        self.assertEqual(self.state['quotes'][1]['version'], 2)
+        self.assertEqual(self.state['quotes'][1]['unitPrice'], 999999)
 
     def test_task_completion_is_idempotent(self):
         self.run_command('intake', self.intake('advice'))
@@ -79,6 +84,26 @@ class CommercialFlowTests(unittest.TestCase):
         a['email'] = 'otra@example.com'
         self.run_command('intake', a)
         self.assertEqual(len(self.state['contacts']), 2)
+
+    def test_signal_after_request_links_context_without_opening_another_deal(self):
+        self.run_command('intake', self.intake('quote'))
+        self.run_command('intake', self.intake('signal'))
+        self.assertEqual(len(self.state['deals']), 1)
+        self.assertEqual(self.state['prospects'][1]['dealId'], self.state['deals'][0]['id'])
+        self.assertEqual(len(self.state['deals'][0]['prospectIds']), 2)
+
+    def test_converting_associated_prospect_cannot_create_orphan_deal_after_closure(self):
+        self.run_command('intake', self.intake('quote'))
+        self.run_command('stage', {'dealId': self.state['deals'][0]['id'], 'stage': 'lost', 'reason': 'Sin presupuesto'})
+        before = deepcopy(self.state)
+        with self.assertRaisesRegex(ValueError, 'asociado'):
+            self.run_command('convert', {'prospectId': self.state['prospects'][0]['id']})
+        self.assertEqual(before, self.state)
+
+    def test_task_offsets_are_normalized_for_chronological_sorting(self):
+        self.run_command('intake', self.intake('advice'))
+        self.run_command('task', {'dealId': self.state['deals'][0]['id'], 'title': 'Llamar', 'dueAt': '2026-12-01T09:00:00-05:00'})
+        self.assertEqual(self.state['tasks'][-1]['dueAt'], '2026-12-01T14:00:00+00:00')
 
 
 if __name__ == '__main__':
