@@ -6,7 +6,7 @@ export const stages: { id: Stage; name: string; color: string }[] = [
   { id: 'lost', name: 'Perdido', color: '#dc2626' },
 ]
 export const origins = ['Lici', 'WhatsApp', 'Referido', 'Campaña', 'Manual', 'Partner']
-export const kindLabels = { signal: 'Señal Lici', advice: 'Asesoría solicitada', quote: 'Cotización solicitada', manual: 'Prospecto manual' }
+export const kindLabels = { signal: 'Señal LiciHub', advice: 'Asesoría solicitada', quote: 'Cotización solicitada', manual: 'Prospecto manual' }
 export const evidenceLabels = { required: 'Requisito ISO detectado', recommended: 'ISO recomendada', pending: 'Análisis pendiente', none: 'Sin análisis asociado' }
 export interface Company { id: string; name: string; ruc: string; origin: string; createdAt: string }
 export interface Contact { id: string; companyId: string; name: string; email: string; phone: string }
@@ -35,3 +35,6 @@ export const dateLabel = (value: string) => new Intl.DateTimeFormat('es-PE', { d
 export const dateTime = (value: string) => new Intl.DateTimeFormat('es-PE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Lima' }).format(new Date(value))
 export const initials = (value: string) => value.split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
 export const openDeal = (d: Deal) => d.stage !== 'won' && d.stage !== 'lost'
+
+// Keep the persisted/API origin stable while displaying the current product name.
+export const originLabel = (value: string) => value === 'Lici' ? 'LiciHub' : value

@@ -41,7 +41,7 @@ export function Modal({ title, children, onClose, wide = false }: { title: strin
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
     if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
   }}>
-    <header><div><p className="eyebrow">LICI CRM</p><h2 id="dialog-title">{title}</h2></div><button type="button" className="icon-button" aria-label="Cerrar" onClick={onClose}><Icon name="close" /></button></header>
+    <header><div><p className="eyebrow">LICIHUB CRM</p><h2 id="dialog-title">{title}</h2></div><button type="button" className="icon-button" aria-label="Cerrar" onClick={onClose}><Icon name="close" /></button></header>
     {children}
   </dialog>, document.body)
 }

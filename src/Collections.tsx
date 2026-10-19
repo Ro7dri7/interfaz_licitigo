@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Badge, Empty, Icon, Modal, PageHead } from './components'
 import { useCRM } from './crm-context'
-import { dateLabel, evidenceLabels, initials, kindLabels, money, origins, stages } from './types'
+import { originLabel, dateLabel, evidenceLabels, initials, kindLabels, money, origins, stages } from './types'
 import type { Prospect } from './types'
 
 export function Filters({ children }: { children?: React.ReactNode }) {
   const [params, setParams] = useSearchParams()
   const change = (key: string, value: string) => setParams(p => { if (value) p.set(key, value); else p.delete(key); return p }, { replace: true })
   return <div className="filters"><label className="search-field"><Icon name="search" /><input aria-label="Buscar registros" type="search" placeholder="Buscar empresa, contacto o servicio…" value={params.get('q') ?? ''} onChange={e => change('q', e.target.value)} /></label>
-    <select aria-label="Filtrar por origen" value={params.get('origen') ?? ''} onChange={e => change('origen', e.target.value)}><option value="">Todos los orígenes</option>{origins.map(o => <option key={o}>{o}</option>)}</select>{children}
+    <select aria-label="Filtrar por origen" value={params.get('origen') ?? ''} onChange={e => change('origen', e.target.value)}><option value="">Todos los orígenes</option>{origins.map(o => <option key={o} value={o}>{originLabel(o)}</option>)}</select>{children}
     {params.size > 0 && <button className="text-button" onClick={() => setParams({})}>Limpiar filtros</button>}</div>
 }
 
@@ -23,17 +23,17 @@ export function Prospects({ onCreate }: { onCreate: () => void }) {
       (!params.get('origen') || p.origin === params.get('origen')) && `${c?.name} ${c?.ruc} ${p.service}`.toLocaleLowerCase().includes(search)
   })
   return <><PageHead title="Prospectos" description="Distingue una señal de interés de una solicitud comercial."><button className="primary" onClick={onCreate}><Icon name="plus" /> Agregar prospecto</button></PageHead>
-    <div className="tabs">{[['all', 'Todos los prospectos'], ['request', 'Solicitudes explícitas'], ['signal', 'Señales Lici']].map(([id, name]) => <button key={id} aria-pressed={mode === id} className={mode === id ? 'active' : ''} onClick={() => setParams(p => { p.set('tipo', id); return p })}>{name}<span>{data.prospects.filter(p => id === 'all' || (id === 'signal' ? p.kind === 'signal' : ['advice', 'quote'].includes(p.kind))).length}</span></button>)}</div>
+    <div className="tabs">{[['all', 'Todos los prospectos'], ['request', 'Solicitudes explícitas'], ['signal', 'Señales LiciHub']].map(([id, name]) => <button key={id} aria-pressed={mode === id} className={mode === id ? 'active' : ''} onClick={() => setParams(p => { p.set('tipo', id); return p })}>{name}<span>{data.prospects.filter(p => id === 'all' || (id === 'signal' ? p.kind === 'signal' : ['advice', 'quote'].includes(p.kind))).length}</span></button>)}</div>
     <Filters />{mode === 'signal' && <div className="info-strip"><Icon name="radar" />Estas señales orientan la prospección. Confirma la necesidad con el cliente antes de abrir una venta.</div>}
     <section className="panel"><div className="table-wrap"><table><thead><tr><th>Empresa</th><th>Interés / procedencia</th><th>Contexto ISO</th><th>Responsable</th><th>Estado</th></tr></thead><tbody>{rows.map(p => {
       const c = data.companies.find(c => c.id === p.companyId)
       return <tr key={p.id}><td><button className="record-button" onClick={() => { setSelected(p); setError('') }}>{c?.name}</button><small>{c?.ruc || 'RUC por completar'}</small></td>
-        <td><strong>{p.service}</strong><small>{p.origin} · {kindLabels[p.kind]}</small></td><td><Badge tone={p.evidence === 'required' ? 'amber' : p.evidence === 'recommended' ? 'blue' : ''}>{evidenceLabels[p.evidence]}</Badge>{p.tender && <small>{p.tender}</small>}</td><td>{p.owner}</td>
+        <td><strong>{p.service}</strong><small>{originLabel(p.origin)} · {kindLabels[p.kind]}</small></td><td><Badge tone={p.evidence === 'required' ? 'amber' : p.evidence === 'recommended' ? 'blue' : ''}>{evidenceLabels[p.evidence]}</Badge>{p.tender && <small>{p.tender}</small>}</td><td>{p.owner}</td>
         <td>{p.dealId ? <Link className="text-link" to={`/negocios/${p.dealId}`}>Ver negocio <Icon name="arrow" size={16} /></Link> : <Badge>Por revisar</Badge>}</td></tr>
     })}</tbody></table>{!rows.length && <Empty />}</div><div className="table-foot">{rows.length} registros · Las señales conservan su origen al convertirse en negocio.</div></section>
     {selected && <Modal title={data.companies.find(c => c.id === selected.companyId)?.name ?? 'Prospecto'} onClose={() => setSelected(null)}><div className="form-body">
       <Badge tone={selected.kind === 'signal' ? 'amber' : 'blue'}>{kindLabels[selected.kind]}</Badge><h3>{selected.service}</h3>
-      <dl className="properties"><div><dt>Origen</dt><dd>{selected.origin}</dd></div><div><dt>Responsable</dt><dd>{selected.owner}</dd></div><div><dt>Análisis</dt><dd>{evidenceLabels[selected.evidence]}</dd></div><div><dt>Licitación</dt><dd>{selected.tender || 'No asociada'}</dd></div><div><dt>Plazo</dt><dd>{selected.deadline ? dateLabel(selected.deadline) : 'Sin fecha'}</dd></div></dl>
+      <dl className="properties"><div><dt>Origen</dt><dd>{originLabel(selected.origin)}</dd></div><div><dt>Responsable</dt><dd>{selected.owner}</dd></div><div><dt>Análisis</dt><dd>{evidenceLabels[selected.evidence]}</dd></div><div><dt>Licitación</dt><dd>{selected.tender || 'No asociada'}</dd></div><div><dt>Plazo</dt><dd>{selected.deadline ? dateLabel(selected.deadline) : 'Sin fecha'}</dd></div></dl>
       <p>{selected.notes || 'Sin notas adicionales.'}</p><p className="hint">La recomendación de una ISO no equivale a una carencia confirmada en la empresa.</p>{error && <p className="error" role="alert">{error}</p>}
     </div><footer>{selected.dealId ? <Link className="button primary" to={`/negocios/${selected.dealId}`} onClick={() => setSelected(null)}>Abrir negocio</Link> : <button className="primary" disabled={busy} onClick={async () => {
       setBusy(true); try { await command('convert', { prospectId: selected.id }); setSelected(null) } catch (e) { setError((e as Error).message) } finally { setBusy(false) }
@@ -56,10 +56,10 @@ export function Pipeline({ onCreate }: { onCreate: () => void }) {
       return <section className="board-column" key={s.id}><header><span className="status-dot" style={{ background: s.color }} /><h2>{s.name}</h2><span>{deals.length}</span></header><p className="column-total">{money(deals.reduce((v, d) => v + d.amount, 0))}</p>
         <div className="board-cards">{deals.map(d => {
           const c = data.companies.find(c => c.id === d.companyId), t = data.tasks.filter(t => t.dealId === d.id && !t.done).sort((a, b) => a.dueAt.localeCompare(b.dueAt))[0]
-          return <Link to={`/negocios/${d.id}`} className="deal-card" key={d.id}><div className="card-top"><Badge tone={d.origin === 'Lici' ? 'blue' : ''}>{d.origin}</Badge><Icon name="arrow" size={15} /></div><h3>{c?.name}</h3><p>{d.service}</p><strong className="deal-amount">{d.amount ? money(d.amount) : 'Por cotizar'}</strong>
+          return <Link to={`/negocios/${d.id}`} className="deal-card" key={d.id}><div className="card-top"><Badge tone={d.origin === 'Lici' ? 'blue' : ''}>{originLabel(d.origin)}</Badge><Icon name="arrow" size={15} /></div><h3>{c?.name}</h3><p>{d.service}</p><strong className="deal-amount">{d.amount ? money(d.amount) : 'Por cotizar'}</strong>
             <div className="card-owner"><span className="avatar small">{initials(d.owner)}</span>{d.owner}</div><div className={`next-action ${t && new Date(t.dueAt).getTime() < now ? 'late' : ''}`}><Icon name="clock" size={14} />{t ? `${new Date(t.dueAt).getTime() < now ? 'Vencida · ' : ''}${dateLabel(t.dueAt)}` : 'Sin próxima acción'}</div></Link>
         })}{!deals.length && <div className="column-empty">Sin negocios en esta etapa</div>}</div></section>
-    })}</div> : <section className="panel table-wrap"><table><thead><tr><th>Empresa / negocio</th><th>Etapa</th><th>Valor comercial</th><th>Responsable</th><th>Origen</th></tr></thead><tbody>{filtered.map(d => <tr key={d.id}><td><Link className="record-button" to={`/negocios/${d.id}`}>{data.companies.find(c => c.id === d.companyId)?.name}</Link><small>{d.service}</small></td><td><Badge>{stages.find(s => s.id === d.stage)?.name}</Badge></td><td>{money(d.amount)}</td><td>{d.owner}</td><td>{d.origin}</td></tr>)}</tbody></table>{!filtered.length && <Empty />}</section>}
+    })}</div> : <section className="panel table-wrap"><table><thead><tr><th>Empresa / negocio</th><th>Etapa</th><th>Valor comercial</th><th>Responsable</th><th>Origen</th></tr></thead><tbody>{filtered.map(d => <tr key={d.id}><td><Link className="record-button" to={`/negocios/${d.id}`}>{data.companies.find(c => c.id === d.companyId)?.name}</Link><small>{d.service}</small></td><td><Badge>{stages.find(s => s.id === d.stage)?.name}</Badge></td><td>{money(d.amount)}</td><td>{d.owner}</td><td>{originLabel(d.origin)}</td></tr>)}</tbody></table>{!filtered.length && <Empty />}</section>}
   </>
 }
 

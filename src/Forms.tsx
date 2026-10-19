@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CommandForm, Modal } from './components'
 import { useCRM } from './crm-context'
-import { evidenceLabels, kindLabels, money, origins } from './types'
+import { originLabel, evidenceLabels, kindLabels, money, origins } from './types'
 import type { Deal } from './types'
 
 export function IntakeForm({ onClose }: { onClose: () => void }) {
@@ -12,7 +12,7 @@ export function IntakeForm({ onClose }: { onClose: () => void }) {
     <label>RUC<input name="ruc" inputMode="numeric" pattern="[0-9]{11}" maxLength={11} placeholder="11 dígitos · opcional" /></label>
     <label>Persona de contacto<input name="contact" maxLength={100} placeholder="Nombre y apellido" /></label><label>Correo<input name="email" type="email" placeholder="nombre@empresa.com" /></label>
     <label>Teléfono<input name="phone" type="tel" maxLength={30} placeholder="+51" /></label><label>Responsable<input name="owner" defaultValue="Sin asignar" required minLength={2} maxLength={80} list="owners" /></label>
-    <label>Origen<select name="origin" defaultValue="Manual">{origins.map(v => <option key={v}>{v}</option>)}</select></label>
+    <label>Origen<select name="origin" defaultValue="Manual">{origins.map(v => <option key={v} value={v}>{originLabel(v)}</option>)}</select></label>
     <label>Tipo de entrada<select name="kind" value={kind} onChange={e => setKind(e.target.value)}>{Object.entries(kindLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div>
     <label>Servicio de interés *<input name="service" required minLength={2} maxLength={160} placeholder="Ej. ISO 9001" list="services" /></label>
     <details open={kind === 'signal'}><summary>Contexto de la licitación</summary><div className="form-grid">

@@ -41,11 +41,11 @@ export function CRMProvider({ children }: { children: ReactNode }) {
   if (login) return <div className="access-page"><form className="panel access-card" onSubmit={async e => {
     e.preventDefault(); const fields = new FormData(e.currentTarget); setLoading(true); setError('')
     try { await api('login', Object.fromEntries(fields)); await refresh() } catch (err) { setError((err as Error).message) } finally { setLoading(false) }
-  }}><div className="brand">Lici<span>.</span> <small>CRM</small></div><h1>Tu espacio comercial</h1><p>Ingresa con una cuenta habilitada para el equipo.</p>
+  }}><div className="brand">LiciHub<span>.</span> <small>CRM</small></div><h1>Tu espacio comercial</h1><p>Ingresa con una cuenta habilitada para el equipo.</p>
     <label>Correo<input name="email" type="email" autoComplete="username" required /></label><label>Contraseña<input name="password" type="password" autoComplete="current-password" required /></label>
     {error && <p role="alert" className="error">{error}</p>}<button className="primary" disabled={loading}>{loading ? 'Ingresando…' : 'Ingresar'}</button></form></div>
   if (!snapshot || !session) return <div className="access-page"><div className="panel access-card" aria-busy={loading}>
-    <div className="brand">Lici<span>.</span> <small>CRM</small></div><h1>{loading ? 'Preparando tu espacio…' : 'No pudimos cargar el CRM'}</h1>
+    <div className="brand">LiciHub<span>.</span> <small>CRM</small></div><h1>{loading ? 'Preparando tu espacio…' : 'No pudimos cargar el CRM'}</h1>
     {loading ? <div className="skeleton" /> : <><p role="alert">{error}</p><button className="primary" onClick={() => { setLoading(true); void load() }}>Reintentar conexión</button></>}
   </div></div>
   return <Context.Provider value={{ snapshot, session, command, refresh, now }}>{children}</Context.Provider>

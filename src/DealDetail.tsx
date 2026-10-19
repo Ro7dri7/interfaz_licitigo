@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { Badge, Empty, Icon } from './components'
 import { DealForm } from './Forms'
 import { useCRM } from './crm-context'
-import { dateLabel, dateTime, evidenceLabels, initials, kindLabels, money, stages } from './types'
+import { originLabel, dateLabel, dateTime, evidenceLabels, initials, kindLabels, money, stages } from './types'
 import type { Quote } from './types'
 import { QuotePreview } from './Operations'
 
@@ -18,7 +18,7 @@ export default function DealDetail() {
   const activities = data.activities.filter(a => a.dealId === deal.id && (filter === 'all' || a.kind === filter)).slice().reverse()
   const tasks = data.tasks.filter(t => t.dealId === deal.id), quotes = data.quotes.filter(q => q.dealId === deal.id)
   return <><div className="breadcrumb"><Link to="/negocios">Negocios</Link><span>/</span><span>{company?.name}</span></div>
-    <div className="detail-grid"><aside className="panel detail-properties"><div className="detail-title"><div className="company-icon"><Icon name="company" size={25} /></div><p className="eyebrow">{deal.origin.toUpperCase()} · CERTIFICACIONES</p><h1>{company?.name}</h1><p>{deal.service}</p></div>
+    <div className="detail-grid"><aside className="panel detail-properties"><div className="detail-title"><div className="company-icon"><Icon name="company" size={25} /></div><p className="eyebrow">{originLabel(deal.origin).toUpperCase()} · CERTIFICACIONES</p><h1>{company?.name}</h1><p>{deal.service}</p></div>
       <div className="deal-value"><small>Valor comercial</small><strong>{deal.amount ? money(deal.amount) : 'Por cotizar'}</strong></div>
       <label className="stage-label">Etapa del negocio<select aria-label="Etapa del negocio" value={deal.stage} disabled={busy} onChange={async e => {
         const stage = e.target.value
@@ -28,13 +28,13 @@ export default function DealDetail() {
       {error && <p role="alert" className="error">{error}</p>}
       <div className="quick-actions"><button onClick={() => setForm('activity')}><Icon name="file" />Actividad</button><button onClick={() => setForm('task')}><Icon name="calendar" />Tarea</button><button onClick={() => setForm('quote')} disabled={['won', 'lost'].includes(deal.stage)}><Icon name="plus" />Cotizar</button></div>
       <h2>Propiedades del negocio</h2><dl className="properties"><div><dt>Responsable</dt><dd><span className="avatar small">{initials(deal.owner)}</span>{deal.owner}</dd></div>
-        <div><dt>Origen</dt><dd>{deal.origin}</dd></div><div><dt>RUC</dt><dd className="mono">{company?.ruc || 'Por completar'}</dd></div><div><dt>Creado</dt><dd>{dateLabel(deal.createdAt)}</dd></div>
+        <div><dt>Origen</dt><dd>{originLabel(deal.origin)}</dd></div><div><dt>RUC</dt><dd className="mono">{company?.ruc || 'Por completar'}</dd></div><div><dt>Creado</dt><dd>{dateLabel(deal.createdAt)}</dd></div>
         <div><dt>Moneda</dt><dd>PEN · Sol peruano</dd></div>{deal.lossReason && <div><dt>Motivo de pérdida</dt><dd>{deal.lossReason}</dd></div>}</dl>
       <p className="hint">El valor comercial corresponde al servicio cotizado, independiente del monto de la licitación.</p>
     </aside><div className="detail-center"><section className="panel"><div className="section-head"><h2>Resumen del negocio</h2><Badge tone={deal.stage === 'won' ? 'green' : 'blue'}>{stages.find(s => s.id === deal.stage)?.name}</Badge></div>
       <div className="summary-content"><div><small>RELACIÓN COMERCIAL</small><p>{company?.name}</p></div><div><small>SOLICITUDES Y SEÑALES</small><div className="badge-row">{[...new Set(prospects.map(p => p.kind))].map(k => <Badge key={k} tone={k === 'signal' ? 'amber' : 'blue'}>{kindLabels[k]}</Badge>)}</div></div></div></section>
-      <section className="panel context-panel"><div className="section-head"><h2><Icon name="radar" /> Contexto Lici</h2><span className="tiny-label">INTELIGENCIA COMERCIAL</span></div>
-        {context.length ? context.map(p => <div className="context-item" key={p.id}><Badge tone={p.evidence === 'required' ? 'amber' : 'blue'}>{evidenceLabels[p.evidence]}</Badge><h3>{p.service}</h3><p>{p.tender || 'Sin licitación asociada'}</p><small>{p.deadline ? `Plazo del proceso: ${dateLabel(p.deadline)} · ` : ''}Registrado {dateLabel(p.createdAt)}</small>{p.notes && <p>{p.notes}</p>}</div>) : <div className="context-item"><p>Este negocio llegó por {deal.origin}. Puede gestionarse sin una licitación asociada.</p></div>}
+      <section className="panel context-panel"><div className="section-head"><h2><Icon name="radar" /> Contexto LiciHub</h2><span className="tiny-label">INTELIGENCIA COMERCIAL</span></div>
+        {context.length ? context.map(p => <div className="context-item" key={p.id}><Badge tone={p.evidence === 'required' ? 'amber' : 'blue'}>{evidenceLabels[p.evidence]}</Badge><h3>{p.service}</h3><p>{p.tender || 'Sin licitación asociada'}</p><small>{p.deadline ? `Plazo del proceso: ${dateLabel(p.deadline)} · ` : ''}Registrado {dateLabel(p.createdAt)}</small>{p.notes && <p>{p.notes}</p>}</div>) : <div className="context-item"><p>Este negocio llegó por {originLabel(deal.origin)}. Puede gestionarse sin una licitación asociada.</p></div>}
         <p className="context-note">Valida con el cliente qué certificaciones posee. Un requisito o recomendación no confirma una carencia.</p></section>
       <section className="panel"><div className="section-head"><h2>Historial de actividades</h2><button onClick={() => setForm('activity')}><Icon name="plus" /> Registrar</button></div>
         <div className="activity-filters">{[['all', 'Todo'], ['note', 'Notas'], ['call', 'Llamadas'], ['task', 'Tareas'], ['stage', 'Etapas']].map(([value, label]) => <button key={value} aria-pressed={filter === value} className={filter === value ? 'active' : ''} onClick={() => setFilter(value)}>{label}</button>)}</div>
