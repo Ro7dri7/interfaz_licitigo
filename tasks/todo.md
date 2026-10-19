@@ -1,5 +1,20 @@
 # Lici CRM — entregas propuestas
 
+## Revisión LiciHub del 19/10/2026
+
+- [x] Encender API local y verificar acceso al CRM en 5174.
+- [x] Revisar videos, comprobar audio y registrar requisitos con tiempos/fuentes.
+- [x] Revisar navegación CRM/Bandeja de referencia e investigar documentación oficial 360dialog/n8n.
+- [x] Actualizar marca visible del CRM y del Portal Clientes a LiciHub; conservar compatibilidad del origen técnico.
+- [x] Documentar 32 requisitos, flujos, fases y escenarios de aceptación en [../docs/LICIHUB_FLUJOS_Y_REQUISITOS.md](../docs/LICIHUB_FLUJOS_Y_REQUISITOS.md).
+- [ ] Normalizar datos y preparar acceso/eventos durables en espacio Supabase de prueba.
+- [ ] Implementar botón de asesoría/cotización en Portal Clientes con confirmación y recepción CRM sin duplicados.
+- [ ] Completar gestión de contactos, usuarios asignables, llamadas y propuestas con varias partidas.
+- [ ] Conectar número de prueba 360dialog y construir bandeja con ventana, plantillas y comentarios internos.
+- [ ] Implementar las dos ramas del bot n8n con derivación humana persistida y pausa de respuestas automáticas.
+
+La revisión detalla qué está observado/solicitado y qué se propone. El video de hoy tiene pista casi silenciosa: sus requisitos nuevos se atribuyen a lo visible. Los checks del plan histórico de abajo se refieren al piloto local, no a las nuevas integraciones.
+
 Estado actualizado al 16 de octubre de 2026: primera entrega local implementada y probada. Las casillas marcadas se verificaron con datos ficticios; no implican despliegue ni integración real. Las tareas mixtas permanecen pendientes aunque tengan una parte construida. Alcance y límites en [../docs/ESTADO.md](../docs/ESTADO.md); detalle de producto en [plan.md](plan.md).
 
 Base vigente confirmada por inspección: `../interfaz_licitigo/` (React 19 + TypeScript + Vite + Tailwind CSS 4, FastAPI, Supabase y bot Telegram). Usar sus estilos, componentes, contratos API y configuración de base; `../lici-web/` corresponde a la versión anterior en Angular.

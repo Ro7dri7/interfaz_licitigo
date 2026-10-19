@@ -1,5 +1,7 @@
 # Estado de la primera entrega
 
+Actualización 19/10/2026: marca visible **LiciHub** aplicada al CRM y al Portal Clientes React. Revisión de los dos videos, capturas, referencia CRM/Bandeja y documentación 360dialog/n8n completada; el nuevo alcance está en [LICIHUB_FLUJOS_Y_REQUISITOS.md](LICIHUB_FLUJOS_Y_REQUISITOS.md). La aplicación comercial sigue en modo local y las nuevas integraciones aún no están activadas. Build/lint del CRM y cuatro recorridos E2E correctos después del cambio de marca; build web correcto, con la advertencia de Fast Refresh ya existente en su lint.
+
 16 de octubre de 2026. Desarrollo autorizado sobre el stack React vigente. Esta entrega permite evaluar el flujo comercial con persistencia local; no declara completado todo el plan ni habilitado un CRM productivo.
 
 ## Disponible y verificado localmente

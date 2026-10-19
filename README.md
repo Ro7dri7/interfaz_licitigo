@@ -1,4 +1,6 @@
-# Lici CRM
+# LiciHub CRM
+
+**Actualización 19/10/2026:** la marca visible del CRM y del Portal Clientes React es LiciHub. Se revisaron los videos y el CRM/Bandeja de referencia; [flujos, requisitos y propuesta 360dialog/n8n](docs/LICIHUB_FLUJOS_Y_REQUISITOS.md). Las integraciones descritas en ese documento son próximas entregas; los directorios y el identificador técnico de origen `Lici` se conservan.
 
 Primera entrega funcional del CRM comercial complementario a **Lici React** (`../interfaz_licitigo`). React 19, TypeScript 6, Vite 8, Tailwind CSS 4 y FastAPI. Identidad compartida a partir de los tokens del proyecto vigente; no usa la aplicación anterior Angular.
 
