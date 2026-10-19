@@ -4,12 +4,18 @@ Actualizado: 19/10/2026. El usuario ejecutará los archivos SQL personalmente. *
 
 ## 1. Proyecto y orden de ejecución
 
-Usar el proyecto del Portal Clientes React: **`jwxdwszinjdhzoierizm`**, URL `https://jwxdwszinjdhzoierizm.supabase.co`. En Supabase, abrir **SQL Editor**, crear una consulta y ejecutar el contenido completo de cada archivo, por separado y en este orden:
+Usar el proyecto del Portal Clientes React: **`jwxdwszinjdhzoierizm`**, URL `https://jwxdwszinjdhzoierizm.supabase.co`. Los archivos actuales tienen tablas, columnas, funciones, parámetros, variables y mensajes en español. Se conservan las palabras propias de SQL, los objetos de Supabase (`auth.users`, `service_role`, etc.), las variables de configuración y los códigos internos existentes como `commercial`, `signal`, `won` o `draft`. Los textos visibles de la interfaz siguen en español.
+
+**Si todavía no ejecutaste la versión anterior**, abrir **SQL Editor**, crear una consulta y ejecutar el contenido completo de cada archivo, por separado y en este orden:
 
 1. [002_relational_tables.sql](../backend/migrations/002_relational_tables.sql): crea el esquema privado `licihub_crm`, sus 13 tablas, relaciones, índices y restricciones.
 2. [003_relational_api.sql](../backend/migrations/003_relational_api.sql): crea validaciones, historial inmutable y las tres funciones que usará el backend para leer, comprobar membresía y guardar una transacción.
 
 **No ejecutar `001_crm.sql`**: corresponde al piloto anterior que guardaba un documento JSONB por espacio. No es requisito de 002/003. Los dos archivos nuevos usan transacciones y pueden repetirse sobre este mismo esquema sin borrar datos; no son un mecanismo para corregir tablas que alguien haya modificado manualmente.
+
+**Si ya ejecutaste 002/003 en inglés:** detener la API del CRM, respaldar la base y ejecutar primero [005_traducir_esquema_existente.sql](../backend/migrations/005_traducir_esquema_existente.sql); después ejecutar los **002 y 003 actuales en español** y usar el backend actualizado. El archivo 005 renombra las tablas/columnas y conserva sus registros, IDs, relaciones, revisión, recibos e historial. Rechaza esquemas mezclados para evitar una fusión accidental. Aunque su número es 005, en esta transición se ejecuta antes de los archivos corregidos; en una instalación nueva no hace falta. Si ya creaste espacio/administrador, conservar su UUID y **no repetir 004**.
+
+La transición requiere la API detenida; no ofrece compatibilidad simultánea con el backend anterior. La reversión está probada: con la API detenida, cambiar `revertir boolean := false` por `true` en una copia de 005 y ejecutar esa copia; reinstalar el 003 anterior conservado en el historial Git junto con el backend anterior. No usar este procedimiento para borrar datos ni modificar tablas del portal. Las copias originales bajo `tests/database/fixtures/` solo sirven para pruebas de compatibilidad; no forman parte de una instalación nueva.
 
 La inspección remota de solo lectura confirmó las tablas compartidas `proveedores`, `perfiles`, `convocatorias`, `desbloqueos` y `analisis_empresa_licitacion`. También existen `public.crm_negocios` y `public.productos_iso`, vacías en esa inspección. **Se conservan todas**: no se renombran, alteran ni borran. No se importa información del CRM de referencia ni de HubSpot. Antes de usar datos reales, ensayar las migraciones y la restauración en un entorno de prueba con ese esquema compartido.
 
@@ -25,12 +31,12 @@ select routine_name
 from information_schema.routines
 where routine_schema = 'public' and routine_name like 'licihub_crm_%'
 order by routine_name;
--- licihub_crm_commit, licihub_crm_member, licihub_crm_state.
+-- licihub_crm_guardar, licihub_crm_miembro, licihub_crm_estado.
 
 select
   has_schema_privilege('authenticated', 'licihub_crm', 'USAGE') as cliente_puede_acceder,
-  has_function_privilege('anon', 'public.licihub_crm_state(uuid,text)', 'EXECUTE') as anon_puede_leer,
-  has_function_privilege('service_role', 'public.licihub_crm_state(uuid,text)', 'EXECUTE') as servidor_puede_leer;
+  has_function_privilege('anon', 'public.licihub_crm_estado(uuid,text)', 'EXECUTE') as anon_puede_leer,
+  has_function_privilege('service_role', 'public.licihub_crm_estado(uuid,text)', 'EXECUTE') as servidor_puede_leer;
 -- false, false, true.
 ```
 
@@ -45,19 +51,21 @@ Abrir [004_provision.example.sql](../backend/migrations/004_provision.example.sq
 Recuperar el identificador del espacio con esta consulta; **no repetir la plantilla para obtenerlo**, porque crearía otro espacio:
 
 ```sql
-select id, name, revision from licihub_crm.workspaces order by created_at desc;
+select id, nombre, revision from licihub_crm.espacios order by creado_en desc;
 ```
 
 Para añadir posteriormente un asesor, reemplazar los tres valores:
 
 ```sql
-insert into licihub_crm.members(workspace_id, user_id, display_name, role)
+insert into licihub_crm.miembros(espacio_id, usuario_id, nombre_visible, rol)
 values ('UUID_DEL_ESPACIO', 'UUID_DEL_USUARIO_AUTH', 'Nombre del asesor', 'commercial');
 ```
 
 Solo el administrador puede dar de alta productos desde la API. Por ahora ambos roles comerciales ven todo su espacio; **aún falta el aislamiento por equipo/asesor**. El responsable mostrado sigue siendo texto; la columna para asignar un miembro por UUID está preparada pero la interfaz todavía no la usa.
 
 ## 3. Configurar el servidor y verificar
+
+**Ejecutar SQL prepara la base, pero no conecta el CRM automáticamente.** El espacio recién creado está vacío: al completar la configuración y verificar el acceso, el CRM leerá y guardará allí los registros comerciales reales que se ingresen. No se importan la demo, todos los usuarios/proveedores del portal ni negocios del CRM externo. El alta automática de leads desde el botón de asesoría y WhatsApp necesita todavía sus integraciones.
 
 Copiar `backend/.env.example` a `backend/.env` si no existe y completar localmente:
 
@@ -89,16 +97,16 @@ Verificar antes del piloto: sin sesión → 401; cliente sin membresía → 403;
 
 | Tabla en `licihub_crm` | Contenido y relación |
 |---|---|
-| `workspaces`, `members` | Equipo comercial y acceso explícito mediante `auth.users.id` |
-| `companies` | Empresa comercial, RUC único dentro del espacio; enlace opcional a `public.proveedores.ruc` |
-| `contacts` | Contactos de una empresa; enlace opcional a `public.perfiles.id` |
-| `prospects` | Señal, asesoría, cotización o entrada manual; contexto y enlaces opcionales a convocatoria/análisis |
-| `deals` | Negocio con empresa, contacto, servicio, etapa e importe comercial |
-| `products` | Catálogo comercial propio del espacio |
-| `quotes`, `quote_items` | Versiones de propuesta y su partida con nombre/precio históricos |
-| `tasks`, `activities` | Próxima acción y registro histórico de la gestión |
-| `stage_history` | Transiciones de etapa con actor por UUID y nombre |
-| `receipts` | Identificador y huella de cada operación, para reintentar sin duplicar |
+| `espacios`, `miembros` | Equipo comercial y acceso explícito mediante `auth.users.id` |
+| `empresas` | Empresa comercial, RUC único dentro del espacio; enlace opcional a `public.proveedores.ruc` |
+| `contactos` | Contactos de una empresa; enlace opcional a `public.perfiles.id` |
+| `prospectos` | Señal, asesoría, cotización o entrada manual; contexto y enlaces opcionales a convocatoria/análisis |
+| `negocios` | Negocio con empresa, contacto, servicio, etapa e importe comercial |
+| `productos` | Catálogo comercial propio del espacio |
+| `cotizaciones`, `partidas_cotizacion` | Versiones de propuesta y su partida con nombre/precio históricos |
+| `tareas`, `actividades` | Próxima acción y registro histórico de la gestión |
+| `historial_etapas` | Transiciones de etapa con actor por UUID y nombre |
+| `recibos` | Identificador y huella de cada operación, para reintentar sin duplicar |
 
 Si el RUC ya existe en `proveedores`, la empresa comercial se enlaza automáticamente. Si no existe, puede registrarse igual y el enlace queda vacío: no se inventa un proveedor. Un vínculo a perfil debe corresponder al RUC de la empresa; un análisis debe corresponder a la empresa y la convocatoria. Las claves compuestas impiden mezclar contactos/negocios entre empresas o espacios.
 
@@ -111,6 +119,8 @@ RLS y la ausencia de permisos bloquean acceso directo de `anon`/`authenticated`;
 ## 5. Demo local, conservación de datos y límites
 
 La demo usa `backend/data/demo.sqlite3`. La primera inicialización importa el antiguo `backend/data/demo.json`, si existe; conserva sus identificadores, revisión, propuestas y recibos y deja el JSON original intacto. Arranques posteriores usan SQLite. Un JSON inválido detiene la importación; no se sustituye silenciosamente por ejemplos nuevos. Configuraciones antiguas `CRM_DATA_FILE=...json` importan hacia el archivo `.sqlite3` del mismo nombre. Una ruta SQLite nueva permite crear otra demo independiente.
+
+La demo SQLite y el contrato interno React conservan sus identificadores técnicos anteriores para abrir los datos ya guardados sin convertirlos. El adaptador traduce al español al comunicarse con PostgreSQL; esta compatibilidad no crea tablas duplicadas en Supabase.
 
 Detener la API antes de respaldar la demo y copiar el archivo `.sqlite3` junto con sus archivos `-wal`/`-shm` si existen. El JSON original es una copia histórica: **no incluye los cambios posteriores al paso a SQLite**. La demo sigue restringida al equipo local y sus datos ficticios no se cargan en Supabase.
 

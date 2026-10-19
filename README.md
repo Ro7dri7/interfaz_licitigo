@@ -6,6 +6,8 @@ Primera entrega funcional del CRM comercial complementario a **Lici React** (`..
 
 **Estado al 19 de octubre de 2026:** funciona localmente con tablas SQLite y conserva la demo anterior. Modelo relacional y adaptador Supabase preparados y probados; el usuario ejecutará el SQL. [Orden de archivos y activación](docs/SUPABASE_RELACIONAL.md). No se aplicaron cambios remotos ni se conectó mensajería. Alcance completo y pendientes en [docs/ESTADO.md](docs/ESTADO.md).
 
+El SQL vigente usa nombres en español (`empresas`, `negocios`, `cotizaciones`, `espacio_id`). Si ya se ejecutó la versión en inglés, la guía incluye una transición que conserva los datos. Ejecutar los scripts prepara la base; usar datos reales requiere además configurar Supabase, habilitar miembros y verificar el acceso HTTPS.
+
 ## Arrancar en este equipo
 
 Desde `C:\Users\Favian\Downloads\testeos\lici-crm`, abrir dos terminales:
@@ -55,7 +57,7 @@ npm run test:e2e
 
 Si se creó el entorno propio, reemplazar la ruta Python por `backend/.venv/Scripts/python.exe`. Las pruebas de navegador requieren Google Chrome instalado. Playwright levanta servicios independientes en **5175/8002**, con datos ficticios nuevos en un archivo temporal del sistema; no modifica la demo de 5174. Esos puertos deben estar libres. Los resultados y trazas de fallos quedan en `test-results/`, excluido de Git.
 
-Última validación: build y lint correctos; **29 pruebas Python, 10 pruebas PostgreSQL y 4 recorridos Playwright aprobados**. PostgreSQL se verifica con PGlite y un esquema mínimo de portal/Auth, sin Docker; el adaptador HTTP usa dobles controlados. No equivale a validar Supabase Auth remoto. Inspección visual previa en escritorio 1440 px y móvil 375 px, ficha y propuesta imprimible. El entorno Python compartido emite una advertencia de deprecación de TestClient/httpx; no impide las pruebas y no se alteró el entorno de Lici.
+Última validación: build y lint correctos; **30 pruebas Python, 12 pruebas PostgreSQL y 4 recorridos Playwright aprobados**. PostgreSQL se verifica con PGlite y un esquema mínimo de portal/Auth, sin Docker; el adaptador HTTP usa dobles controlados. No equivale a validar Supabase Auth remoto. Inspección visual previa en escritorio 1440 px y móvil 375 px, ficha y propuesta imprimible. El entorno Python compartido emite una advertencia de deprecación de TestClient/httpx; no impide las pruebas y no se alteró el entorno de Lici.
 
 ## Organización
 

@@ -9,12 +9,12 @@ El proyecto vigente del Portal Clientes React es `jwxdwszinjdhzoierizm`. La pers
 3. Registrar otros miembros con IDs reales de Supabase Auth. Ejemplo para sustituir los marcadores:
 
 ```sql
-insert into licihub_crm.members (workspace_id, user_id, display_name, role)
+insert into licihub_crm.miembros (espacio_id, usuario_id, nombre_visible, rol)
 values ('UUID_DEL_ESPACIO', 'UUID_DEL_USUARIO_AUTH', 'Nombre del asesor', 'commercial');
 ```
 
 4. Configurar en el servidor `CRM_MODE=supabase`, `CRM_ORIGIN=https://dominio-del-crm`, `CRM_SUPABASE_URL`, `CRM_SUPABASE_SECRET_KEY` (clave de servidor compatible con service_role) y `CRM_WORKSPACE_ID`.
-5. Servir frontend y `/api/crm` en el mismo origen HTTPS. La clave de servicio nunca se entrega a React. RLS está habilitado y anon/authenticated no tienen acceso directo a tablas ni a las funciones `licihub_crm_state`, `licihub_crm_member`, `licihub_crm_commit`; el backend valida JWT y membresía activa antes de cada lectura o comando. La función de guardado comprueba otra vez membresía y permiso de catálogo. La clave de servicio omite RLS y permanece solo en servidor.
+5. Servir frontend y `/api/crm` en el mismo origen HTTPS. La clave de servicio nunca se entrega a React. RLS está habilitado y anon/authenticated no tienen acceso directo a tablas ni a las funciones `licihub_crm_estado`, `licihub_crm_miembro`, `licihub_crm_guardar`; el backend valida JWT y membresía activa antes de cada lectura o comando. La función de guardado comprueba otra vez membresía y permiso de catálogo. La clave de servicio omite RLS y permanece solo en servidor.
 6. Verificar con cuentas reales: sin sesión → 401; cliente ajeno al CRM → 403; asesor → espacio completo pero no alta de productos; administrador → catálogo. Probar expiración, revocación de membresía, escrituras simultáneas, respaldo y restauración. Estas verificaciones remotas siguen pendientes.
 
 El adaptador no carga semillas ficticias en Supabase. La creación de espacio vacío y miembros es separada. Ante un despliegue fallido, detener el servicio CRM y revertir su configuración; conservar tablas y respaldo para evitar pérdida. No borrar tablas compartidas ni usuarios de Lici como rollback.

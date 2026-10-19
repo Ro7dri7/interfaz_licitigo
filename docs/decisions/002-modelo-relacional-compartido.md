@@ -2,6 +2,8 @@
 
 Fecha: 2026-10-19. Estado: implementado y probado localmente; ejecución remota manual pendiente. Sustituye la decisión de persistencia JSON/JSONB de [ADR-001](001-piloto-comercial.md).
 
+Corrección solicitada por el usuario: identificadores del SQL/PostgreSQL en español, con adaptación en el límite Supabase. El contrato React y la demo SQLite existente se conservan para evitar una migración local innecesaria. Se corrigieron los scripts antes de activar el servicio remoto; para quien ya hubiera aplicado sus versiones anteriores, 005 permite una transición con API detenida y reversión probada, seguida de reinstalar las funciones correspondientes. No se plantea un cambio de nombres durante un despliegue con versiones simultáneas.
+
 ## Contexto y decisión
 
 El usuario aprobó comenzar la base relacional y eligió ejecutar el SQL personalmente. La inspección de solo lectura confirmó el proyecto del portal y sus claves reales, además de tablas comerciales anteriores vacías. Usar el mismo proyecto permite enlazar identidades, empresas y análisis sin sincronizar dos bases ni otorgar acceso comercial a todos los clientes.
