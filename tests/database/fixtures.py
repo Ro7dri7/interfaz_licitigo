@@ -5,6 +5,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from backend.domain import apply_command, empty_state
 from backend.relational_codec import changes_between
+from backend.sql_names import cambios_sql
 
 workspace = '10000000-0000-0000-0000-000000000001'
 state, events = empty_state(), []
@@ -23,6 +24,8 @@ for index in range(6):
     else:
         operation,payload = 'stage', {'dealId': state['deals'][0]['id'], 'stage': 'won'}
     updated = apply_command(state,operation,payload,'SQL admin',f'sql-{index}')
-    events.append({'changes':changes_between(state,updated,workspace),'receipt':updated['receipts'][-1], 'revision':index,'operation':operation})
+    changes = changes_between(state, updated, workspace)
+    events.append({'changes': cambios_sql(changes), 'legacyChanges': changes,
+                   'receipt':updated['receipts'][-1], 'revision':index,'operation':operation})
     state=updated
 print(json.dumps({'events':events,'final':state}))

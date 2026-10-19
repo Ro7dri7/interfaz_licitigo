@@ -28,7 +28,7 @@ try:
     response = httpx.get(url.rstrip('/')+'/rest/v1/', headers=headers, timeout=30)
     response.raise_for_status()
     paths = response.json().get('paths', {})
-    required = ['licihub_crm_state', 'licihub_crm_member', 'licihub_crm_commit']
+    required = ['licihub_crm_estado', 'licihub_crm_miembro', 'licihub_crm_guardar']
     missing = [name for name in required if '/rpc/'+name not in paths]
     report = {'project': url, 'connection': 'ok', 'missing_rpcs': missing, 'workspace_configured': bool(workspace)}
     if not missing and workspace:

@@ -2,6 +2,7 @@
 import httpx
 
 from .relational_codec import changes_between, decode_state, receipt_added
+from .sql_names import cambios_sql, tablas_internas
 
 
 class Conflict(Exception):
@@ -38,23 +39,24 @@ class SupabaseRepository:
 
     @staticmethod
     def snapshot(value):
-        if not value or 'tables' not in value:
+        if not value or 'tablas' not in value:
             raise StorageUnavailable()
-        return {'revision': value['revision'], 'data': decode_state(value['tables'])}
+        return {'revision': value['revision'], 'data': decode_state(tablas_internas(value['tablas']))}
 
     async def load(self, request_id=None):
-        value = await self.rpc('licihub_crm_state', {'p_workspace_id': self.workspace, 'p_request_id': request_id})
+        value = await self.rpc('licihub_crm_estado', {'p_espacio_id': self.workspace, 'p_solicitud_id': request_id})
         return self.snapshot(value)
 
     async def save(self, data, revision, *, before, actor=None, integration=False):
         receipt = receipt_added(before['data'], data)
-        value = await self.rpc('licihub_crm_commit', {
-            'p_workspace_id': self.workspace, 'p_revision': revision,
-            'p_changes': changes_between(before['data'], data, self.workspace),
-            'p_request_id': receipt['id'], 'p_digest': receipt['digest'],
-            'p_actor_user_id': (actor or {}).get('id'), 'p_integration': integration,
+        value = await self.rpc('licihub_crm_guardar', {
+            'p_espacio_id': self.workspace, 'p_revision': revision,
+            'p_cambios': cambios_sql(changes_between(before['data'], data, self.workspace)),
+            'p_solicitud_id': receipt['id'], 'p_huella': receipt['digest'],
+            'p_actor_usuario_id': (actor or {}).get('id'), 'p_integracion': integration,
         })
         return self.snapshot(value)
 
     async def member(self, user_id):
-        return await self.rpc('licihub_crm_member', {'p_workspace_id': self.workspace, 'p_user_id': user_id})
+        miembro = await self.rpc('licihub_crm_miembro', {'p_espacio_id': self.workspace, 'p_usuario_id': user_id})
+        return {'display_name': miembro['nombre_visible'], 'role': miembro['rol']} if miembro else None

@@ -8,6 +8,7 @@ import sqlite3
 from .domain import empty_state
 from .relational_codec import WRITE_ORDER, TABLE_FIELDS, encode_state, decode_state, changes_between, receipt_added, stage_events
 from .repository import Conflict, StorageUnavailable
+from .sql_names import esquema_sqlite_compatible
 
 DEMO_WORKSPACE = '00000000-0000-0000-0000-000000000001'
 MIGRATION = Path(__file__).parent / 'migrations' / '002_relational_tables.sql'
@@ -15,8 +16,15 @@ MIGRATION = Path(__file__).parent / 'migrations' / '002_relational_tables.sql'
 
 def sqlite_schema():
     # Reuse the frozen table definitions; only dialect types and external portal fixtures differ.
-    sql = MIGRATION.read_text(encoding='utf-8').split('-- BEGIN TABLES')[1].split('-- END TABLES')[0]
+    sql = MIGRATION.read_text(encoding='utf-8').split('-- INICIO TABLAS')[1].split('-- FIN TABLAS')[0]
     sql = sql[sql.index('create table'):].replace('licihub_crm.', '')
+    sql = esquema_sqlite_compatible(sql)
+    for source, target in [('contactos_identidad_correo', 'contacts_email_identity'),
+                           ('negocios_necesidad_abierta_unica', 'one_open_need'),
+                           ('negocios_por_responsable_etapa', 'deals_by_owner_stage'),
+                           ('tareas_por_vencimiento', 'tasks_due'), ('prospectos_por_contexto', 'prospects_context'),
+                           ('actividades_por_negocio', 'activities_by_deal')]:
+        sql = sql.replace(source, target)
     for source, target in [('auth.users', 'portal_users'), ('public.proveedores', 'portal_proveedores'),
                            ('public.perfiles', 'portal_perfiles'), ('public.convocatorias', 'portal_convocatorias'),
                            ('public.analisis_empresa_licitacion', 'portal_analisis')]:
