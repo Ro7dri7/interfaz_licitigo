@@ -1,17 +1,18 @@
 import tempfile
+import json
 import unittest
 from unittest.mock import AsyncMock, patch
 from pathlib import Path
 from fastapi.testclient import TestClient
 from backend.main import create_app, Settings, Login
 from backend.domain import empty_state
-from backend.repository import LocalRepository
+from backend.relational import RelationalRepository
 
 
 class ApiTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.repo = LocalRepository(Path(self.tmp.name) / 'test.json', empty_state())
+        self.repo = RelationalRepository(Path(self.tmp.name) / 'test.sqlite3', empty_state())
         self.client = TestClient(create_app(Settings(mode='demo'), self.repo))
         self.client.headers['Origin'] = 'http://127.0.0.1:5174'
 
@@ -53,9 +54,25 @@ class ApiTests(unittest.TestCase):
 
     def test_restart_preserves_saved_state(self):
         self.command()
-        repo = LocalRepository(self.repo.path, empty_state())
+        repo = RelationalRepository(self.repo.path, empty_state())
         with TestClient(create_app(Settings(mode='demo'), repo)) as client:
             self.assertEqual(len(client.get('/api/crm/state').json()['data']['deals']), 1)
+
+    def test_legacy_json_configuration_imports_into_sqlite_and_keeps_original(self):
+        legacy = Path(self.tmp.name) / 'previous-demo.json'
+        original = json.dumps({'revision': 4, 'data': empty_state()}).encode()
+        legacy.write_bytes(original)
+        config = Settings(mode='demo', data_file=legacy)
+        with TestClient(create_app(config)) as client:
+            self.assertEqual(client.get('/api/crm/state').json()['revision'], 4)
+            response = client.post('/api/crm/commands', headers={'Origin': config.origin}, json={
+                'revision': 4, 'requestId': 'migrated-command', 'operation': 'intake',
+                'payload': {'company': 'Empresa importada', 'service': 'ISO 9001', 'kind': 'quote'}})
+            self.assertEqual(response.status_code, 200)
+        with TestClient(create_app(config)) as client:
+            self.assertEqual(client.get('/api/crm/state').json()['revision'], 5)
+        self.assertTrue(legacy.with_suffix('.sqlite3').exists())
+        self.assertEqual(legacy.read_bytes(), original)
 
     def test_ingestion_authentication_and_replay(self):
         event = {'requestId': 'lici-test', 'payload': {'company': 'Evento Lici', 'service': 'ISO 9001', 'origin': 'Lici', 'kind': 'advice'}}

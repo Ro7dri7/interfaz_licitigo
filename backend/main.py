@@ -13,7 +13,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .domain import Input, apply_command
-from .repository import Conflict, LocalRepository, StorageUnavailable, SupabaseRepository
+from .repository import AccessDenied, Conflict, StorageUnavailable, SupabaseRepository
+from .relational import RelationalRepository
 from .seed import demo_state
 
 
@@ -21,7 +22,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix='CRM_', env_file=Path(__file__).parent / '.env', extra='ignore')
     mode: Literal['demo', 'supabase'] = 'demo'
     origin: str = 'http://127.0.0.1:5174'
-    data_file: Path = Path(__file__).parent / 'data' / 'demo.json'
+    data_file: Path = Path(__file__).parent / 'data' / 'demo.sqlite3'
     supabase_url: str = ''
     supabase_secret_key: str = ''
     workspace_id: str = ''
@@ -53,9 +54,13 @@ def create_app(settings=None, repository=None):
         raise ValueError('Configura CRM_SUPABASE_URL, CRM_SUPABASE_SECRET_KEY y CRM_WORKSPACE_ID.')
     if config.mode == 'supabase' and (not config.origin.startswith('https://') or not config.supabase_url.startswith('https://')):
         raise ValueError('El modo Supabase requiere HTTPS en CRM_ORIGIN y CRM_SUPABASE_URL.')
-    repo = repository or (LocalRepository(config.data_file, demo_state()) if config.mode == 'demo'
+    local_path = config.data_file
+    legacy = Path(__file__).parent / 'data' / 'demo.json' if local_path == Settings.model_fields['data_file'].default else None
+    if local_path.suffix.lower() == '.json':
+        legacy, local_path = local_path, local_path.with_suffix('.sqlite3')
+    repo = repository or (RelationalRepository(local_path, demo_state(), legacy_path=legacy) if config.mode == 'demo'
                           else SupabaseRepository(config.supabase_url, config.supabase_secret_key, config.workspace_id))
-    app = FastAPI(title='Lici CRM API', version='0.1.0')
+    app = FastAPI(title='LiciHub CRM API', version='0.2.0')
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost', 'testserver', urlparse(config.origin).hostname])
 
     @app.middleware('http')
@@ -87,7 +92,7 @@ def create_app(settings=None, repository=None):
         member = await repo.member(user.get('id', ''))
         if not member or member['role'] not in ['admin', 'commercial']:
             raise HTTPException(403, 'Tu cuenta no tiene acceso a este espacio comercial.')
-        return {'name': member['display_name'], 'role': member['role']}
+        return {'id': user['id'], 'name': member['display_name'], 'role': member['role']}
 
     def public(snapshot):
         # Idempotency hashes remain server-side.
@@ -96,6 +101,10 @@ def create_app(settings=None, repository=None):
     @app.exception_handler(Conflict)
     async def conflict_handler(_request, _error):
         return JSONResponse({'detail': 'Otro cambio se guardó antes. Actualiza los datos y vuelve a guardar.'}, status_code=409)
+
+    @app.exception_handler(AccessDenied)
+    async def access_handler(_request, _error):
+        return JSONResponse({'detail': 'No tienes permiso para realizar esta operación en el espacio comercial.'}, status_code=403)
 
     @app.exception_handler(StorageUnavailable)
     @app.exception_handler(httpx.HTTPError)
@@ -149,13 +158,13 @@ def create_app(settings=None, repository=None):
         actor = await account(request)
         if data.operation == 'product' and actor['role'] != 'admin':
             raise HTTPException(403, 'Solo administración puede agregar servicios al catálogo.')
-        snapshot = await repo.load()
+        snapshot = await repo.load(request_id=data.requestId)
         updated = apply_command(snapshot['data'], data.operation, data.payload, actor['name'], data.requestId)
         if updated is snapshot['data']:
             return public(snapshot)
         if data.revision != snapshot['revision']:
             raise Conflict()
-        return public(await repo.save(updated, snapshot['revision']))
+        return public(await repo.save(updated, snapshot['revision'], before=snapshot, actor=actor))
 
     @app.post('/api/crm/events')
     async def event(data: Event, request: Request):
@@ -167,12 +176,12 @@ def create_app(settings=None, repository=None):
         if data.payload.get('origin') != 'Lici':
             raise HTTPException(422, 'Este canal solo recibe eventos de Lici.')
         for _ in range(3):
-            snapshot = await repo.load()
+            snapshot = await repo.load(request_id=f'lici:{data.requestId}')
             updated = apply_command(snapshot['data'], 'intake', data.payload, 'Integración Lici', f'lici:{data.requestId}')
             if updated is snapshot['data']:
                 return {'accepted': True, 'duplicate': True}
             try:
-                await repo.save(updated, snapshot['revision'])
+                await repo.save(updated, snapshot['revision'], before=snapshot, integration=True)
                 return {'accepted': True, 'duplicate': False}
             except Conflict:
                 continue

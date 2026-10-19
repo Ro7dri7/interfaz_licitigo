@@ -1,9 +1,7 @@
-import json
-import os
-from pathlib import Path
-from threading import Lock
-from copy import deepcopy
+"""Supabase relational gateway; credentials never leave this backend."""
 import httpx
+
+from .relational_codec import changes_between, decode_state, receipt_added
 
 
 class Conflict(Exception):
@@ -14,63 +12,49 @@ class StorageUnavailable(Exception):
     pass
 
 
-class LocalRepository:
-    """Single-process pilot storage. Atomic replace; errors never reset existing data."""
-    def __init__(self, path: Path, initial):
-        self.path, self.lock = path, Lock()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        if not path.exists():
-            self._write({'revision': 0, 'data': initial})
-
-    def _write(self, snapshot):
-        temporary = self.path.with_suffix('.tmp')
-        with temporary.open('w', encoding='utf-8') as file:
-            json.dump(snapshot, file, ensure_ascii=False, allow_nan=False)
-            file.flush()
-            os.fsync(file.fileno())
-        os.replace(temporary, self.path)
-
-    async def load(self):
-        with self.lock:
-            return json.loads(self.path.read_text(encoding='utf-8'))
-
-    async def save(self, data, revision):
-        with self.lock:
-            current = json.loads(self.path.read_text(encoding='utf-8'))
-            if current['revision'] != revision:
-                raise Conflict()
-            result = {'revision': revision + 1, 'data': deepcopy(data)}
-            self._write(result)
-            return result
+class AccessDenied(Exception):
+    pass
 
 
 class SupabaseRepository:
-    def __init__(self, url, key, workspace):
-        self.url, self.key, self.workspace = url.rstrip('/'), key, workspace
+    def __init__(self, url, key, workspace, *, transport=None):
+        self.url, self.key, self.workspace, self.transport = url.rstrip('/'), key, workspace, transport
 
-    async def request(self, method, path, **kwargs):
-        async with httpx.AsyncClient(timeout=20) as client:
-            response = await client.request(method, self.url + path,
-                headers={'apikey': self.key, 'Authorization': f'Bearer {self.key}', 'Prefer': 'return=representation'}, **kwargs)
+    async def rpc(self, function, payload):
+        headers = {'apikey': self.key, 'Content-Type': 'application/json'}
+        # Legacy service-role keys are JWTs. New secret keys belong only in apikey.
+        if self.key.startswith('eyJ'):
+            headers['Authorization'] = f'Bearer {self.key}'
+        async with httpx.AsyncClient(timeout=20, transport=self.transport) as client:
+            response = await client.post(f'{self.url}/rest/v1/rpc/{function}', headers=headers, json=payload)
         if response.status_code >= 400:
+            error = response.json() if 'application/json' in response.headers.get('content-type', '') else {}
+            if error.get('code') in ['40001', '23505']:
+                raise Conflict()
+            if error.get('code') == '42501':
+                raise AccessDenied()
             raise StorageUnavailable()
         return response.json()
 
-    async def load(self):
-        rows = await self.request('GET', '/rest/v1/crm_workspaces', params={'id': f'eq.{self.workspace}', 'select': 'revision,data'})
-        if not rows:
+    @staticmethod
+    def snapshot(value):
+        if not value or 'tables' not in value:
             raise StorageUnavailable()
-        return rows[0]
+        return {'revision': value['revision'], 'data': decode_state(value['tables'])}
 
-    async def save(self, data, revision):
-        rows = await self.request('PATCH', '/rest/v1/crm_workspaces',
-                                  params={'id': f'eq.{self.workspace}', 'revision': f'eq.{revision}'},
-                                  json={'data': data, 'revision': revision + 1})
-        if not rows:
-            raise Conflict()
-        return {'data': rows[0]['data'], 'revision': rows[0]['revision']}
+    async def load(self, request_id=None):
+        value = await self.rpc('licihub_crm_state', {'p_workspace_id': self.workspace, 'p_request_id': request_id})
+        return self.snapshot(value)
+
+    async def save(self, data, revision, *, before, actor=None, integration=False):
+        receipt = receipt_added(before['data'], data)
+        value = await self.rpc('licihub_crm_commit', {
+            'p_workspace_id': self.workspace, 'p_revision': revision,
+            'p_changes': changes_between(before['data'], data, self.workspace),
+            'p_request_id': receipt['id'], 'p_digest': receipt['digest'],
+            'p_actor_user_id': (actor or {}).get('id'), 'p_integration': integration,
+        })
+        return self.snapshot(value)
 
     async def member(self, user_id):
-        rows = await self.request('GET', '/rest/v1/crm_members', params={'workspace_id': f'eq.{self.workspace}',
-                                  'user_id': f'eq.{user_id}', 'active': 'eq.true', 'select': 'display_name,role'})
-        return rows[0] if rows else None
+        return await self.rpc('licihub_crm_member', {'p_workspace_id': self.workspace, 'p_user_id': user_id})
