@@ -168,7 +168,7 @@ def create_quote(state, data, actor):
     discount = cents(Decimal(subtotal) * data.discount / 100)
     tax = cents(Decimal(subtotal - discount) * data.tax / 100)
     version = 1 + sum(q['dealId'] == deal['id'] for q in state['quotes'])
-    quote = dict(id=uid(), dealId=deal['id'], number=f'COT-{len(state["quotes"]) + 1:04d}', version=version,
+    quote = dict(id=uid(), dealId=deal['id'], productId=product['id'], number=f'COT-{len(state["quotes"]) + 1:04d}', version=version,
                  productName=product['name'], unitPrice=product['price'], quantity=data.quantity,
                  subtotal=subtotal, discountPercent=float(data.discount), discountAmount=discount,
                  taxPercent=float(data.tax), taxAmount=tax, total=subtotal - discount + tax,
