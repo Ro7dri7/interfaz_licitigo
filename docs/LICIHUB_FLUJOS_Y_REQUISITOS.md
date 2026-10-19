@@ -20,7 +20,7 @@ npm run dev
 
 Entrar a **http://127.0.0.1:5174/**. Se necesitan ambos servicios: frontend en 5174 y API en 8001. Si aparece “No pudimos cargar el CRM”, comprobar primero la terminal de la API y pulsar “Reintentar conexión”. Si un puerto ya está ocupado por esta aplicación, reutilizar la instancia abierta. `Ctrl+C` detiene cada proceso.
 
-Los datos ficticios se guardan en `backend/data/demo.json`; reiniciar no los borra. No hay que iniciar sesión en la demo. Es el flujo local construido el 16 de octubre, actualizado de marca; aún no es un espacio compartido conectado al CRM externo.
+Los datos ficticios se guardan ahora en `backend/data/demo.sqlite3`; el JSON anterior se importa una sola vez y se conserva intacto. Reiniciar no borra los cambios y no hay que iniciar sesión en la demo. Es el flujo local construido el 16 de octubre, actualizado de marca y almacenamiento; aún no es un espacio compartido conectado a Supabase ni al CRM externo.
 
 El Portal Clientes React se mantiene en `../interfaz_licitigo`, con frontend 5173 y API propia 8000. Allí `npm run dev` inicia su interfaz; el arranque/configuración de su backend se describe en su README. Los comandos anteriores corresponden específicamente al CRM.
 
