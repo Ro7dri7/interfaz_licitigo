@@ -1,6 +1,6 @@
 # ADR-001: piloto comercial separado, con reglas compartidas entre persistencias
 
-Fecha: 2026-10-16. Estado: adoptado para desarrollo local; arquitectura de producción pendiente de normalización y validación remota.
+Fecha: 2026-10-16. Estado histórico: la decisión de persistencia JSON/JSONB fue sustituida el 19/10 por [ADR-002](002-modelo-relacional-compartido.md). El resto describe el alcance original del piloto. La validación remota sigue pendiente.
 
 ## Contexto
 

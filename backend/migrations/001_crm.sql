@@ -1,4 +1,5 @@
--- Pilot workspace storage. Apply explicitly in the CURRENT Supabase project.
+-- HISTORICAL JSONB PILOT. Superseded by 002_relational_tables.sql + 003_relational_api.sql.
+-- Do not apply this file for a new relational installation. Existing pilot data is not deleted.
 -- No existing Lici table or auth user is changed by this migration.
 begin;
 create table if not exists public.crm_workspaces (

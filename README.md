@@ -4,7 +4,7 @@
 
 Primera entrega funcional del CRM comercial complementario a **Lici React** (`../interfaz_licitigo`). React 19, TypeScript 6, Vite 8, Tailwind CSS 4 y FastAPI. Identidad compartida a partir de los tokens del proyecto vigente; no usa la aplicación anterior Angular.
 
-**Estado al 16 de octubre de 2026:** funciona localmente con datos ficticios persistentes. Adaptador Supabase y receptor de eventos preparados; no se aplicó la migración, no se conectó el bot ni se modificó la base de Lici. Alcance completo y pendientes en [docs/ESTADO.md](docs/ESTADO.md).
+**Estado al 19 de octubre de 2026:** funciona localmente con tablas SQLite y conserva la demo anterior. Modelo relacional y adaptador Supabase preparados y probados; el usuario ejecutará el SQL. [Orden de archivos y activación](docs/SUPABASE_RELACIONAL.md). No se aplicaron cambios remotos ni se conectó mensajería. Alcance completo y pendientes en [docs/ESTADO.md](docs/ESTADO.md).
 
 ## Arrancar en este equipo
 
@@ -32,7 +32,7 @@ py -m venv backend/.venv
 
 Para configurar valores propios, copiar `backend/.env.example` a `backend/.env`. El modo local funciona sin archivo `.env`. Abrir **127.0.0.1**, no `localhost`, para mantener el origen configurado en los guardados. El frontend reenvía `/api` a la API; no hay que configurar CORS.
 
-El modo demo no pide contraseña y solo admite acceso local. Usa ejemplos generados una sola vez en `backend/data/demo.json`. Recargar o reiniciar conserva los cambios. Usar **un único proceso de API** sobre ese archivo. Para conservar una sesión de pruebas, detener la API y copiar el JSON como respaldo; para comenzar otra, asignar un archivo nuevo con `CRM_DATA_FILE`. No ingresar datos reales en esta demo ni publicarla a través de un proxy.
+El modo demo no pide contraseña y solo admite acceso local. Usa `backend/data/demo.sqlite3`: si existe el antiguo `demo.json`, lo importa una sola vez y conserva el original intacto. Recargar o reiniciar conserva los cambios en tablas. Usar **un único proceso de API** sobre esa demo. Para respaldarla, detener la API y copiar SQLite junto con sus archivos `-wal`/`-shm` si existen; el JSON conservado no incluye cambios posteriores. Para comenzar otra demo, asignar un archivo SQLite nuevo con `CRM_DATA_FILE`. No ingresar datos reales en esta demo ni publicarla a través de un proxy.
 
 ## Recorrido disponible
 
@@ -49,22 +49,26 @@ El modo demo no pide contraseña y solo admite acceso local. Usa ejemplos genera
 npm run build
 npm run lint
 & '..\interfaz_licitigo\backend\.venv\Scripts\python.exe' -m unittest discover -s backend -t .
+npm run test:db
 npm run test:e2e
 ```
 
 Si se creó el entorno propio, reemplazar la ruta Python por `backend/.venv/Scripts/python.exe`. Las pruebas de navegador requieren Google Chrome instalado. Playwright levanta servicios independientes en **5175/8002**, con datos ficticios nuevos en un archivo temporal del sistema; no modifica la demo de 5174. Esos puertos deben estar libres. Los resultados y trazas de fallos quedan en `test-results/`, excluido de Git.
 
-Última validación: build y lint sin errores ni advertencias; **20 pruebas Python y 4 recorridos Playwright aprobados**. Inspección visual en escritorio 1440 px y móvil 375 px, ficha y propuesta imprimible. Las pruebas Supabase usan dobles controlados, no una base remota. El entorno Python compartido emite una advertencia de deprecación de TestClient/httpx; no impide las pruebas y no se alteró el entorno de Lici.
+Última validación: build y lint correctos; **29 pruebas Python, 10 pruebas PostgreSQL y 4 recorridos Playwright aprobados**. PostgreSQL se verifica con PGlite y un esquema mínimo de portal/Auth, sin Docker; el adaptador HTTP usa dobles controlados. No equivale a validar Supabase Auth remoto. Inspección visual previa en escritorio 1440 px y móvil 375 px, ficha y propuesta imprimible. El entorno Python compartido emite una advertencia de deprecación de TestClient/httpx; no impide las pruebas y no se alteró el entorno de Lici.
 
 ## Organización
 
 - `src/`: rutas, formularios, vistas y cliente API. `brand.css` conserva los tokens de Lici; `styles.css` define el CRM.
 - `backend/domain.py`: reglas comerciales puras y validación, importes en céntimos.
 - `backend/main.py`: API, autenticación y autorización del espacio comercial.
-- `backend/repository.py`: persistencia local atómica o Supabase con control de revisión.
-- `backend/migrations/001_crm.sql`: migración aditiva preparada, **no aplicada**.
+- `backend/relational.py`: demo SQLite e importación no destructiva del JSON anterior.
+- `backend/relational_codec.py`: transformación entre el contrato de interfaz y filas por entidad.
+- `backend/repository.py`: adaptador Supabase por funciones transaccionales y control de revisión.
+- `backend/migrations/002_relational_tables.sql`, `003_relational_api.sql`: modelo relacional y acceso de servidor, **no aplicados remotamente**. `001_crm.sql` es histórico y no debe ejecutarse.
+- `docs/SUPABASE_RELACIONAL.md`: SQL, creación de espacio/administrador y comprobación de conexión.
 - `docs/INTEGRACIONES.md`: activación y contrato de eventos.
-- `docs/decisions/001-piloto-comercial.md`: decisiones y límites de arquitectura.
+- `docs/decisions/002-modelo-relacional-compartido.md`: decisión vigente de persistencia y límites.
 - `tasks/plan.md`, `tasks/todo.md`: alcance original y avance verificable.
 
 No se almacenan contraseñas, tokens del bot ni claves de servicio en el repositorio o en variables `VITE_*`. La configuración de producción requiere un despliegue HTTPS del frontend y la API bajo el mismo origen; `vite preview` solo sirve para revisar el build local.

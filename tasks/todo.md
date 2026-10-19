@@ -7,7 +7,9 @@
 - [x] Revisar navegación CRM/Bandeja de referencia e investigar documentación oficial 360dialog/n8n.
 - [x] Actualizar marca visible del CRM y del Portal Clientes a LiciHub; conservar compatibilidad del origen técnico.
 - [x] Documentar 32 requisitos, flujos, fases y escenarios de aceptación en [../docs/LICIHUB_FLUJOS_Y_REQUISITOS.md](../docs/LICIHUB_FLUJOS_Y_REQUISITOS.md).
-- [ ] Normalizar datos y preparar acceso/eventos durables en espacio Supabase de prueba.
+- [x] Normalizar almacenamiento local, preparar esquema PostgreSQL y probar el adaptador transaccional sin modificar la base remota.
+- [x] Conservar el JSON anterior mediante importación local única y documentar el SQL que ejecutará el usuario.
+- [ ] Aplicar SQL, provisionar acceso y validar cuentas reales en Supabase; preparar entrega durable de eventos desde el portal.
 - [ ] Implementar botón de asesoría/cotización en Portal Clientes con confirmación y recepción CRM sin duplicados.
 - [ ] Completar gestión de contactos, usuarios asignables, llamadas y propuestas con varias partidas.
 - [ ] Conectar número de prueba 360dialog y construir bandeja con ventana, plantillas y comentarios internos.
@@ -146,7 +148,7 @@ Dependencias: 12. Alcance: pequeño/medio, validación y documentación.
 ## Evidencia de esta entrega y siguiente paso
 
 - [x] `npm run build`, `npm run lint`: correctos, sin supresiones añadidas.
-- [x] 20 pruebas Python y 4 pruebas E2E Chrome, con persistencia, errores, teclado y móvil.
+- [x] 29 pruebas Python, 10 pruebas PostgreSQL y 4 pruebas E2E Chrome, con persistencia relacional, integridad, permisos, errores, teclado y móvil.
 - [x] Documentar arquitectura, arranque, contrato de eventos y límites en `README.md` y `docs/`.
 - [ ] Activar un espacio Supabase de prueba, provisionar miembros y validar permisos con cuentas reales.
 - [ ] Conectar el emisor de eventos de Lici y probar un desbloqueo seguido de solicitud realista.

@@ -238,7 +238,7 @@ Ventajas de esta división: el lead y el historial sobreviven si n8n está deten
 
 ## 6. Cambios de datos y contratos necesarios
 
-Para el piloto compartido/mensajería se propone normalizar PostgreSQL/Supabase. El documento JSONB por espacio de la demo no es suficiente como almacén definitivo de conversaciones concurrentes.
+Actualización de persistencia del 19/10: se implementaron SQLite relacional local, migraciones PostgreSQL y adaptador transaccional para el mismo Supabase del portal. Sustituyen la propuesta anterior de documento JSONB por espacio. El usuario ejecutará el SQL; activación, pruebas con cuentas reales y entrega durable desde el portal siguen pendientes. Ver [SUPABASE_RELACIONAL.md](SUPABASE_RELACIONAL.md). La API aún lee el espacio completo y usa revisión global; este avance no incorpora la bandeja ni las conversaciones.
 
 Entidades necesarias: espacios/equipos, usuarios comerciales y asignaciones; empresas/contactos/identidades de canal; solicitudes y señales; negocios con historial estructurado de etapas; catálogo/paquetes, partidas y versiones; conversaciones/participantes/mensajes/notas/etiquetas; permisos de contacto; eventos entrantes/salientes, tareas y entregas de automatización. Mensajes y cambios de etapa conservan IDs/actor/fechas y fuente.
 
