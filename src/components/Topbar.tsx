@@ -37,7 +37,7 @@ export function Topbar({ quota = '—' }: TopbarProps) {
       </div>
 
       <NavLink to="/app/descubrimiento" className="mr-auto font-serif text-[24px] font-semibold text-ink">
-        Lici<span className="text-primary">.</span>
+        LiciHub<span className="text-primary">.</span>
       </NavLink>
 
       <nav className="mr-auto flex items-center gap-1 max-[900px]:order-3 max-[900px]:w-full max-[900px]:justify-between max-[720px]:mr-0 max-[720px]:overflow-x-auto">

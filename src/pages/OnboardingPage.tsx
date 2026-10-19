@@ -91,7 +91,7 @@ export function OnboardingPage() {
         id: siguienteId++,
         kind: 'text',
         from: 'lici',
-        text: `Hola${nombre ? ' ' + nombre : ''}. Te damos la bienvenida a Lici, el motor de inteligencia para contrataciones del Estado peruano.`,
+        text: `Hola${nombre ? ' ' + nombre : ''}. Te damos la bienvenida a LiciHub, el motor de inteligencia para contrataciones del Estado peruano.`,
       },
     ]
   })
@@ -188,7 +188,7 @@ export function OnboardingPage() {
       case 'alerts':
         return 'Elige un canal de alertas arriba...'
       default:
-        return 'Pregúntale a Lici (ej: añadir consorcios, bases tipo, montos)...'
+        return 'Pregúntale a LiciHub (ej: añadir consorcios, bases tipo, montos)...'
     }
   })()
 
@@ -419,7 +419,7 @@ export function OnboardingPage() {
       case 'typing':
         return (
           <LiciMsg>
-            <div className={`${bubble} inline-flex gap-1 px-4! py-3.5!`} aria-label="Lici está consultando">
+            <div className={`${bubble} inline-flex gap-1 px-4! py-3.5!`} aria-label="LiciHub está consultando">
               {[0, 0.15, 0.3].map((delay) => (
                 <span
                   key={delay}
@@ -640,7 +640,7 @@ export function OnboardingPage() {
       <header className="flex items-center justify-between border-b border-line bg-white px-8 py-3.5">
         <div className="flex items-center gap-3">
           <Link to="/" className="font-serif text-[22px] font-semibold">
-            Lici<span className="text-primary">.</span>
+            LiciHub<span className="text-primary">.</span>
           </Link>
           <span className={pillPrimary}>ONBOARDING</span>
           <span className={pillNeutral}>PRO · CONTRATACIONES DEL ESTADO</span>
@@ -663,7 +663,7 @@ export function OnboardingPage() {
 
       <div className="flex items-center justify-between bg-navy px-8 py-2.5 text-[13px] text-[#cbd5e1]">
         <span>
-          <span className={dot} style={{ background: '#34d399' }} /> Servidor de Inteligencia Lici sincronizado con{' '}
+          <span className={dot} style={{ background: '#34d399' }} /> Servidor de Inteligencia LiciHub sincronizado con{' '}
           <strong className="text-white">OSCE, SEACE y SUNAT</strong>
         </span>
         <span className={`${pill} border border-[rgba(52,211,153,0.28)] bg-[rgba(52,211,153,0.14)] text-[#34d399]`}>
@@ -679,7 +679,7 @@ export function OnboardingPage() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="mb-0.5 flex items-center gap-2">
-                <strong>Lici</strong>
+                <strong>LiciHub</strong>
                 <span className={pillPrimary}>IA Especialista en Contrataciones</span>
               </div>
               <span className="inline-flex items-center gap-1.5 text-[12.5px] text-muted">

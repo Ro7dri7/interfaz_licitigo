@@ -108,7 +108,7 @@ export function IngresarPage() {
     <div className="flex min-h-full flex-col bg-canvas">
       <header className={`${container} flex items-center justify-between py-5`}>
         <Link to="/" className="font-serif text-[26px] font-semibold">
-          Lici<span className="text-primary">.</span>
+          LiciHub<span className="text-primary">.</span>
         </Link>
         <span className={pillNeutral}>
           <span className={dot} style={{ background: 'var(--color-success)' }} />

@@ -30,7 +30,7 @@ export function LandingPage() {
     <div className="flex min-h-full flex-col bg-[radial-gradient(circle_at_85%_0%,#eef2ff_0%,transparent_45%),var(--color-canvas)]">
       <header className={`${container} flex items-center justify-between py-[22px]`}>
         <div className="flex items-center gap-2.5">
-          <span className="font-serif text-[24px] font-semibold">Lici</span>
+          <span className="font-serif text-[24px] font-semibold">LiciHub</span>
           <span className={`${pillPrimary} font-mono tracking-[0.02em]`}>PRO</span>
           <span className="text-faint">•</span>
           <span className="text-[12px] font-bold tracking-[0.04em] text-muted">CONTRATACIONES DEL ESTADO</span>
@@ -148,7 +148,7 @@ export function LandingPage() {
       </main>
 
       <footer className="mx-auto flex w-full max-w-[1440px] items-center justify-between border-t border-line px-8 py-[22px] text-[13px] text-faint">
-        <span>Lici Intelligence Platform © 2026. Todos los derechos reservados.</span>
+        <span>LiciHub Intelligence Platform © 2026. Todos los derechos reservados.</span>
         <div className="flex gap-[22px] [&_a:hover]:text-primary">
           <a href="#" onClick={sinAccion}>Seguridad OSCE/SEACE</a>
           <a href="#" onClick={sinAccion}>Centro de Ayuda</a>
