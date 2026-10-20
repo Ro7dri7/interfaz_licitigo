@@ -7,7 +7,7 @@ import json
 from typing import Literal
 
 from pydantic import EmailStr, Field, field_validator
-from .iso_catalog import import_catalog
+from .iso_catalog import import_catalog, is_training
 from .commercial_utils import Input, now, uid, find, log, cents
 from .quotations import Quote, QuoteState, create_quote, change_quote_state
 
@@ -71,6 +71,7 @@ class Complete(Input):
 class Product(Input):
     name: str = Field(min_length=2, max_length=160)
     price: Decimal = Field(ge=0, le=10000000, decimal_places=2)
+    active: bool = True
 
 
 SCHEMAS = {'intake': Intake, 'convert': Convert, 'stage': Move, 'activity': Activity,
@@ -166,7 +167,9 @@ def apply_command(original, operation, payload, actor, request_id):
             task.update(done=True, completedAt=now())
             log(state, task['dealId'], 'task', f'Tarea completada: {task["title"]}', actor)
     elif operation == 'product':
-        state['products'].append(dict(id=uid(), name=data.name, price=cents(data.price * 100), currency='PEN', active=True))
+        if is_training(data.name):
+            raise ValueError('Este catálogo no admite cursos ni capacitaciones. Registra una certificación ISO o un paquete.')
+        state['products'].append(dict(id=uid(), name=data.name, price=cents(data.price * 100), currency='PEN', active=data.active))
     elif operation == 'import_iso':
         import_catalog(state)
     elif operation == 'quote':

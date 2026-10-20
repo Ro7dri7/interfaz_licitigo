@@ -14,6 +14,14 @@ Se seleccionan filas activas cuyo nombre comienza con ISO/ISO-IEC o «Pack de N 
 
 Los nombres y versiones normativas se preservan como catálogo comercial suministrado, sin afirmar su validez normativa ni corregirlos silenciosamente. Las diferencias de modalidad y tamaño de empresa son referencias separadas; no se reduce todo a un precio por norma. Cada paquete conserva el precio del Excel, sin recalcularlo por suma de componentes.
 
+### Revisión del filtro y alta de productos (20/10)
+
+Se revisó de nuevo el Excel original y las 540 filas seleccionadas: ninguna contiene cursos, formación ni capacitación, y las 540 tienen «Servicio» como tipo de producto en el origen. Son **375 variantes individuales y 165 paquetes**, no 540 normas distintas. Incluyendo paquetes, se distribuyen en 432 referencias de certificación inicial, 36 de recertificación y 72 de seguimiento. El Excel completo sí incluye cursos; por ejemplo «ISO 42001:2023 - Curso de auditor líder» en su fila 2 queda excluido.
+
+El filtro ahora descarta explícitamente cursos, capacitación, formación, diplomados, talleres y exámenes aunque compartan nombre con una certificación inicial o recertificación. No se eliminó ninguna de las 540 referencias porque la nueva comprobación confirmó la selección anterior. El Excel y los precios originales se conservan.
+
+Para crear un producto: **Catálogo → Nuevo producto** con una cuenta administradora. El formulario pide nombre (con modalidad/tamaño/servicio), precio en PEN con IGV incluido y estado activo/inactivo; muestra el precio final antes de guardar. Un producto inactivo se conserva en el catálogo pero no puede añadirse a una propuesta. La API rechaza altas de cursos y capacitaciones. No requiere SQL adicional: moneda y estado ya existen en el modelo. Se mantiene pendiente la edición posterior de productos existentes.
+
 `backend/catalogo_iso.json` conserva ID determinista, ID original de HubSpot, código, fila de origen, categoría y precio en céntimos. La importación administrativa desde Catálogo agrega referencias ausentes y no sobrescribe precios existentes ni crea empresas/contactos de ejemplo. Repetirla no duplica productos. La extracción reproducible está en `scripts/extract_iso_catalog.py` y usa openpyxl en el runtime de documentos.
 
 Los nombres Lucía Mendoza (prueba) y Diego Salazar (prueba) son responsables ficticios seleccionables para recorrer el flujo. No son cuentas Auth, no conceden permisos y no sustituyen la futura asignación por usuario.
@@ -54,6 +62,6 @@ La demo local actualiza su CHECK de totales mediante reconstrucción transaccion
 
 ## Verificación de esta entrega
 
-Build y lint correctos; 42 pruebas Python, 15 PostgreSQL/PGlite y 5 recorridos Chrome. Se verificaron suma de partidas, IGV incluido, versiones, precios congelados, rechazo/vencimiento, envío/aceptación auditados, reinicio, permisos, repetición del catálogo y actualización no destructiva del CHECK SQLite anterior con respaldo. PDF A4 revisado visualmente, escritorio y móvil 375 px; una propuesta breve de dos partidas y aceptación cabe en una página. Las pruebas utilizan datos ficticios y puertos 5175/8002, sin cargar ejemplos en Supabase.
+Build y lint correctos; 44 pruebas Python, 15 PostgreSQL/PGlite y 6 recorridos Chrome. Se verificaron suma de partidas, IGV incluido, versiones, precios congelados, rechazo/vencimiento, envío/aceptación auditados, reinicio, permisos, repetición del catálogo y actualización no destructiva del CHECK SQLite anterior con respaldo. PDF A4 revisado visualmente, escritorio y móvil 375 px; una propuesta breve de dos partidas y aceptación cabe en una página. Las pruebas utilizan datos ficticios y puertos 5175/8002, sin cargar ejemplos en Supabase.
 
 Pendientes: envío real por correo/360dialog, bandeja y automatizaciones n8n, firma/aceptación por enlace del cliente, PDF generado en servidor, edición/desactivación del catálogo, usuarios asesores reales y prueba del flujo con las cuentas comerciales remotas.

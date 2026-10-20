@@ -151,7 +151,7 @@ Dependencias: 12. Alcance: pequeño/medio, validación y documentación.
 ## Evidencia de esta entrega y siguiente paso
 
 - [x] `npm run build`, `npm run lint`: correctos, sin supresiones añadidas.
-- [x] 42 pruebas Python, 15 pruebas PostgreSQL y 5 pruebas E2E Chrome, con persistencia relacional, integridad, permisos, errores, teclado y móvil.
+- [x] 44 pruebas Python, 15 pruebas PostgreSQL y 6 pruebas E2E Chrome, con persistencia relacional, integridad, permisos, errores, teclado y móvil.
 - [x] Documentar arquitectura, arranque, contrato de eventos y límites en `README.md` y `docs/`.
 - [ ] Activar un espacio Supabase de prueba, provisionar miembros y validar permisos con cuentas reales.
 - [ ] Conectar el emisor de eventos de Lici y probar un desbloqueo seguido de solicitud realista.

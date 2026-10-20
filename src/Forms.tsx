@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CommandForm, Modal } from './components'
 import { useCRM } from './crm-context'
-import { originLabel, evidenceLabels, kindLabels, origins } from './types'
+import { originLabel, evidenceLabels, kindLabels, money, origins } from './types'
 import type { Deal } from './types'
 import QuoteForm from './QuoteForm'
 
@@ -27,9 +27,17 @@ export function IntakeForm({ onClose }: { onClose: () => void }) {
 }
 
 export function ProductForm({ onClose }: { onClose: () => void }) {
-  return <Modal title="Nuevo servicio" onClose={onClose}><CommandForm operation="product" onClose={onClose} prepare={f => Object.fromEntries(f)}>
-    <label>Nombre del servicio *<input name="name" required minLength={2} maxLength={160} /></label><label>Precio en soles *<input name="price" type="number" min="0" max="10000000" step="0.01" required /></label>
-    <p className="hint">Los precios de las cotizaciones existentes se conservan.</p>
+  const [price, setPrice] = useState('')
+  return <Modal title="Nuevo producto" onClose={onClose}><CommandForm operation="product" onClose={onClose} label="Guardar producto" prepare={f => ({
+    name: f.get('name'), price: f.get('price'), active: f.get('active') === 'true',
+  })}>
+    <p className="form-intro">Registra una certificación ISO o un paquete. Incluye en el nombre la modalidad, el tamaño de empresa y si corresponde a certificación inicial, recertificación o seguimiento. Este catálogo no admite cursos.</p>
+    <label>Nombre del producto *<input name="name" required minLength={2} maxLength={160} placeholder="ISO 9001:2015 - Certificación inicial Micro Empresa (Virtual)" /></label>
+    <div className="form-grid"><label>Precio con IGV incluido *<input name="price" type="number" min="0" max="10000000" step="0.01" required value={price} onChange={e => setPrice(e.target.value)} /></label>
+      <label>Moneda<input value="PEN · Sol peruano" readOnly /></label>
+      <label>Estado del producto<select name="active" defaultValue="true"><option value="true">Activo · disponible para cotizar</option><option value="false">Inactivo · no disponible para cotizar</option></select></label></div>
+    <div className="quote-estimate"><span>Precio unitario final, con IGV incluido</span><strong>{money(Math.round(Number(price || 0) * 100))}</strong></div>
+    <p className="hint">Crear el producto no cambia los precios de cotizaciones anteriores. Los productos inactivos no se pueden añadir a nuevas propuestas.</p>
   </CommandForm></Modal>
 }
 

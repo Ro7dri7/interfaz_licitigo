@@ -18,7 +18,7 @@ Ampliación comercial 20/10: cotizaciones múltiples y paquetes, estados auditad
 | Empresas/contactos | Listados, búsqueda y negocios asociados; coincidencia de empresa por RUC y contacto por correo dentro de su empresa |
 | Negocios | Tablero/lista, filtros de origen/responsable/servicio, ficha con propiedades, contexto ISO, actividades, contactos y propuestas |
 | Seguimiento | Etapas persistentes; notas, llamadas/reuniones registradas; tareas con zona horaria, pendientes y completadas |
-| Catálogo | Alta administrativa e importación ISO idempotente del Excel; búsqueda y filtros por tipo/paquete |
+| Catálogo | Formulario Nuevo producto con precio PEN/IGV incluido y estado; rechazo de cursos; importación ISO idempotente (375 variantes individuales y 165 paquetes), búsqueda y filtros por tipo/paquete |
 | Cotizaciones | Hasta 50 partidas/paquetes por versión, descuento e IGV incluido configurables, instantánea de precios/cliente/emisor, envío/aceptación/rechazo auditados y documento INTERCERT imprimible/PDF |
 | Cierre | Ganado con importe; perdido con motivo; reapertura y cambios de etapa trazables |
 | Persistencia | Tablas SQLite con claves foráneas, transacciones, revisión contra sobrescrituras, reintentos idempotentes e importación única del JSON anterior sin modificarlo |
@@ -61,9 +61,9 @@ También faltan: rate limiting del login y del receptor, límites de cuerpo en e
 ## Evidencia de validación
 
 - TypeScript/Vite: build correcto; oxlint sin hallazgos, sin desactivar reglas.
-- 42 pruebas Python: reglas/API, vínculos, versiones/precios, moneda/fechas, origen, tamaño, demo local, permisos con respuestas simuladas de Supabase Auth; SQLite con claves foráneas, rollback, guardado solo de cambios, reinicio e importación íntegra del JSON incluso con la configuración anterior; adaptador HTTP relacional y fallos de funciones ausentes.
+- 44 pruebas Python: reglas/API, vínculos, versiones/precios, moneda/fechas, origen, tamaño, demo local, permisos con respuestas simuladas de Supabase Auth; SQLite con claves foráneas, rollback, guardado solo de cambios, reinicio e importación íntegra del JSON incluso con la configuración anterior; adaptador HTTP relacional y fallos de funciones ausentes.
 - 15 pruebas PostgreSQL con PGlite: flujo completo, bloqueo de roles cliente, membresía/rol, idempotencia y conflictos, límites de espacio/empresa y rollback, propuestas inmutables, validación de enlaces al portal, restricciones de integración, plantilla de administrador, repetición de migraciones y transición inglés/español con reversión íntegra y rechazo de esquemas mezclados. Usan un esquema mínimo de portal/Auth, no una instancia Supabase remota.
-- 5 pruebas Chrome: señal→solicitud multicanal→cotización→actividad→tarea→ganado con recarga; conversión de señal y pérdida; móvil/teclado/foco; vacío/error/reintento.
+- 6 pruebas Chrome: señal→solicitud multicanal→cotización→actividad→tarea→ganado con recarga; conversión de señal y pérdida; móvil/teclado/foco; vacío/error/reintento.
 - Revisión visual: Mi día, tablero, ficha a 1440 px, ficha a 375 px sin desborde horizontal y propuesta en modo impresión. Se revisó además el documento INTERCERT A4 de dos partidas con IGV incluido y aceptación en una página. No equivale a auditoría WCAG completa ni a validación en Safari/Firefox.
 - Hallazgos corregidos: señal que llegaba después de una solicitud quedaba sin vincular; reconversión de prospecto cerrado podía generar negocio huérfano; foco del modal y propuesta oculta al imprimir; contraseña con espacios debía preservarse; fechas de tarea se normalizan a UTC.
 

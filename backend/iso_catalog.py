@@ -12,9 +12,14 @@ def normalized(value):
     return ''.join(c for c in unicodedata.normalize('NFD', value) if unicodedata.category(c) != 'Mn').lower()
 
 
+def is_training(name):
+    return bool(re.search(r'\b(cursos?|capacitacion(?:es)?|formacion|diplomados?|taller(?:es)?|examen(?:es)?)\b', normalized(name)))
+
+
 def eligible_iso(name):
     text = normalized(name.strip())
-    return bool(re.match(r'^(iso\b|pack de \d+ isos\b)', text)) and any(
+    excluded = is_training(name) or re.search(r'\b(implementacion|auditoria interna)\b', text)
+    return not excluded and bool(re.match(r'^(iso\b|pack de \d+ isos\b)', text)) and any(
         category in text for category in ['certificacion inicial', 'recertificacion', 'seguimiento anual'])
 
 
