@@ -1,8 +1,9 @@
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+import basicSsl from '@vitejs/plugin-basic-ssl'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), ...(process.env.CRM_LOCAL_HTTPS === '1' ? [basicSsl({ name: 'LiciHub local' })] : [])],
   server: { port: 5174, strictPort: true, proxy: { '/api': { target: process.env.CRM_API_URL ?? 'http://127.0.0.1:8001', changeOrigin: true } } },
 })

@@ -13,7 +13,7 @@ class ApiTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.repo = RelationalRepository(Path(self.tmp.name) / 'test.sqlite3', empty_state())
-        self.client = TestClient(create_app(Settings(mode='demo'), self.repo))
+        self.client = TestClient(create_app(Settings(_env_file=None, mode='demo'), self.repo))
         self.client.headers['Origin'] = 'http://127.0.0.1:5174'
 
     def tearDown(self):
@@ -47,7 +47,7 @@ class ApiTests(unittest.TestCase):
 
     def test_supabase_mode_fails_closed_without_credentials(self):
         with self.assertRaises(ValueError):
-            create_app(Settings(mode='supabase'))
+            create_app(Settings(_env_file=None, mode='supabase'))
 
     def test_password_whitespace_is_preserved(self):
         self.assertEqual(Login(email='test@example.com', password=' pass word ').password, ' pass word ')
@@ -55,14 +55,14 @@ class ApiTests(unittest.TestCase):
     def test_restart_preserves_saved_state(self):
         self.command()
         repo = RelationalRepository(self.repo.path, empty_state())
-        with TestClient(create_app(Settings(mode='demo'), repo)) as client:
+        with TestClient(create_app(Settings(_env_file=None, mode='demo'), repo)) as client:
             self.assertEqual(len(client.get('/api/crm/state').json()['data']['deals']), 1)
 
     def test_legacy_json_configuration_imports_into_sqlite_and_keeps_original(self):
         legacy = Path(self.tmp.name) / 'previous-demo.json'
         original = json.dumps({'revision': 4, 'data': empty_state()}).encode()
         legacy.write_bytes(original)
-        config = Settings(mode='demo', data_file=legacy)
+        config = Settings(_env_file=None, mode='demo', data_file=legacy)
         with TestClient(create_app(config)) as client:
             self.assertEqual(client.get('/api/crm/state').json()['revision'], 4)
             response = client.post('/api/crm/commands', headers={'Origin': config.origin}, json={
@@ -76,7 +76,7 @@ class ApiTests(unittest.TestCase):
 
     def test_ingestion_authentication_and_replay(self):
         event = {'requestId': 'lici-test', 'payload': {'company': 'Evento Lici', 'service': 'ISO 9001', 'origin': 'Lici', 'kind': 'advice'}}
-        with TestClient(create_app(Settings(mode='demo', ingest_key='test-key'), self.repo)) as client:
+        with TestClient(create_app(Settings(_env_file=None, mode='demo', ingest_key='test-key'), self.repo)) as client:
             self.assertEqual(client.post('/api/crm/events', json=event).status_code, 401)
             first = client.post('/api/crm/events', json=event, headers={'x-crm-ingest-key': 'test-key'})
             self.assertEqual(first.json(), {'accepted': True, 'duplicate': False})
@@ -85,12 +85,12 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(len(client.get('/api/crm/state').json()['data']['deals']), 1)
 
     def test_demo_refuses_remote_clients_and_oversized_writes(self):
-        with TestClient(create_app(Settings(mode='demo'), self.repo), client=('198.51.100.5', 4000)) as client:
+        with TestClient(create_app(Settings(_env_file=None, mode='demo'), self.repo), client=('198.51.100.5', 4000)) as client:
             self.assertEqual(client.get('/api/crm/state').status_code, 403)
         self.assertEqual(self.client.post('/api/crm/commands', content='a' * 65537).status_code, 413)
 
     def test_production_requires_session_and_active_membership_and_catalog_role(self):
-        config = Settings(mode='supabase', origin='https://crm.example.com', supabase_url='https://project.example.com', supabase_secret_key='test-only', workspace_id='workspace-test')
+        config = Settings(_env_file=None, mode='supabase', origin='https://crm.example.com', supabase_url='https://project.example.com', supabase_secret_key='test-only', workspace_id='workspace-test')
         self.repo.member = AsyncMock(return_value=None)
         with TestClient(create_app(config, self.repo), base_url=config.origin) as client:
             self.assertEqual(client.get('/api/crm/state').status_code, 401)
