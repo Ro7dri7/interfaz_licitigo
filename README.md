@@ -4,7 +4,7 @@
 
 Primera entrega funcional del CRM comercial complementario a **Lici React** (`../interfaz_licitigo`). React 19, TypeScript 6, Vite 8, Tailwind CSS 4 y FastAPI. Identidad compartida a partir de los tokens del proyecto vigente; no usa la aplicación anterior Angular.
 
-**Estado al 19 de octubre de 2026:** funciona localmente con tablas SQLite y conserva la demo anterior. Modelo relacional y adaptador Supabase preparados y probados; el usuario ejecutará el SQL. [Orden de archivos y activación](docs/SUPABASE_RELACIONAL.md). No se aplicaron cambios remotos ni se conectó mensajería. Alcance completo y pendientes en [docs/ESTADO.md](docs/ESTADO.md).
+**Estado al 20 de octubre de 2026:** el usuario aplicó el SQL y proporcionó el espacio. Configuración local Supabase creada fuera de Git y lectura real verificada: espacio vacío, revisión 0. HTTPS local y pantalla de ingreso disponibles; falta comprobar el acceso con la cuenta comercial y su primer guardado. La demo SQLite anterior se conserva. [Configuración y activación](docs/SUPABASE_RELACIONAL.md); alcance completo en [docs/ESTADO.md](docs/ESTADO.md). Las integraciones de captación y mensajería siguen pendientes.
 
 El SQL vigente usa nombres en español (`empresas`, `negocios`, `cotizaciones`, `espacio_id`). Si ya se ejecutó la versión en inglés, la guía incluye una transición que conserva los datos. Ejecutar los scripts prepara la base; usar datos reales requiere además configurar Supabase, habilitar miembros y verificar el acceso HTTPS.
 
@@ -18,8 +18,8 @@ npm run api
 ```
 
 ```powershell
-# Terminal 2: interfaz en http://127.0.0.1:5174
-npm run dev
+# Terminal 2: interfaz HTTPS para el modo Supabase configurado en este equipo
+npm run dev:https
 ```
 
 El lanzador de API prefiere `backend/.venv`, después reutiliza el Python ya disponible en `../interfaz_licitigo/backend/.venv` en Windows. También admite `CRM_PYTHON` como ruta absoluta al ejecutable. No cambia las dependencias de Lici.
@@ -32,7 +32,9 @@ py -m venv backend/.venv
 & '.\backend\.venv\Scripts\python.exe' -m pip install -r backend/requirements.txt
 ```
 
-Para configurar valores propios, copiar `backend/.env.example` a `backend/.env`. El modo local funciona sin archivo `.env`. Abrir **127.0.0.1**, no `localhost`, para mantener el origen configurado en los guardados. El frontend reenvía `/api` a la API; no hay que configurar CORS.
+Abrir **https://127.0.0.1:5174**. El certificado es autofirmado para desarrollo: el navegador puede mostrar una advertencia al abrir esa dirección local. No se instaló una autoridad de confianza en Windows. Para una demo sin Supabase, usar `CRM_MODE=demo`, `CRM_ORIGIN=http://127.0.0.1:5174` y `npm run dev`.
+
+Para configurar valores propios, copiar `backend/.env.example` a `backend/.env`. La demo funciona sin archivo `.env`. Usar exactamente el origen configurado; el frontend reenvía `/api` a la API HTTP restringida a loopback. No hay que configurar CORS. La clave de servidor permanece en el backend y no se carga desde Vite.
 
 El modo demo no pide contraseña y solo admite acceso local. Usa `backend/data/demo.sqlite3`: si existe el antiguo `demo.json`, lo importa una sola vez y conserva el original intacto. Recargar o reiniciar conserva los cambios en tablas. Usar **un único proceso de API** sobre esa demo. Para respaldarla, detener la API y copiar SQLite junto con sus archivos `-wal`/`-shm` si existen; el JSON conservado no incluye cambios posteriores. Para comenzar otra demo, asignar un archivo SQLite nuevo con `CRM_DATA_FILE`. No ingresar datos reales en esta demo ni publicarla a través de un proxy.
 

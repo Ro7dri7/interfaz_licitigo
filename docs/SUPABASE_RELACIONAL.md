@@ -1,6 +1,6 @@
 # Activar la base relacional de LiciHub
 
-Actualizado: 19/10/2026. El usuario ejecutará los archivos SQL personalmente. **No se ha aplicado SQL ni cargado datos comerciales en Supabase desde esta entrega.** La interfaz funciona localmente con SQLite relacional.
+Actualizado: 20/10/2026. El usuario ejecutó los scripts y proporcionó el espacio. Se creó `backend/.env` fuera de Git y se verificó por lectura real la conexión, las tres funciones y el espacio vacío, revisión 0. HTTPS local y pantalla de acceso comprobados; falta validar inicio de sesión con una cuenta comercial y su primer guardado. No se cargaron ejemplos ni datos comerciales remotos desde estas verificaciones. La demo SQLite se conserva aparte.
 
 ## 1. Proyecto y orden de ejecución
 
@@ -87,9 +87,15 @@ Desde la carpeta `lici-crm`, comprobar sin modificar registros:
 
 Con el entorno propio, usar `backend/.venv/Scripts/python.exe`. El informe muestra proyecto, presencia de funciones, revisión y cantidades de registros; no muestra claves ni datos de clientes. Código de salida 0: funciones y espacio accesibles; 1: preparación incompleta; 2: error de configuración/conexión. `--portal-env` permite comprobar las funciones usando el archivo de configuración existente del portal; no configura el CRM y normalmente no incluye su espacio.
 
-La última comprobación real encontró conexión correcta, pero **faltan las tres funciones y el espacio comercial todavía no está configurado**. Después del SQL, este resultado debe cambiar.
+La comprobación real del 20/10 encontró conexión correcta, **ninguna función faltante**, espacio accesible y todas las colecciones comerciales vacías. El comando terminó con código 0. Esto confirma lectura de la base con la configuración de servidor; todavía no demuestra el acceso mediante la cuenta comercial ni una escritura autenticada.
 
-Servir frontend y `/api/crm` bajo el mismo origen HTTPS. El modo Supabase exige HTTPS por su cookie de sesión segura; `http://127.0.0.1:5174` continúa siendo la demo local, no una sesión Supabase. Reiniciar la API después de cambiar configuración. El despliegue HTTPS y las pruebas de Supabase Auth con cuentas reales siguen pendientes.
+Servir frontend y `/api/crm` bajo el mismo origen HTTPS. El modo Supabase exige HTTPS por su cookie de sesión segura. Para probar en este equipo sin dominio público, usar `CRM_ORIGIN=https://127.0.0.1:5174`, iniciar `npm run api` y en otra terminal `npm run dev:https`. No combinar protocolos: `https:http://...` es inválido. Abrir exactamente **https://127.0.0.1:5174**.
+
+El comando HTTPS activa `@vitejs/plugin-basic-ssl` solamente para ese servidor de desarrollo. Genera un certificado autofirmado en la caché ignorada `node_modules/.vite/basic-ssl`; el navegador puede mostrar una advertencia. No se cambió el almacén de confianza del sistema. Vite termina TLS y reenvía `/api` a la API HTTP en loopback; las llamadas hacia Supabase mantienen la validación TLS normal. El servidor de desarrollo no debe publicarse como despliegue productivo. Reiniciar la API al cambiar el `.env`.
+
+`npm run dev` conserva el modo HTTP para la demo; no coincide con el origen HTTPS de esta configuración Supabase. Las pruebas usan servidores y datos ficticios separados, y las pruebas Python no leen las credenciales de `backend/.env`.
+
+Referencias: [HTTPS en Vite](https://vite.dev/config/server-options.html#server-https) y [certificado de desarrollo del plugin oficial](https://github.com/vitejs/vite-plugin-basic-ssl).
 
 Verificar antes del piloto: sin sesión → 401; cliente sin membresía → 403; asesor sin permiso de catálogo → 403; administrador habilitado → guardado correcto. Probar revocación de membresía, expiración, dos sesiones que escriban a la vez, reintento sin duplicados y respaldo/restauración. Estas comprobaciones remotas no están sustituidas por las pruebas locales.
 

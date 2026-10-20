@@ -1,5 +1,7 @@
 # Estado de la primera entrega
 
+Actualización 20/10/2026: SQL aplicado por el usuario; configuración local Supabase guardada fuera de Git. Las funciones y el espacio real son accesibles, con revisión 0 y colecciones vacías. Se habilitó HTTPS local en `https://127.0.0.1:5174` mediante `npm run dev:https` y se comprobó la pantalla de ingreso; sin sesión, la API responde 401. Faltan inicio de sesión con la cuenta comercial y primer guardado autenticado, validación remota de roles y despliegue público. No se importó la demo ni se escribieron datos comerciales remotos. La nota del 19/10 describe el estado anterior.
+
 Actualización 19/10/2026: marca visible **LiciHub** aplicada al CRM y al Portal Clientes React. Revisión de los dos videos, capturas, referencia CRM/Bandeja y documentación 360dialog/n8n completada; el nuevo alcance está en [LICIHUB_FLUJOS_Y_REQUISITOS.md](LICIHUB_FLUJOS_Y_REQUISITOS.md). Persistencia local sustituida por SQLite relacional y migraciones/adaptador PostgreSQL probados. El usuario ejecutará los archivos en Supabase; [guía de activación](SUPABASE_RELACIONAL.md). No se aplicó SQL remoto. La aplicación comercial sigue en modo local y las nuevas integraciones aún no están activadas.
 
 16 de octubre de 2026. Desarrollo autorizado sobre el stack React vigente. Esta entrega permite evaluar el flujo comercial con persistencia local; no declara completado todo el plan ni habilitado un CRM productivo.
@@ -26,7 +28,7 @@ Los indicadores abarcan todo el espacio cargado, sin período ni aislamiento por
 
 | Integración | Disponible | Falta |
 |---|---|---|
-| Supabase actual (`jwxdwszinjdhzoierizm`) | Esquema privado de 13 tablas, índices y claves al portal; funciones transaccionales, actor por UUID, acceso por Supabase Auth y membresía CRM, roles admin/commercial, cookie HttpOnly/Secure | Usuario ejecuta 002/003, provisiona espacio/miembros y configura servidor; desplegar HTTPS, probar sesiones y concurrencia reales |
+| Supabase actual (`jwxdwszinjdhzoierizm`) | SQL aplicado por el usuario, espacio configurado y lectura real vacía verificada; HTTPS local y pantalla de acceso; esquema privado, funciones transaccionales, roles y cookie segura preparados | Probar inicio de sesión, membresía, primer guardado y concurrencia con cuentas reales; desplegar HTTPS público |
 | Lici React | Receptor autenticado y contrato de solicitudes/señales, deduplicación de entrega | Emisor en `interfaz_licitigo`, outbox/reintentos durables, IDs reales, correspondencia de servicios, vínculo al análisis y validación de permisos |
 | Telegram | Se ubicó el bot existente de Lici y se conservó su proyecto | Decidir eventos comerciales, enlazar usuarios autorizados, implementar entrega y verificar el bot; no se enviaron mensajes |
 | WhatsApp/correo | Registro manual de origen y actividad | Integración de cuentas, bandeja, envíos y estados de entrega |
