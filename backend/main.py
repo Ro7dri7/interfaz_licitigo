@@ -16,6 +16,9 @@ from .domain import Input, apply_command
 from .repository import AccessDenied, Conflict, StorageUnavailable, SupabaseRepository
 from .relational import RelationalRepository
 from .seed import demo_state
+from .iso_catalog import metadata, catalog
+
+TEST_ADVISORS = ['Lucía Mendoza (prueba)', 'Diego Salazar (prueba)']
 
 
 class Settings(BaseSettings):
@@ -96,7 +99,10 @@ def create_app(settings=None, repository=None):
 
     def public(snapshot):
         # Idempotency hashes remain server-side.
-        return {'revision': snapshot['revision'], 'data': {k: v for k, v in snapshot['data'].items() if k != 'receipts'}}
+        data = {k: v for k, v in snapshot['data'].items() if k != 'receipts'}
+        data['products'] = [p | ({key: m[key] for key in ['sku', 'category', 'isPackage', 'sourceRow']} if (m := metadata(p['id'])) else {})
+                            for p in data['products']]
+        return {'revision': snapshot['revision'], 'data': data}
 
     @app.exception_handler(Conflict)
     async def conflict_handler(_request, _error):
@@ -124,7 +130,7 @@ def create_app(settings=None, repository=None):
 
     @app.get('/api/crm/session')
     async def session(request: Request):
-        return {'mode': config.mode, 'user': await account(request)}
+        return {'mode': config.mode, 'user': await account(request), 'advisors': TEST_ADVISORS, 'isoCatalogSize': len(catalog())}
 
     @app.post('/api/crm/login')
     async def login(data: Login, response: Response):
@@ -156,7 +162,7 @@ def create_app(settings=None, repository=None):
     @app.post('/api/crm/commands')
     async def command(data: Command, request: Request):
         actor = await account(request)
-        if data.operation == 'product' and actor['role'] != 'admin':
+        if data.operation in ['product', 'import_iso'] and actor['role'] != 'admin':
             raise HTTPException(403, 'Solo administración puede agregar servicios al catálogo.')
         snapshot = await repo.load(request_id=data.requestId)
         updated = apply_command(snapshot['data'], data.operation, data.payload, actor['name'], data.requestId)

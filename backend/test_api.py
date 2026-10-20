@@ -104,6 +104,9 @@ class ApiTests(unittest.TestCase):
                 self.assertEqual(client.get('/api/crm/state').status_code, 200)
                 result = client.post('/api/crm/commands', headers={'Origin': config.origin}, json={'revision': 0, 'requestId': 'denied', 'operation': 'product', 'payload': {'name': 'ISO', 'price': 100}})
                 self.assertEqual(result.status_code, 403)
+                denied_import = client.post('/api/crm/commands', headers={'Origin': config.origin}, json={
+                    'revision': 0, 'requestId': 'denied-iso', 'operation': 'import_iso', 'payload': {}})
+                self.assertEqual(denied_import.status_code, 403)
                 self.assertEqual(client.get('/api/crm/state').json()['revision'], 0)
 
 

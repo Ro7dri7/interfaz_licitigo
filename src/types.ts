@@ -21,7 +21,7 @@ export interface Deal {
 }
 export interface Task { id: string; dealId: string; title: string; dueAt: string; done: boolean; completedAt: string | null }
 export interface Activity { id: string; dealId: string; kind: string; text: string; actor: string; createdAt: string }
-export interface Product { id: string; name: string; price: number; currency: string; active: boolean }
+export interface Product { id: string; name: string; price: number; currency: string; active: boolean; sku?: string; category?: string; isPackage?: boolean; sourceRow?: number }
 export interface Quote {
   id: string; dealId: string; number: string; version: number; productName: string; unitPrice: number; quantity: number;
   subtotal: number; discountPercent: number; discountAmount: number; taxPercent: number; taxAmount: number; total: number;
@@ -29,7 +29,7 @@ export interface Quote {
 }
 export interface Data { companies: Company[]; contacts: Contact[]; prospects: Prospect[]; deals: Deal[]; tasks: Task[]; activities: Activity[]; products: Product[]; quotes: Quote[] }
 export interface Snapshot { revision: number; data: Data }
-export interface Session { mode: 'demo' | 'supabase'; user: { name: string; role: 'admin' | 'commercial' } }
+export interface Session { mode: 'demo' | 'supabase'; user: { name: string; role: 'admin' | 'commercial' }; advisors?: string[]; isoCatalogSize?: number }
 export const money = (cents: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 2 }).format(cents / 100)
 export const dateLabel = (value: string) => new Intl.DateTimeFormat('es-PE', { day: 'numeric', month: 'short', timeZone: 'America/Lima' }).format(new Date(value.length === 10 ? value + 'T12:00:00-05:00' : value))
 export const dateTime = (value: string) => new Intl.DateTimeFormat('es-PE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Lima' }).format(new Date(value))

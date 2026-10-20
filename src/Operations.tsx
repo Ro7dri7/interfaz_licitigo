@@ -38,11 +38,7 @@ export function QuotePreview({ quote: q, onClose }: { quote: Quote; onClose: () 
     <footer><button onClick={onClose}>Cerrar</button><button className="primary" onClick={() => window.print()}><Icon name="file" /> Imprimir / guardar PDF</button></footer></Modal>
 }
 
-export function Catalog({ onCreate }: { onCreate: () => void }) {
-  const { snapshot: { data }, session } = useCRM()
-  return <><PageHead title="Catálogo de servicios" description="La base para preparar propuestas consistentes.">{session.user.role === 'admin' && <button className="primary" onClick={onCreate}><Icon name="plus" /> Nuevo servicio</button>}</PageHead>
-    <section className="panel table-wrap"><table><thead><tr><th>Servicio</th><th>Precio base</th><th>Moneda</th><th>Disponibilidad</th></tr></thead><tbody>{data.products.map(p => <tr key={p.id}><td><strong>{p.name}</strong></td><td>{money(p.price)}</td><td>PEN · Sol peruano</td><td><Badge tone="green">Activo</Badge></td></tr>)}</tbody></table>{!data.products.length && <Empty title="Aún no hay servicios">Agrega el primer servicio para empezar a cotizar.</Empty>}</section></>
-}
+export { default as Catalog } from './Catalog'
 
 export function SettingsPage() {
   const { session } = useCRM()

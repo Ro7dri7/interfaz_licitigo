@@ -8,6 +8,7 @@ from typing import Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from .iso_catalog import import_catalog
 
 STAGES = ['new', 'contacted', 'qualified', 'quoted', 'followup', 'won', 'lost']
 LABELS = dict(zip(STAGES, ['Nuevo', 'Contactado', 'Necesidad validada', 'Cotización enviada', 'Seguimiento', 'Ganado', 'Perdido']))
@@ -94,7 +95,7 @@ class Quote(Input):
 
 
 SCHEMAS = {'intake': Intake, 'convert': Convert, 'stage': Move, 'activity': Activity,
-           'task': Task, 'complete_task': Complete, 'product': Product, 'quote': Quote}
+           'task': Task, 'complete_task': Complete, 'product': Product, 'quote': Quote, 'import_iso': Input}
 
 
 def find(rows, identifier):
@@ -222,6 +223,8 @@ def apply_command(original, operation, payload, actor, request_id):
             log(state, task['dealId'], 'task', f'Tarea completada: {task["title"]}', actor)
     elif operation == 'product':
         state['products'].append(dict(id=uid(), name=data.name, price=cents(data.price * 100), currency='PEN', active=True))
+    elif operation == 'import_iso':
+        import_catalog(state)
     elif operation == 'quote':
         create_quote(state, data, actor)
     state['receipts'].append(dict(id=request_id, digest=digest))

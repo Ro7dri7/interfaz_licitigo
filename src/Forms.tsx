@@ -5,13 +5,15 @@ import { originLabel, evidenceLabels, kindLabels, money, origins } from './types
 import type { Deal } from './types'
 
 export function IntakeForm({ onClose }: { onClose: () => void }) {
+  const { session, snapshot: { data } } = useCRM()
+  const owners = [...new Set(['Sin asignar', ...(session.advisors ?? []), ...data.deals.map(d => d.owner)])]
   const [kind, setKind] = useState('manual')
   return <Modal title="Agregar prospecto" onClose={onClose}><CommandForm operation="intake" onClose={onClose} label="Registrar prospecto" prepare={f => ({ ...Object.fromEntries(f), deadline: f.get('deadline') || null })}>
     <p className="form-intro">Registra el interés y su procedencia. Las solicitudes de asesoría o cotización abren un negocio; las señales quedan en prospectos.</p>
     <div className="form-grid"><label>Empresa *<input name="company" required minLength={2} maxLength={160} placeholder="Razón social o nombre comercial" /></label>
     <label>RUC<input name="ruc" inputMode="numeric" pattern="[0-9]{11}" maxLength={11} placeholder="11 dígitos · opcional" /></label>
     <label>Persona de contacto<input name="contact" maxLength={100} placeholder="Nombre y apellido" /></label><label>Correo<input name="email" type="email" placeholder="nombre@empresa.com" /></label>
-    <label>Teléfono<input name="phone" type="tel" maxLength={30} placeholder="+51" /></label><label>Responsable<input name="owner" defaultValue="Sin asignar" required minLength={2} maxLength={80} list="owners" /></label>
+    <label>Teléfono<input name="phone" type="tel" maxLength={30} placeholder="+51" /></label><label>Responsable<select name="owner" defaultValue="Sin asignar">{owners.map(owner => <option key={owner}>{owner}</option>)}</select></label>
     <label>Origen<select name="origin" defaultValue="Manual">{origins.map(v => <option key={v} value={v}>{originLabel(v)}</option>)}</select></label>
     <label>Tipo de entrada<select name="kind" value={kind} onChange={e => setKind(e.target.value)}>{Object.entries(kindLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div>
     <label>Servicio de interés *<input name="service" required minLength={2} maxLength={160} placeholder="Ej. ISO 9001" list="services" /></label>
