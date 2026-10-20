@@ -4,7 +4,7 @@ Repositorio privado: https://github.com/Favianlc/licihub-crm. Cada integrante ne
 
 ## 1. Descargar e instalar
 
-Requisitos: Git, Node.js 24 LTS con npm y Python 3.12 o posterior. Google Chrome es necesario solo para las pruebas de navegador.
+Requisitos: Git, Node.js 24 LTS con npm y Python 3.12 o posterior (instalación limpia verificada con Python 3.14). Google Chrome es necesario solo para las pruebas de navegador.
 
 En PowerShell:
 
