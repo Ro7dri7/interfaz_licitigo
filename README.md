@@ -10,9 +10,13 @@ El SQL vigente usa nombres en español (`empresas`, `negocios`, `cotizaciones`, 
 
 **Ampliación de cotizaciones (20/10):** varias partidas/paquetes, IGV incluido por defecto, envío/aceptación/rechazo registrados y documento comercial de INTERCERT; catálogo ISO del Excel (540 referencias, 165 paquetes) y dos responsables ficticios. Para activarlo en el espacio Supabase actual faltan **006 y 007**, en ese orden; [instrucciones y flujo comercial](docs/COTIZACIONES.md). No se aplicaron estas migraciones remotas desde el desarrollo.
 
+## Instalación para el equipo
+
+Repositorio privado: [Favianlc/licihub-crm](https://github.com/Favianlc/licihub-crm). [Guía para clonar, instalar, configurar Supabase y trabajar en equipo](docs/INSTALACION_EQUIPO.md). El CRM funciona por separado del portal. Cada integrante necesita acceso al repositorio y su propia configuración local; las migraciones compartidas se ejecutan una sola vez.
+
 ## Arrancar en este equipo
 
-Desde `C:\Users\Favian\Downloads\testeos\lici-crm`, abrir dos terminales:
+Desde la carpeta donde se clonó `licihub-crm`, abrir dos terminales:
 
 ```powershell
 # Terminal 1: API en http://127.0.0.1:8001
@@ -54,7 +58,7 @@ El modo demo no pide contraseña y solo admite acceso local. Usa `backend/data/d
 ```powershell
 npm run build
 npm run lint
-& '..\interfaz_licitigo\backend\.venv\Scripts\python.exe' -m unittest discover -s backend -t .
+& '.\backend\.venv\Scripts\python.exe' -m unittest discover -s backend -t .
 npm run test:db
 npm run test:e2e
 ```

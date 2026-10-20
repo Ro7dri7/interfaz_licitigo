@@ -28,7 +28,7 @@ Lici y Lici CRM compartirán logo, paleta, tipografía, botones, inputs, tarjeta
 - Cabecera común con identidad Lici, búsqueda y usuario. El CRM incorporará navegación lateral para sus módulos; el acceso entre aplicaciones respetará los permisos del usuario.
 - Tableros y listas compactos pero legibles. Formularios de alta en panel lateral. Ficha completa de tres columnas en escritorio y secciones apiladas/pestañas en pantallas pequeñas.
 - Reservar el azul oscuro para bloques de inteligencia o navegación. Evitar marcas de agua detrás de datos y barras decorativas permanentes.
-- Las capturas son referencias, no evidencia de una integración: indicadores de sincronización, copilot o estado RNP aparecerán únicamente cuando dispongan de datos verificables. No copiar afirmaciones legales o de disponibilidad incluidas en los mockups.
+- Las capturas son referencias, no evidencia de una integración: indicadores de sincronización, asistencia contextual o estado RNP aparecerán únicamente cuando dispongan de datos verificables. No copiar afirmaciones legales o de disponibilidad incluidas en los mockups.
 
 ## Mapa inicial de apartados
 

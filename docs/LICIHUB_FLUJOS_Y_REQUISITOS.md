@@ -6,7 +6,7 @@ Este documento recoge lo solicitado por el usuario, lo explicado en los videos, 
 
 ## 1. Cómo encender y revisar lo construido
 
-El CRM está en `C:\Users\Favian\Downloads\testeos\lici-crm`. Abrir dos terminales PowerShell en esa carpeta:
+Abrir dos terminales PowerShell en la carpeta del repositorio CRM. Para una instalación nueva, seguir [INSTALACION_EQUIPO.md](INSTALACION_EQUIPO.md). Este recorrido corresponde al modo demo; el modo Supabase usa HTTPS.
 
 ```powershell
 # Terminal 1: API y almacenamiento local
@@ -36,7 +36,7 @@ El Portal Clientes React se mantiene en `../interfaz_licitigo`, con frontend 517
 | Código local | CRM y Portal Clientes React, especialmente `DetalleDesbloqueo.tsx`, integración de análisis n8n y receptor CRM | Permite separar lo existente de lo que falta desarrollar |
 | Documentación oficial 360dialog/n8n | API de mensajes, webhooks, ventanas, costes, credenciales y derivación humana | Consultada el 19/10/2026. No se contrató ni conectó ninguna cuenta |
 
-Los videos y transcripciones se procesaron en este equipo; no se subieron a servicios de transcripción. Los originales permanecen en `C:\Users\Favian\Videos`. La evidencia derivada de revisión está en `.playwright-cli/media`, excluida de Git. No se incorporan datos personales de clientes ni credenciales de la referencia al documento.
+Los videos y transcripciones se procesaron en este equipo; no se subieron a servicios de transcripción. Los originales se conservan localmente fuera del repositorio. La evidencia derivada de revisión está en `.playwright-cli/media`, excluida de Git. No se incorporan datos personales de clientes ni credenciales de la referencia al documento.
 
 ### Lo explicado en el video con audio
 
