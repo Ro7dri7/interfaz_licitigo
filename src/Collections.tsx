@@ -64,11 +64,24 @@ export function Pipeline({ onCreate }: { onCreate: () => void }) {
 }
 
 export function Directory({ contacts = false, onCreate }: { contacts?: boolean; onCreate: () => void }) {
-  const { snapshot: { data } } = useCRM(), [params] = useSearchParams(), q = (params.get('q') ?? '').toLocaleLowerCase()
-  const rows = data.companies.filter(c => (!contacts || data.contacts.some(p => p.companyId === c.id))).filter(c => `${c.name} ${c.ruc} ${data.contacts.filter(p => p.companyId === c.id).map(p => `${p.name} ${p.email} ${p.phone}`).join(' ')}`.toLocaleLowerCase().includes(q) && (!params.get('origen') || c.origin === params.get('origen')))
-  return <><PageHead title={contacts ? 'Contactos' : 'Empresas'} description="Una relación comercial, con toda su historia conectada."><button className="primary" onClick={onCreate}><Icon name="plus" /> Registrar prospecto</button></PageHead><Filters />
-    <section className="panel table-wrap"><table><thead><tr><th>{contacts ? 'Contacto' : 'Empresa / RUC'}</th><th>{contacts ? 'Empresa' : 'Contactos'}</th><th>Correo / teléfono</th><th>Negocios asociados</th></tr></thead><tbody>{rows.flatMap(c => {
-      const people = data.contacts.filter(p => p.companyId === c.id), deals = data.deals.filter(d => d.companyId === c.id)
-      return (contacts ? people : [people[0]]).map((p, i) => <tr key={`${c.id}-${i}`}><td><strong>{contacts ? p?.name : c.name}</strong><small>{contacts ? p?.email : c.ruc || 'RUC por completar'}</small></td><td>{contacts ? c.name : people.map(p => p.name).join(', ') || 'Sin contacto'}</td><td>{p?.email || '—'}<small>{p?.phone || 'Sin teléfono'}</small></td><td>{deals.length ? deals.map(d => <Link key={d.id} className="association-link" to={`/negocios/${d.id}`}>{d.service} <Icon name="arrow" size={14} /></Link>) : <Badge>En prospección</Badge>}</td></tr>)
-    })}</tbody></table>{!rows.length && <Empty />}</section></>
+  const { snapshot: { data } } = useCRM(), [params] = useSearchParams()
+  const query = (params.get('q') ?? '').toLocaleLowerCase(), companyId = params.get('empresa')
+  const companies = data.companies.filter(c => (!companyId || c.id === companyId) && (!params.get('origen') || c.origin === params.get('origen')))
+  const companyRows = companies.filter(c => `${c.name} ${c.ruc}`.toLocaleLowerCase().includes(query))
+  const people = data.contacts.filter(p => companies.some(c => c.id === p.companyId)
+    && `${p.name} ${p.email} ${p.phone} ${companies.find(c => c.id === p.companyId)?.name}`.toLocaleLowerCase().includes(query))
+  return <><PageHead title={contacts ? 'Contactos' : 'Empresas'}
+    description={contacts ? 'Personas con quienes conversas: correo, teléfono y empresa a la que pertenecen.' : 'Organizaciones identificadas por su RUC, con sus contactos y oportunidades comerciales.'}>
+    <button className="primary" onClick={onCreate}><Icon name="plus" /> Registrar prospecto</button></PageHead>
+    <div className="info-strip"><Icon name={contacts ? 'users' : 'company'} />{contacts ? 'Una empresa puede tener varios contactos: compras, gerencia o administración. Cada persona conserva sus propios datos.' : 'La empresa es la organización; los contactos son las personas que trabajan en ella. No son registros equivalentes.'}</div>
+    <Filters />
+    <section className="panel table-wrap">{contacts ? <table><thead><tr><th>Persona de contacto</th><th>Empresa</th><th>Correo</th><th>Teléfono</th><th>Negocios de su empresa</th></tr></thead><tbody>{people.map(person => {
+      const company = companies.find(c => c.id === person.companyId), deals = data.deals.filter(d => d.companyId === person.companyId)
+      return <tr key={person.id}><td><strong>{person.name}</strong></td><td><Link to={`/empresas?empresa=${company?.id}`}>{company?.name}</Link><small>{company?.ruc || 'RUC por completar'}</small></td><td>{person.email || 'Sin correo'}</td><td>{person.phone || 'Sin teléfono'}</td><td>{deals.map(d => <Link key={d.id} className="association-link" to={`/negocios/${d.id}`}>{d.service}<Icon name="arrow" size={14} /></Link>)}{!deals.length && <Badge>En prospección</Badge>}</td></tr>
+    })}</tbody></table> : <table><thead><tr><th>Empresa / razón social</th><th>RUC</th><th>Personas de contacto</th><th>Oportunidades</th><th>Valor abierto</th></tr></thead><tbody>{companyRows.map(company => {
+      const people = data.contacts.filter(p => p.companyId === company.id), deals = data.deals.filter(d => d.companyId === company.id)
+      return <tr key={company.id}><td><strong>{company.name}</strong><small>{originLabel(company.origin)}</small></td><td className="mono">{company.ruc || 'Por completar'}</td><td><Link className="text-link" to={`/contactos?empresa=${company.id}`}>{people.length} {people.length === 1 ? 'contacto' : 'contactos'}<Icon name="arrow" size={14} /></Link><small>{people.map(p => p.name).join(', ') || 'Sin personas asociadas'}</small></td><td>{deals.map(d => <Link key={d.id} className="association-link" to={`/negocios/${d.id}`}>{d.service}<Icon name="arrow" size={14} /></Link>)}{!deals.length && <Badge>En prospección</Badge>}</td><td>{money(deals.filter(d => !['won', 'lost'].includes(d.stage)).reduce((sum, d) => sum + d.amount, 0))}</td></tr>
+    })}</tbody></table>}
+    {!(contacts ? people.length : companyRows.length) && <Empty>{contacts ? 'No hay personas que coincidan con esos filtros.' : 'No hay organizaciones que coincidan con esos filtros.'}</Empty>}
+    <div className="table-foot">{contacts ? `${people.length} personas` : `${companyRows.length} empresas`} · {contacts ? 'Cada fila corresponde a una persona.' : 'Cada fila corresponde a una organización.'}</div></section></>
 }

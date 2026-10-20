@@ -3,12 +3,14 @@ import { Link, useParams } from 'react-router-dom'
 import { Badge, Empty, Icon } from './components'
 import { DealForm } from './Forms'
 import { useCRM } from './crm-context'
-import { originLabel, dateLabel, dateTime, evidenceLabels, initials, kindLabels, money, stages } from './types'
+import { originLabel, dateLabel, dateTime, evidenceLabels, initials, kindLabels, money, stages, quoteStatusLabels } from './types'
 import type { Quote } from './types'
 import { QuotePreview } from './Operations'
 
 export default function DealDetail() {
-  const { id } = useParams(), { snapshot: { data }, command, now } = useCRM()
+  const { id } = useParams(), { snapshot, session, command, now } = useCRM()
+  const data = snapshot.data
+  const quotesReady = session.mode === 'demo' || (snapshot.schemaVersion ?? 1) >= 2
   const [form, setForm] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false)
   const [filter, setFilter] = useState('all'), [quote, setQuote] = useState<Quote | null>(null)
   const deal = data.deals.find(d => d.id === id)
@@ -26,8 +28,8 @@ export default function DealDetail() {
         setBusy(true); setError(''); try { await command('stage', { dealId: deal.id, stage }) } catch (err) { setError((err as Error).message) } finally { setBusy(false) }
       }}>{stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
       {error && <p role="alert" className="error">{error}</p>}
-      <div className="quick-actions"><button onClick={() => setForm('activity')}><Icon name="file" />Actividad</button><button onClick={() => setForm('task')}><Icon name="calendar" />Tarea</button><button onClick={() => setForm('quote')} disabled={['won', 'lost'].includes(deal.stage)}><Icon name="plus" />Cotizar</button></div>
-      <h2>Propiedades del negocio</h2><dl className="properties"><div><dt>Responsable</dt><dd><span className="avatar small">{initials(deal.owner)}</span>{deal.owner}</dd></div>
+      <div className="quick-actions"><button onClick={() => setForm('activity')}><Icon name="file" />Actividad</button><button onClick={() => setForm('task')}><Icon name="calendar" />Tarea</button><button onClick={() => setForm('quote')} disabled={!quotesReady || ['won', 'lost'].includes(deal.stage)}><Icon name="plus" />Cotizar</button></div>
+      <h2>Propiedades del negocio</h2>{!quotesReady && <p className="hint">Actualización pendiente: ejecuta 006_cotizaciones_multiples.sql para habilitar las nuevas propuestas.</p>}<dl className="properties"><div><dt>Responsable</dt><dd><span className="avatar small">{initials(deal.owner)}</span>{deal.owner}</dd></div>
         <div><dt>Origen</dt><dd>{originLabel(deal.origin)}</dd></div><div><dt>RUC</dt><dd className="mono">{company?.ruc || 'Por completar'}</dd></div><div><dt>Creado</dt><dd>{dateLabel(deal.createdAt)}</dd></div>
         <div><dt>Moneda</dt><dd>PEN · Sol peruano</dd></div>{deal.lossReason && <div><dt>Motivo de pérdida</dt><dd>{deal.lossReason}</dd></div>}</dl>
       <p className="hint">El valor comercial corresponde al servicio cotizado, independiente del monto de la licitación.</p>
@@ -44,7 +46,7 @@ export default function DealDetail() {
         setBusy(true); setError(''); try { await command('complete_task', { taskId: t.id }) } catch (e) { setError((e as Error).message) } finally { setBusy(false) }
       }}>Marcar completada</button></div>)}{!tasks.some(t => !t.done) && <p className="hint">Sin acciones pendientes. Programa el siguiente contacto.</p>}</div></section>
       <section className="panel"><div className="section-head"><h2>Contactos <span>({contacts.length})</span></h2></div><div className="aside-content">{contacts.map(c => <div className="contact-block" key={c.id}><span className="avatar">{initials(c.name)}</span><strong>{c.name}</strong><p>{c.email || 'Sin correo'}</p><p>{c.phone || 'Sin teléfono'}</p></div>)}{!contacts.length && <p className="hint">Contacto pendiente de completar.</p>}</div></section>
-      <section className="panel"><div className="section-head"><h2>Cotizaciones <span>({quotes.length})</span></h2></div><div className="aside-content">{quotes.slice().reverse().map(q => <button className="quote-mini" key={q.id} onClick={() => setQuote(q)}><strong>{q.number} <span>v{q.version}</span></strong><p>{money(q.total)}</p><Badge>Borrador · no enviado</Badge></button>)}{!quotes.length && <p className="hint">Prepara una propuesta usando el catálogo.</p>}</div></section>
+      <section className="panel"><div className="section-head"><h2>Cotizaciones <span>({quotes.length})</span></h2></div><div className="aside-content">{quotes.slice().reverse().map(q => <button className="quote-mini" key={q.id} onClick={() => setQuote(q)}><strong>{q.number} <span>v{q.version}</span></strong><p>{money(q.total)}</p><Badge tone={q.status === 'accepted' ? 'green' : ''}>{quoteStatusLabels[q.status]} · {q.items.length} partidas</Badge></button>)}{!quotes.length && <p className="hint">Prepara una propuesta usando el catálogo.</p>}</div></section>
     </aside></div>
     {form && <DealForm deal={deal} type={form} onClose={() => setForm('')} />}{quote && <QuotePreview quote={quote} onClose={() => setQuote(null)} />}
   </>

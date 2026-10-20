@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { CommandForm, Modal } from './components'
 import { useCRM } from './crm-context'
-import { originLabel, evidenceLabels, kindLabels, money, origins } from './types'
+import { originLabel, evidenceLabels, kindLabels, origins } from './types'
 import type { Deal } from './types'
+import QuoteForm from './QuoteForm'
 
 export function IntakeForm({ onClose }: { onClose: () => void }) {
   const { session, snapshot: { data } } = useCRM()
@@ -33,20 +34,7 @@ export function ProductForm({ onClose }: { onClose: () => void }) {
 }
 
 export function DealForm({ deal, type, onClose }: { deal: Deal; type: string; onClose: () => void }) {
-  const { snapshot: { data } } = useCRM()
-  const [productId, setProductId] = useState(data.products[0]?.id ?? '')
-  const product = data.products.find(p => p.id === productId)
-  if (type === 'quote') return <Modal title="Preparar cotización" onClose={onClose}><CommandForm operation="quote" onClose={onClose} label="Guardar borrador" prepare={f => ({ ...Object.fromEntries(f), quantity: Number(f.get('quantity')), dealId: deal.id })}>
-    <p className="form-intro">{deal.service} · El borrador conserva sus precios y condiciones. No se enviará al cliente.</p>
-    <label>Servicio del catálogo *<select name="productId" required value={productId} onChange={e => setProductId(e.target.value)}><option value="" disabled>Selecciona un servicio</option>{data.products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
-    {product && <div className="price-preview"><span>Precio por unidad</span><strong>{money(product.price)}</strong></div>}
-    {!product && <p className="hint">Agrega primero un servicio desde Catálogo.</p>}
-    <div className="form-grid"><label>Cantidad<input name="quantity" type="number" min="1" max="1000" step="1" defaultValue="1" required /></label>
-      <label>Descuento (%)<input name="discount" type="number" min="0" max="100" step="0.01" defaultValue="0" required /></label>
-      <label>Impuesto (%)<input name="tax" type="number" min="0" max="100" step="0.01" defaultValue="18" required /></label>
-      <label>Válida hasta<input name="validUntil" type="date" required /></label></div>
-    <label>Condiciones<textarea name="terms" rows={3} maxLength={2000} placeholder="Forma de pago, alcance y condiciones de la propuesta" /></label>
-  </CommandForm></Modal>
+  if (type === 'quote') return <QuoteForm deal={deal} onClose={onClose} />
   if (type === 'task') return <Modal title="Programar próxima acción" onClose={onClose}><CommandForm operation="task" onClose={onClose} prepare={f => ({ title: f.get('title'), dueAt: new Date(String(f.get('dueAt'))).toISOString(), dealId: deal.id })}>
     <label>Tarea *<input name="title" required minLength={2} maxLength={200} placeholder="Ej. Confirmar alcance de la certificación" /></label>
     <label>Fecha y hora *<input name="dueAt" type="datetime-local" required /></label><p className="hint">Ingresa la hora local de este equipo. La agenda muestra hora de Perú.</p>

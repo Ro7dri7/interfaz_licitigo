@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Badge, Empty, Icon, Modal, PageHead } from './components'
+import { Badge, Empty, Icon, PageHead } from './components'
 import { useCRM } from './crm-context'
-import { dateLabel, dateTime, money } from './types'
+import { dateLabel, dateTime, money, quoteStatusLabels } from './types'
 import type { Quote } from './types'
+import QuotePreview from './QuoteDocument'
 
 export function Agenda() {
   const { snapshot: { data }, command, now } = useCRM(), [completed, setCompleted] = useState(false)
@@ -24,19 +25,11 @@ export function Quotes() {
   return <><PageHead title="Cotizaciones" description="Propuestas versionadas. Cada borrador conserva su precio y sus condiciones." />
     <section className="panel table-wrap"><table><thead><tr><th>Propuesta</th><th>Empresa / servicio</th><th>Estado</th><th>Vigencia</th><th>Total</th><th></th></tr></thead><tbody>{data.quotes.slice().reverse().map(q => {
       const d = data.deals.find(d => d.id === q.dealId), c = data.companies.find(c => c.id === d?.companyId)
-      return <tr key={q.id}><td><button className="record-button" onClick={() => setSelected(q)}>{q.number}</button><small>Versión {q.version}</small></td><td><Link to={`/negocios/${q.dealId}`}><strong>{c?.name}</strong></Link><small>{q.productName}</small></td><td><Badge>Borrador</Badge></td><td>{dateLabel(q.validUntil)}</td><td><strong>{money(q.total)}</strong></td><td><button onClick={() => setSelected(q)}>Ver propuesta</button></td></tr>
+      return <tr key={q.id}><td><button className="record-button" onClick={() => setSelected(q)}>{q.number}</button><small>Versión {q.version}</small></td><td><Link to={`/negocios/${q.dealId}`}><strong>{c?.name}</strong></Link><small>{q.items.length} {q.items.length === 1 ? 'partida' : 'partidas'} · {q.title || q.productName}</small></td><td><Badge tone={q.status === 'accepted' ? 'green' : q.status === 'sent' ? 'blue' : ''}>{quoteStatusLabels[q.status]}</Badge></td><td>{dateLabel(q.validUntil)}</td><td><strong>{money(q.total)}</strong></td><td><button onClick={() => setSelected(q)}>Ver propuesta</button></td></tr>
     })}</tbody></table>{!data.quotes.length && <Empty title="Tu primera propuesta empieza en un negocio">Abre un negocio y selecciona Cotizar.</Empty>}</section>{selected && <QuotePreview quote={selected} onClose={() => setSelected(null)} />}</>
 }
 
-export function QuotePreview({ quote: q, onClose }: { quote: Quote; onClose: () => void }) {
-  const { snapshot: { data } } = useCRM(), d = data.deals.find(d => d.id === q.dealId), c = data.companies.find(c => c.id === d?.companyId)
-  return <Modal title={`${q.number} · versión ${q.version}`} onClose={onClose} wide><div className="quote-sheet"><div className="quote-letterhead"><div className="brand">LiciHub<span>.</span></div><Badge>BORRADOR · NO ENVIADO</Badge></div>
-    <h2>Propuesta comercial</h2><p>Preparada para <strong>{c?.name}</strong></p><p className="hint">RUC {c?.ruc || 'por completar'} · Vigente hasta {dateLabel(q.validUntil)}</p>
-    <div className="table-wrap"><table><thead><tr><th>Servicio</th><th>Cantidad</th><th>Precio unitario</th></tr></thead><tbody><tr><td>{q.productName}</td><td>{q.quantity}</td><td>{money(q.unitPrice)}</td></tr></tbody></table></div>
-    <dl className="quote-totals"><div><dt>Subtotal</dt><dd>{money(q.subtotal)}</dd></div><div><dt>Descuento ({q.discountPercent}%)</dt><dd>− {money(q.discountAmount)}</dd></div><div><dt>Impuesto ({q.taxPercent}%)</dt><dd>{money(q.taxAmount)}</dd></div><div className="total"><dt>Total de la propuesta</dt><dd>{money(q.total)}</dd></div></dl>
-    <h3>Condiciones</h3><p className="preserve-lines">{q.terms || 'Condiciones pendientes de acordar con el cliente.'}</p><p className="hint">{q.number} · v{q.version} · Preparada el {dateLabel(q.createdAt)}. Este documento no acredita pago ni certificación.</p></div>
-    <footer><button onClick={onClose}>Cerrar</button><button className="primary" onClick={() => window.print()}><Icon name="file" /> Imprimir / guardar PDF</button></footer></Modal>
-}
+export { default as QuotePreview } from './QuoteDocument'
 
 export { default as Catalog } from './Catalog'
 

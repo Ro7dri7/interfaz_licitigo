@@ -26,7 +26,7 @@ export default function Catalog({ onCreate }: { onCreate: () => void }) {
       <select aria-label="Tipo de certificación" value={category} onChange={e => setCategory(e.target.value)}><option value="">Todos los servicios ISO</option>{Object.entries(categories).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
     </div>
     {error && <p role="alert" className="error">{error}</p>}
-    <section className="panel table-wrap"><table><thead><tr><th>Certificación / paquete</th><th>Tipo</th><th>Precio base PEN</th><th>Disponibilidad</th></tr></thead><tbody>{rows.map(p => <tr key={p.id}>
+    <section className="panel table-wrap"><table><thead><tr><th>Certificación / paquete</th><th>Tipo</th><th>Precio PEN · IGV incluido</th><th>Disponibilidad</th></tr></thead><tbody>{rows.map(p => <tr key={p.id}>
       <td><strong>{p.name}</strong><small>{p.sku ?? 'Registro manual'}{p.sourceRow ? ` · Excel, fila ${p.sourceRow}` : ''}</small></td><td><Badge tone={p.isPackage ? 'blue' : ''}>{p.isPackage ? 'Paquete ISO' : 'Individual'}</Badge><small>{categories[p.category ?? ''] ?? 'Servicio comercial'}</small></td>
       <td><strong>{money(p.price)}</strong></td><td><Badge tone={p.active ? 'green' : ''}>{p.active ? 'Activo' : 'Inactivo'}</Badge></td></tr>)}</tbody></table>
       {!rows.length && <Empty title="Sin certificaciones para mostrar">Importa el catálogo o ajusta los filtros.</Empty>}<div className="table-foot">{rows.length} referencias · Los paquetes conservan su precio propio; no se suman como certificaciones individuales.</div>

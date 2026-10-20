@@ -25,11 +25,17 @@ export interface Product { id: string; name: string; price: number; currency: st
 export interface Quote {
   id: string; dealId: string; number: string; version: number; productName: string; unitPrice: number; quantity: number;
   subtotal: number; discountPercent: number; discountAmount: number; taxPercent: number; taxAmount: number; total: number;
-  status: 'draft'; validUntil: string; terms: string; createdAt: string;
+  status: 'draft' | 'sent' | 'accepted' | 'rejected'; validUntil: string; terms: string; createdAt: string;
+  items: QuoteItem[]; events: QuoteEvent[]; title?: string; taxIncluded?: boolean;
+  issuerName?: string; issuerRuc?: string; issuerAddress?: string;
+  customerName?: string; customerRuc?: string; contactName?: string; contactEmail?: string; owner?: string;
 }
+export interface QuoteItem { productId?: string; productName: string; unitPrice: number; quantity: number }
+export interface QuoteEvent { id: string; status: 'sent' | 'accepted' | 'rejected'; recipient: string; channel: string; note: string; actor: string; createdAt: string }
+export const quoteStatusLabels = { draft: 'Borrador', sent: 'Enviada', accepted: 'Aceptada', rejected: 'Rechazada' }
 export interface Data { companies: Company[]; contacts: Contact[]; prospects: Prospect[]; deals: Deal[]; tasks: Task[]; activities: Activity[]; products: Product[]; quotes: Quote[] }
-export interface Snapshot { revision: number; data: Data }
-export interface Session { mode: 'demo' | 'supabase'; user: { name: string; role: 'admin' | 'commercial' }; advisors?: string[]; isoCatalogSize?: number }
+export interface Snapshot { revision: number; data: Data; schemaVersion?: number }
+export interface Session { mode: 'demo' | 'supabase'; user: { name: string; role: 'admin' | 'commercial' }; advisors?: string[]; isoCatalogSize?: number; issuer?: { name: string; ruc: string; address: string } }
 export const money = (cents: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 2 }).format(cents / 100)
 export const dateLabel = (value: string) => new Intl.DateTimeFormat('es-PE', { day: 'numeric', month: 'short', timeZone: 'America/Lima' }).format(new Date(value.length === 10 ? value + 'T12:00:00-05:00' : value))
 export const dateTime = (value: string) => new Intl.DateTimeFormat('es-PE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Lima' }).format(new Date(value))
