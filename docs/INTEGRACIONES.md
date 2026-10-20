@@ -2,7 +2,7 @@
 
 ## Supabase: preparación disponible
 
-El proyecto vigente del Portal Clientes React es `jwxdwszinjdhzoierizm`. La persistencia vigente usa el esquema privado `licihub_crm`, con 13 tablas, claves al portal y funciones de servicio. **No se aplicó SQL remoto; el usuario eligió ejecutarlo personalmente.** Orden, plantilla de administrador y comprobaciones en [SUPABASE_RELACIONAL.md](SUPABASE_RELACIONAL.md).
+El proyecto vigente del Portal Clientes React es `jwxdwszinjdhzoierizm`. La persistencia vigente usa el esquema privado `licihub_crm`, con 13 tablas iniciales, claves al portal y funciones de servicio. El usuario aplicó 002/003 y provisionó el espacio; se verificó lectura real sin cambios. La ampliación 006 agrega una tabla de eventos (14 en total) y 007 el catálogo ISO; **ambas están pendientes de ejecución manual**. [Cotizaciones y activación](COTIZACIONES.md). Orden, plantilla de administrador y comprobaciones en [SUPABASE_RELACIONAL.md](SUPABASE_RELACIONAL.md).
 
 1. Ejecutar `backend/migrations/002_relational_tables.sql` y después `003_relational_api.sql`. No ejecutar el histórico `001_crm.sql`.
 2. Personalizar `004_provision.example.sql` con el UUID del administrador elegido en Supabase Auth y ejecutarlo una sola vez para crear el espacio vacío y su membresía.
@@ -62,7 +62,7 @@ Errores: 401 clave inválida; 422 entrada inválida/conflicto de ID; 409 conflic
 
 `GET /api/crm/session`, `POST /api/crm/login`, `POST /api/crm/logout`, `GET /api/crm/state` y `POST /api/crm/commands`. Documentación de transporte en `/docs` de FastAPI. Los modelos específicos de cada operación están en `backend/domain.py`.
 
-Comandos: `intake`, `convert`, `stage`, `activity`, `task`, `complete_task`, `product`, `quote`. El cuerpo contiene `revision`, `requestId`, `operation`, `payload`. El servidor valida las operaciones y aplica el cambio atómicamente; 409 obliga a refrescar y reintentar. La interfaz conserva un identificador para reintentar el formulario. Los recibos de idempotencia no se exponen al cliente.
+Comandos: `intake`, `convert`, `stage`, `activity`, `task`, `complete_task`, `product`, `import_iso`, `quote`, `quote_status`. La sesión incluye los datos del emisor y los dos asesores ficticios; el estado incluye `schemaVersion`. Los comandos de cotización requieren versión 2 (migración 006). `import_iso` requiere administración; `quote_status` registra acciones externas, sin realizar envíos. El cuerpo contiene `revision`, `requestId`, `operation`, `payload`. El servidor valida las operaciones y aplica el cambio atómicamente; 409 obliga a refrescar y reintentar. La interfaz conserva un identificador para reintentar el formulario. Los recibos de idempotencia no se exponen al cliente.
 
 Las escrituras de interfaz requieren la cabecera Origin exacta. El receptor de eventos usa su propia credencial. Los importes de respuesta se expresan en **céntimos PEN**; al crear producto, `price` se introduce en soles. Las tareas requieren datetime con zona y se almacenan en UTC; la interfaz muestra Perú.
 

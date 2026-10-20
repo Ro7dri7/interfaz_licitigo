@@ -34,9 +34,11 @@ try:
     if not missing and workspace:
         repo = SupabaseRepository(url, key, workspace)
         snapshot = asyncio.run(repo.load())
-        report['workspace'] = {'revision': snapshot['revision'], 'counts': {k: len(v) for k,v in snapshot['data'].items() if k != 'receipts'}}
+        report['workspace'] = {'revision': snapshot['revision'], 'schema_version': snapshot.get('schemaVersion', 1),
+                               'quote_schema_ready': snapshot.get('schemaVersion', 1) >= 2,
+                               'counts': {k: len(v) for k,v in snapshot['data'].items() if k != 'receipts'}}
     print(json.dumps(report, ensure_ascii=False, indent=2))
-    if missing or not workspace:
+    if missing or not workspace or not report.get('workspace', {}).get('quote_schema_ready'):
         parser.exit(1, 'Preparación incompleta: revisa docs/SUPABASE_RELACIONAL.md. No se han realizado cambios.\n')
 except (httpx.HTTPError, ValueError, StorageUnavailable, AccessDenied):
     parser.exit(2, 'No se pudo verificar Supabase. Revisa conexión, migraciones, espacio y credenciales locales. No se muestran secretos.\n')

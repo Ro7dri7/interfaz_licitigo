@@ -1,10 +1,12 @@
 # Estado de la primera entrega
 
-Actualización 20/10/2026: SQL aplicado por el usuario; configuración local Supabase guardada fuera de Git. Las funciones y el espacio real son accesibles, con revisión 0 y colecciones vacías. Se habilitó HTTPS local en `https://127.0.0.1:5174` mediante `npm run dev:https` y se comprobó la pantalla de ingreso; sin sesión, la API responde 401. Faltan inicio de sesión con la cuenta comercial y primer guardado autenticado, validación remota de roles y despliegue público. No se importó la demo ni se escribieron datos comerciales remotos. La nota del 19/10 describe el estado anterior.
+Actualización 20/10/2026: SQL aplicado por el usuario; configuración local Supabase guardada fuera de Git. Las funciones y el espacio real son accesibles, con revisión 0 y colecciones vacías. Se habilitó HTTPS local en `https://127.0.0.1:5174` mediante `npm run dev:https` y se comprobó la pantalla de ingreso; sin sesión, la API responde 401. El servidor registró inicio de sesión y lecturas autenticadas correctos; faltan primer guardado comercial, validación remota de los distintos roles y despliegue público. No se importó la demo ni se escribieron datos comerciales remotos. La nota del 19/10 describe el estado anterior.
 
 Actualización 19/10/2026: marca visible **LiciHub** aplicada al CRM y al Portal Clientes React. Revisión de los dos videos, capturas, referencia CRM/Bandeja y documentación 360dialog/n8n completada; el nuevo alcance está en [LICIHUB_FLUJOS_Y_REQUISITOS.md](LICIHUB_FLUJOS_Y_REQUISITOS.md). Persistencia local sustituida por SQLite relacional y migraciones/adaptador PostgreSQL probados. El usuario ejecutará los archivos en Supabase; [guía de activación](SUPABASE_RELACIONAL.md). No se aplicó SQL remoto. La aplicación comercial sigue en modo local y las nuevas integraciones aún no están activadas.
 
 16 de octubre de 2026. Desarrollo autorizado sobre el stack React vigente. Esta entrega permite evaluar el flujo comercial con persistencia local; no declara completado todo el plan ni habilitado un CRM productivo.
+
+Ampliación comercial 20/10: cotizaciones múltiples y paquetes, estados auditados y documento INTERCERT implementados; precios del Excel con IGV incluido por decisión del usuario. Catálogo seleccionado: 540 referencias ISO, incluidas 165 de paquetes; Lucía Mendoza y Diego Salazar son responsables ficticios seleccionables. **Faltan ejecutar 006/007 en Supabase**; no se cargó el catálogo remoto ni se aplicó esa evolución desde aquí. [Activación y recorrido de prueba](COTIZACIONES.md).
 
 ## Disponible y verificado localmente
 
@@ -16,8 +18,8 @@ Actualización 19/10/2026: marca visible **LiciHub** aplicada al CRM y al Portal
 | Empresas/contactos | Listados, búsqueda y negocios asociados; coincidencia de empresa por RUC y contacto por correo dentro de su empresa |
 | Negocios | Tablero/lista, filtros de origen/responsable/servicio, ficha con propiedades, contexto ISO, actividades, contactos y propuestas |
 | Seguimiento | Etapas persistentes; notas, llamadas/reuniones registradas; tareas con zona horaria, pendientes y completadas |
-| Catálogo | Alta de servicio/precio PEN para administrador; listado |
-| Cotizaciones | Una partida por versión, cantidad, descuento, impuesto configurable, redondeo en céntimos, vigencia y condiciones, vista imprimible/PDF del navegador |
+| Catálogo | Alta administrativa e importación ISO idempotente del Excel; búsqueda y filtros por tipo/paquete |
+| Cotizaciones | Hasta 50 partidas/paquetes por versión, descuento e IGV incluido configurables, instantánea de precios/cliente/emisor, envío/aceptación/rechazo auditados y documento INTERCERT imprimible/PDF |
 | Cierre | Ganado con importe; perdido con motivo; reapertura y cambios de etapa trazables |
 | Persistencia | Tablas SQLite con claves foráneas, transacciones, revisión contra sobrescrituras, reintentos idempotentes e importación única del JSON anterior sin modificarlo |
 | Integraciones | Página de estado explícito; recepción de eventos Lici implementada en API pero deshabilitada sin clave |
@@ -33,18 +35,18 @@ Los indicadores abarcan todo el espacio cargado, sin período ni aislamiento por
 | Telegram | Se ubicó el bot existente de Lici y se conservó su proyecto | Decidir eventos comerciales, enlazar usuarios autorizados, implementar entrega y verificar el bot; no se enviaron mensajes |
 | WhatsApp/correo | Registro manual de origen y actividad | Integración de cuentas, bandeja, envíos y estados de entrega |
 
-La API Supabase reconoce únicamente miembros activos del espacio. Un cliente de Lici no obtiene acceso por estar autenticado. Ambos roles comerciales ven el espacio completo; el administrador puede añadir productos y el asesor no. **Falta la política por equipo/propietario y su aplicación a todas las operaciones** antes de ampliar el piloto. El responsable es texto libre en esta entrega, no un usuario asignable validado.
+La API Supabase reconoce únicamente miembros activos del espacio. Un cliente de Lici no obtiene acceso por estar autenticado. Ambos roles comerciales ven el espacio completo; el administrador puede añadir productos y el asesor no. **Falta la política por equipo/propietario y su aplicación a todas las operaciones** antes de ampliar el piloto. El responsable sigue guardado como texto, con dos nombres ficticios seleccionables; no es un usuario asignable validado.
 
 ## Funciones del plan todavía pendientes
 
 - Edición y fusión de empresas/contactos, selector de registros existentes sin RUC, historial propio de contacto, cargos y enriquecimiento SUNAT/RNP/CIIU. La vinculación actual requiere RUC exacto; no fusiona por nombre o teléfono.
 - Estados del prospecto para descartar/reciclar con motivo; reasignación del responsable, prioridad, SLA y reglas automáticas. Las señales se conservan como entradas independientes aunque compartan negocio.
 - Actualización del análisis tardío, URL/documento fuente, fecha real del análisis y confirmación estructurada de certificaciones que posee/faltan. Hoy muestra lo capturado; no ejecuta análisis ISO.
-- Catálogo editable, desactivación, proveedores/modalidades; cotización con varias partidas, membrete fiscal definitivo, aceptación, envío, estados y PDF generado por servidor. El borrador no cambia a “Cotización enviada” automáticamente. Esa etapa se registra manualmente cuando el asesor haya enviado por otro medio.
+- Catálogo editable, desactivación, proveedores; envío real por canales externos, aceptación por enlace/firma y PDF generado por servidor. El registro manual de un envío externo ya actualiza el negocio temprano a Cotización enviada; un borrador por sí solo no lo hace.
 - Calendario mensual, adjuntos, recordatorios externos y automatizaciones. Las tareas pendientes de un negocio cerrado permanecen hasta que el asesor las complete.
 - Informes por período, conversión, tiempos, atribución multicanal y rendimiento por asesor.
 - Postventa, siguiente responsable tras ganar, certificados, renovaciones, cobros, comisiones y campañas.
-- Migración de datos del CRM de referencia o HubSpot. Ningún dato comercial real fue importado.
+- Migración de datos del CRM de referencia o HubSpot. El catálogo ISO está preparado para importación; no se importaron empresas, contactos ni negocios reales.
 
 ## Límites técnicos que condicionan la salida a producción
 
@@ -59,10 +61,10 @@ También faltan: rate limiting del login y del receptor, límites de cuerpo en e
 ## Evidencia de validación
 
 - TypeScript/Vite: build correcto; oxlint sin hallazgos, sin desactivar reglas.
-- 30 pruebas Python: reglas/API, vínculos, versiones/precios, moneda/fechas, origen, tamaño, demo local, permisos con respuestas simuladas de Supabase Auth; SQLite con claves foráneas, rollback, guardado solo de cambios, reinicio e importación íntegra del JSON incluso con la configuración anterior; adaptador HTTP relacional y fallos de funciones ausentes.
-- 12 pruebas PostgreSQL con PGlite: flujo completo, bloqueo de roles cliente, membresía/rol, idempotencia y conflictos, límites de espacio/empresa y rollback, propuestas inmutables, validación de enlaces al portal, restricciones de integración, plantilla de administrador, repetición de migraciones y transición inglés/español con reversión íntegra y rechazo de esquemas mezclados. Usan un esquema mínimo de portal/Auth, no una instancia Supabase remota.
-- 4 pruebas Chrome: señal→solicitud multicanal→cotización→actividad→tarea→ganado con recarga; conversión de señal y pérdida; móvil/teclado/foco; vacío/error/reintento.
-- Revisión visual: Mi día, tablero, ficha a 1440 px, ficha a 375 px sin desborde horizontal y propuesta en modo impresión. No equivale a auditoría WCAG completa ni a validación en Safari/Firefox.
+- 42 pruebas Python: reglas/API, vínculos, versiones/precios, moneda/fechas, origen, tamaño, demo local, permisos con respuestas simuladas de Supabase Auth; SQLite con claves foráneas, rollback, guardado solo de cambios, reinicio e importación íntegra del JSON incluso con la configuración anterior; adaptador HTTP relacional y fallos de funciones ausentes.
+- 15 pruebas PostgreSQL con PGlite: flujo completo, bloqueo de roles cliente, membresía/rol, idempotencia y conflictos, límites de espacio/empresa y rollback, propuestas inmutables, validación de enlaces al portal, restricciones de integración, plantilla de administrador, repetición de migraciones y transición inglés/español con reversión íntegra y rechazo de esquemas mezclados. Usan un esquema mínimo de portal/Auth, no una instancia Supabase remota.
+- 5 pruebas Chrome: señal→solicitud multicanal→cotización→actividad→tarea→ganado con recarga; conversión de señal y pérdida; móvil/teclado/foco; vacío/error/reintento.
+- Revisión visual: Mi día, tablero, ficha a 1440 px, ficha a 375 px sin desborde horizontal y propuesta en modo impresión. Se revisó además el documento INTERCERT A4 de dos partidas con IGV incluido y aceptación en una página. No equivale a auditoría WCAG completa ni a validación en Safari/Firefox.
 - Hallazgos corregidos: señal que llegaba después de una solicitud quedaba sin vincular; reconversión de prospecto cerrado podía generar negocio huérfano; foco del modal y propuesta oculta al imprimir; contraseña con espacios debía preservarse; fechas de tarea se normalizan a UTC.
 
 ## Siguiente entrega sugerida

@@ -1,6 +1,7 @@
 """Extrae únicamente productos ISO autorizados. No modifica el Excel ni Supabase."""
 import hashlib
 import json
+from decimal import Decimal
 from pathlib import Path
 import sys
 from uuid import uuid5, NAMESPACE_URL
@@ -25,7 +26,6 @@ for source_row, row in enumerate(rows, 2):
         continue
     if not isinstance(row[3], (int, float)) or row[3] < 0:
         raise ValueError(f'Precio PEN inválido en la fila {source_row}')
-    from decimal import Decimal
     price = Decimal(str(row[3])) * 100
     if price != price.to_integral_value():
         raise ValueError(f'Precio con más de dos decimales en fila {source_row}')
@@ -34,6 +34,7 @@ for source_row, row in enumerate(rows, 2):
                          hubspotId=str(row[0]), sku=row[2], name=name, price=int(price), sourceRow=source_row,
                          category='initial' if 'certificacion inicial' in text else 'renewal' if 'recertificacion' in text else 'surveillance',
                          isPackage=text.startswith('pack de ')))
+book.close()
 if len({p['id'] for p in products}) != len(products):
     raise ValueError('El archivo contiene IDs duplicados; revisar antes de importar.')
 target = ROOT / 'backend/catalogo_iso.json'

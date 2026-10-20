@@ -1,6 +1,10 @@
 # Activar la base relacional de LiciHub
 
-Actualizado: 20/10/2026. El usuario ejecutó los scripts y proporcionó el espacio. Se creó `backend/.env` fuera de Git y se verificó por lectura real la conexión, las tres funciones y el espacio vacío, revisión 0. HTTPS local y pantalla de acceso comprobados; falta validar inicio de sesión con una cuenta comercial y su primer guardado. No se cargaron ejemplos ni datos comerciales remotos desde estas verificaciones. La demo SQLite se conserva aparte.
+Actualizado: 20/10/2026. El usuario ejecutó los scripts y proporcionó el espacio. Se creó `backend/.env` fuera de Git y se verificó por lectura real la conexión, las tres funciones y el espacio vacío, revisión 0. HTTPS local y pantalla de acceso comprobados; el servidor registró posteriormente inicio de sesión y lecturas autenticadas correctos. Falta validar el primer guardado comercial y los distintos roles con cuentas reales. No se cargaron ejemplos ni datos comerciales remotos desde estas verificaciones. La demo SQLite se conserva aparte.
+
+## Ampliación de cotizaciones sobre el espacio ya creado
+
+Para el espacio actual ya provisionado, ejecutar únicamente **[006_cotizaciones_multiples.sql](../backend/migrations/006_cotizaciones_multiples.sql)** y después **[007_catalogo_iso.sql](../backend/migrations/007_catalogo_iso.sql)**. No repetir 004 ni reejecutar 003 después de 006. Detener/reiniciar la API alrededor de la migración y conservar un respaldo. 006 agrega `eventos_cotizacion`, documentos congelados e IGV incluido; 007 incorpora las 540 referencias ISO al UUID actual. Son archivos preparados y probados localmente, pendientes de aplicación remota. [Flujo y comprobación detallados](COTIZACIONES.md).
 
 ## 1. Proyecto y orden de ejecución
 
@@ -85,9 +89,9 @@ Desde la carpeta `lici-crm`, comprobar sin modificar registros:
 & '..\interfaz_licitigo\backend\.venv\Scripts\python.exe' scripts/supabase_status.py
 ```
 
-Con el entorno propio, usar `backend/.venv/Scripts/python.exe`. El informe muestra proyecto, presencia de funciones, revisión y cantidades de registros; no muestra claves ni datos de clientes. Código de salida 0: funciones y espacio accesibles; 1: preparación incompleta; 2: error de configuración/conexión. `--portal-env` permite comprobar las funciones usando el archivo de configuración existente del portal; no configura el CRM y normalmente no incluye su espacio.
+Con el entorno propio, usar `backend/.venv/Scripts/python.exe`. El informe muestra proyecto, presencia de funciones, revisión y cantidades de registros; no muestra claves ni datos de clientes. Código de salida 0: funciones y espacio accesibles y esquema de cotizaciones versión 2; 1: preparación incompleta; 2: error de configuración/conexión. `--portal-env` permite comprobar las funciones usando el archivo de configuración existente del portal; no configura el CRM y normalmente no incluye su espacio.
 
-La comprobación real del 20/10 encontró conexión correcta, **ninguna función faltante**, espacio accesible y todas las colecciones comerciales vacías. El comando terminó con código 0. Esto confirma lectura de la base con la configuración de servidor; todavía no demuestra el acceso mediante la cuenta comercial ni una escritura autenticada.
+La comprobación real del 20/10 encontró conexión correcta, **ninguna función faltante**, espacio accesible y todas las colecciones comerciales vacías. El comando anterior terminó con código 0; la comprobación actual exige también `schema_version: 2` y `quote_schema_ready: true`, por lo que avisa preparación incompleta mientras falte 006. Esto confirma lectura de la base con la configuración de servidor; todavía no demuestra el acceso mediante la cuenta comercial ni una escritura autenticada.
 
 Servir frontend y `/api/crm` bajo el mismo origen HTTPS. El modo Supabase exige HTTPS por su cookie de sesión segura. Para probar en este equipo sin dominio público, usar `CRM_ORIGIN=https://127.0.0.1:5174`, iniciar `npm run api` y en otra terminal `npm run dev:https`. No combinar protocolos: `https:http://...` es inválido. Abrir exactamente **https://127.0.0.1:5174**.
 
@@ -109,7 +113,8 @@ Verificar antes del piloto: sin sesión → 401; cliente sin membresía → 403;
 | `prospectos` | Señal, asesoría, cotización o entrada manual; contexto y enlaces opcionales a convocatoria/análisis |
 | `negocios` | Negocio con empresa, contacto, servicio, etapa e importe comercial |
 | `productos` | Catálogo comercial propio del espacio |
-| `cotizaciones`, `partidas_cotizacion` | Versiones de propuesta y su partida con nombre/precio históricos |
+| `cotizaciones`, `partidas_cotizacion` | Versiones de propuesta y hasta 50 partidas con nombre/precio históricos |
+| `eventos_cotizacion` (006) | Envío, aceptación o rechazo, destinatario/canal/evidencia y actor; registros inmutables |
 | `tareas`, `actividades` | Próxima acción y registro histórico de la gestión |
 | `historial_etapas` | Transiciones de etapa con actor por UUID y nombre |
 | `recibos` | Identificador y huella de cada operación, para reintentar sin duplicar |
@@ -118,7 +123,7 @@ Si el RUC ya existe en `proveedores`, la empresa comercial se enlaza automática
 
 Las columnas de perfil, convocatoria y análisis ya tienen sus restricciones en PostgreSQL, pero **el emisor del portal y el contrato para enviar esos IDs todavía están pendientes**. Hoy se recibe el contexto textual del contrato de [INTEGRACIONES.md](INTEGRACIONES.md). Tampoco está implementado el botón de asesoría, la bandeja WhatsApp, 360dialog ni el bot n8n.
 
-Una señal conserva su tipo sin abrir una venta. Solicitar asesoría/cotización abre o vincula un negocio compatible. El guardado envía únicamente las filas cambiadas; filas, recibo e historial se confirman o revierten juntas. Las cotizaciones y actividades guardadas son inmutables. La interfaz mantiene una partida por versión, aunque encabezado y partida están separados.
+Una señal conserva su tipo sin abrir una venta. Solicitar asesoría/cotización abre o vincula un negocio compatible. El guardado envía únicamente las filas cambiadas; filas, recibo e historial se confirman o revierten juntas. Las cotizaciones y actividades guardadas son inmutables. La ampliación 006 permite varias partidas por versión y conserva el estado mediante eventos inmutables. Los precios ISO se consideran con IGV incluido; las propuestas anteriores conservan su cálculo original.
 
 RLS y la ausencia de permisos bloquean acceso directo de `anon`/`authenticated`; solo el backend usa las funciones de servicio. **La clave de servicio puede omitir RLS**: la protección comercial depende también de validar sesión/membresía en la API y de los controles de membresía/rol dentro de la transacción SQL. No exponer esa clave.
 

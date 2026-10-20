@@ -4,9 +4,11 @@
 
 Primera entrega funcional del CRM comercial complementario a **Lici React** (`../interfaz_licitigo`). React 19, TypeScript 6, Vite 8, Tailwind CSS 4 y FastAPI. Identidad compartida a partir de los tokens del proyecto vigente; no usa la aplicación anterior Angular.
 
-**Estado al 20 de octubre de 2026:** el usuario aplicó el SQL y proporcionó el espacio. Configuración local Supabase creada fuera de Git y lectura real verificada: espacio vacío, revisión 0. HTTPS local y pantalla de ingreso disponibles; falta comprobar el acceso con la cuenta comercial y su primer guardado. La demo SQLite anterior se conserva. [Configuración y activación](docs/SUPABASE_RELACIONAL.md); alcance completo en [docs/ESTADO.md](docs/ESTADO.md). Las integraciones de captación y mensajería siguen pendientes.
+**Estado al 20 de octubre de 2026:** el usuario aplicó el SQL y proporcionó el espacio. Configuración local Supabase creada fuera de Git y lectura real verificada: espacio vacío, revisión 0. HTTPS local disponible; el servidor registró inicio de sesión y lectura autenticada correctos. Falta comprobar el primer guardado comercial y los distintos roles con cuentas reales. La demo SQLite anterior se conserva. [Configuración y activación](docs/SUPABASE_RELACIONAL.md); alcance completo en [docs/ESTADO.md](docs/ESTADO.md). Las integraciones de captación y mensajería siguen pendientes.
 
 El SQL vigente usa nombres en español (`empresas`, `negocios`, `cotizaciones`, `espacio_id`). Si ya se ejecutó la versión en inglés, la guía incluye una transición que conserva los datos. Ejecutar los scripts prepara la base; usar datos reales requiere además configurar Supabase, habilitar miembros y verificar el acceso HTTPS.
+
+**Ampliación de cotizaciones (20/10):** varias partidas/paquetes, IGV incluido por defecto, envío/aceptación/rechazo registrados y documento comercial de INTERCERT; catálogo ISO del Excel (540 referencias, 165 paquetes) y dos responsables ficticios. Para activarlo en el espacio Supabase actual faltan **006 y 007**, en ese orden; [instrucciones y flujo comercial](docs/COTIZACIONES.md). No se aplicaron estas migraciones remotas desde el desarrollo.
 
 ## Arrancar en este equipo
 
@@ -44,7 +46,7 @@ El modo demo no pide contraseña y solo admite acceso local. Usa `backend/data/d
 2. Elegir **Señal Lici** para guardar un requisito/recomendación sin generar una venta. Seleccionar **Asesoría solicitada** o **Cotización solicitada** abre un negocio o vincula uno abierto para la misma empresa/servicio.
 3. Una señal se convierte al confirmar interés desde su ficha. Si ya hay negocio abierto compatible, las nuevas señales se vinculan como contexto conservando su naturaleza.
 4. En **Negocios**, usar tablero o lista y abrir la ficha. Registrar actividades, programar tareas y cambiar la etapa desde el selector.
-5. **Cotizar** prepara un borrador de un servicio del catálogo, con cantidad, descuento, impuesto editable, vigencia y condiciones. Conserva versiones y permite imprimir/guardar PDF desde el navegador.
+5. **Cotizar** combina hasta 50 certificaciones/paquetes, con cantidades, descuento, IGV incluido editable, vigencia y condiciones. Conserva versiones y permite imprimir/guardar el documento de INTERCERT como PDF. El asesor registra envío, aceptación o rechazo con evidencia; estas acciones no envían comunicaciones externas.
 6. **Ganado** exige un importe positivo cotizado. **Perdido** exige motivo. Ambos registran historial; no equivalen a cobro ni entrega.
 
 ## Verificación
@@ -59,7 +61,7 @@ npm run test:e2e
 
 Si se creó el entorno propio, reemplazar la ruta Python por `backend/.venv/Scripts/python.exe`. Las pruebas de navegador requieren Google Chrome instalado. Playwright levanta servicios independientes en **5175/8002**, con datos ficticios nuevos en un archivo temporal del sistema; no modifica la demo de 5174. Esos puertos deben estar libres. Los resultados y trazas de fallos quedan en `test-results/`, excluido de Git.
 
-Última validación: build y lint correctos; **30 pruebas Python, 12 pruebas PostgreSQL y 4 recorridos Playwright aprobados**. PostgreSQL se verifica con PGlite y un esquema mínimo de portal/Auth, sin Docker; el adaptador HTTP usa dobles controlados. No equivale a validar Supabase Auth remoto. Inspección visual previa en escritorio 1440 px y móvil 375 px, ficha y propuesta imprimible. El entorno Python compartido emite una advertencia de deprecación de TestClient/httpx; no impide las pruebas y no se alteró el entorno de Lici.
+Última validación: build y lint correctos; **42 pruebas Python, 15 pruebas PostgreSQL y 5 recorridos Playwright aprobados**. PostgreSQL se verifica con PGlite y un esquema mínimo de portal/Auth, sin Docker; el adaptador HTTP usa dobles controlados. No equivale a validar Supabase Auth remoto. Inspección visual previa en escritorio 1440 px y móvil 375 px, ficha y propuesta imprimible. El entorno Python compartido emite una advertencia de deprecación de TestClient/httpx; no impide las pruebas y no se alteró el entorno de Lici.
 
 ## Organización
 
@@ -69,7 +71,7 @@ Si se creó el entorno propio, reemplazar la ruta Python por `backend/.venv/Scri
 - `backend/relational.py`: demo SQLite e importación no destructiva del JSON anterior.
 - `backend/relational_codec.py`: transformación entre el contrato de interfaz y filas por entidad.
 - `backend/repository.py`: adaptador Supabase por funciones transaccionales y control de revisión.
-- `backend/migrations/002_relational_tables.sql`, `003_relational_api.sql`: modelo relacional y acceso de servidor, **no aplicados remotamente**. `001_crm.sql` es histórico y no debe ejecutarse.
+- `backend/migrations/002_relational_tables.sql`, `003_relational_api.sql`: modelo relacional inicial aplicado por el usuario. 006 amplía cotizaciones y 007 carga el catálogo ISO; ambos pendientes de ejecución manual. `001_crm.sql` es histórico y no debe ejecutarse.
 - `docs/SUPABASE_RELACIONAL.md`: SQL, creación de espacio/administrador y comprobación de conexión.
 - `docs/INTEGRACIONES.md`: activación y contrato de eventos.
 - `docs/decisions/002-modelo-relacional-compartido.md`: decisión vigente de persistencia y límites.

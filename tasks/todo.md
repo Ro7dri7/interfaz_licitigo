@@ -101,16 +101,19 @@ Dependencias: 7 y 7b. Alcance: medio, API de lectura y panel contextual.
 - [ ] Oportunidad realista de Lici llega una sola vez y un asesor entiende por qué atenderla.
 
 ## 9. Catálogo comercial mínimo
-- [ ] Crear servicios/paquetes con moneda, precio y estado activo.
+- [x] Crear servicios/paquetes con moneda PEN, precio y estado activo.
 - [ ] Representar proveedor/modalidad cuando sean necesarios para el alcance inicial.
-- [ ] Seleccionar partidas desde un negocio.
+- [x] Seleccionar partidas desde un negocio.
 Verificación: producto activo/inactivo, precio cero explícito y moneda; persistencia de selección.
 Dependencias: 5. Alcance: medio, catálogo mínimo.
 
 ## 10. Cotización versionada
-- [ ] Calcular partidas, cantidades, descuentos, impuestos configurados y total.
+- [x] Calcular partidas, cantidades, descuentos, impuestos configurados y total.
 - [x] Guardar versión, vigencia y condiciones asociadas al negocio.
 - [x] Mantener las versiones históricas al modificar catálogo o emitir una nueva propuesta.
+- [x] Importación ISO del Excel: 540 referencias, 165 paquetes, IGV incluido; dos asesores ficticios seleccionables.
+- [x] Documento INTERCERT y registro auditado de envío, aceptación y rechazo.
+- [ ] Ejecutar 006/007 en Supabase (usuario); comprobar flujo con datos comerciales reales.
 Verificación: cálculos con redondeo, cambios de precios y versiones; revisión visual del documento de salida si se incluye PDF.
 Dependencias: 9. Alcance: medio; generación PDF y envío podrán dividirse en entregas propias.
 
@@ -148,9 +151,9 @@ Dependencias: 12. Alcance: pequeño/medio, validación y documentación.
 ## Evidencia de esta entrega y siguiente paso
 
 - [x] `npm run build`, `npm run lint`: correctos, sin supresiones añadidas.
-- [x] 30 pruebas Python, 12 pruebas PostgreSQL y 4 pruebas E2E Chrome, con persistencia relacional, integridad, permisos, errores, teclado y móvil.
+- [x] 42 pruebas Python, 15 pruebas PostgreSQL y 5 pruebas E2E Chrome, con persistencia relacional, integridad, permisos, errores, teclado y móvil.
 - [x] Documentar arquitectura, arranque, contrato de eventos y límites en `README.md` y `docs/`.
 - [ ] Activar un espacio Supabase de prueba, provisionar miembros y validar permisos con cuentas reales.
 - [ ] Conectar el emisor de eventos de Lici y probar un desbloqueo seguido de solicitud realista.
 
-Avances parciales: acceso y roles están implementados en API y probados con dobles de Supabase, falta validación remota/visibilidad por asesor. El receptor Lici está preparado, falta emisor y actualización del análisis. Catálogo admite altas activas, no edición/desactivación/proveedor. Cotización admite una partida por versión, no partidas múltiples ni envío. Empresas/contactos admiten alta y consulta, no edición/fusión. Los puntos de revisión con datos reales y equipo comercial siguen abiertos. Comandos de ejecución y verificación en [../README.md](../README.md).
+Avances parciales: acceso y roles están implementados en API y probados con dobles de Supabase, falta validación remota/visibilidad por asesor. El receptor Lici está preparado, falta emisor y actualización del análisis. Catálogo admite altas activas, no edición/desactivación/proveedor. Cotización admite múltiples partidas/paquetes, IGV incluido, documento INTERCERT y registro auditado de envío/aceptación/rechazo; faltan envíos externos reales. Aplicar 006/007 en Supabase sigue pendiente del usuario. Empresas/contactos admiten alta y consulta, no edición/fusión. Los puntos de revisión con datos reales y equipo comercial siguen abiertos. Comandos de ejecución y verificación en [../README.md](../README.md).
