@@ -17,6 +17,7 @@ from .repository import AccessDenied, Conflict, StorageUnavailable, SupabaseRepo
 from .relational import RelationalRepository
 from .seed import demo_state
 from .iso_catalog import metadata, catalog
+from .quotations import ISSUER
 
 TEST_ADVISORS = ['Lucía Mendoza (prueba)', 'Diego Salazar (prueba)']
 
@@ -102,7 +103,7 @@ def create_app(settings=None, repository=None):
         data = {k: v for k, v in snapshot['data'].items() if k != 'receipts'}
         data['products'] = [p | ({key: m[key] for key in ['sku', 'category', 'isPackage', 'sourceRow']} if (m := metadata(p['id'])) else {})
                             for p in data['products']]
-        return {'revision': snapshot['revision'], 'data': data}
+        return {'revision': snapshot['revision'], 'data': data, 'schemaVersion': snapshot.get('schemaVersion', 1)}
 
     @app.exception_handler(Conflict)
     async def conflict_handler(_request, _error):
@@ -130,7 +131,8 @@ def create_app(settings=None, repository=None):
 
     @app.get('/api/crm/session')
     async def session(request: Request):
-        return {'mode': config.mode, 'user': await account(request), 'advisors': TEST_ADVISORS, 'isoCatalogSize': len(catalog())}
+        return {'mode': config.mode, 'user': await account(request), 'advisors': TEST_ADVISORS,
+                'isoCatalogSize': len(catalog()), 'issuer': ISSUER}
 
     @app.post('/api/crm/login')
     async def login(data: Login, response: Response):
@@ -165,6 +167,8 @@ def create_app(settings=None, repository=None):
         if data.operation in ['product', 'import_iso'] and actor['role'] != 'admin':
             raise HTTPException(403, 'Solo administración puede agregar servicios al catálogo.')
         snapshot = await repo.load(request_id=data.requestId)
+        if data.operation in ['quote', 'quote_status'] and snapshot.get('schemaVersion', 1) < 2:
+            raise HTTPException(503, 'Falta ejecutar 006_cotizaciones_multiples.sql en Supabase para habilitar las nuevas propuestas.')
         updated = apply_command(snapshot['data'], data.operation, data.payload, actor['name'], data.requestId)
         if updated is snapshot['data']:
             return public(snapshot)

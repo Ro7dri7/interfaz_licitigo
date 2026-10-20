@@ -1,12 +1,12 @@
 """Relational local storage, with a one-time, non-destructive import of the old JSON demo."""
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 import json
 from pathlib import Path
 import re
 import sqlite3
 
 from .domain import empty_state
-from .relational_codec import WRITE_ORDER, TABLE_FIELDS, encode_state, decode_state, changes_between, receipt_added, stage_events
+from .relational_codec import WRITE_ORDER, TABLE_FIELDS, QUOTE_DOCUMENT_FIELDS, encode_state, decode_state, changes_between, receipt_added, stage_events
 from .repository import Conflict, StorageUnavailable
 from .sql_names import esquema_sqlite_compatible
 
@@ -19,6 +19,9 @@ def sqlite_schema():
     sql = MIGRATION.read_text(encoding='utf-8').split('-- INICIO TABLAS')[1].split('-- FIN TABLAS')[0]
     sql = sql[sql.index('create table'):].replace('licihub_crm.', '')
     sql = esquema_sqlite_compatible(sql)
+    sql = sql.replace('create table if not exists quotes (', 'create table if not exists quotes (\n  tax_included boolean,')
+    sql = sql.replace('total = subtotal - discount_amount + tax_amount',
+                      'total = subtotal - discount_amount + case when coalesce(tax_included,0) then 0 else tax_amount end')
     for source, target in [('contactos_identidad_correo', 'contacts_email_identity'),
                            ('negocios_necesidad_abierta_unica', 'one_open_need'),
                            ('negocios_por_responsable_etapa', 'deals_by_owner_stage'),
@@ -46,7 +49,20 @@ class RelationalRepository:
             with self.connect() as db:
                 db.execute('pragma journal_mode=WAL')
                 db.executescript(sqlite_schema())
-                for table in ['quotes', 'quote_items', 'activities', 'receipts', 'stage_history']:
+                existing = {row['name'] for row in db.execute('pragma table_info(quotes)')}
+                for column in QUOTE_DOCUMENT_FIELDS.values():
+                    if column not in existing:
+                        db.execute(f'alter table quotes add column {column} {"boolean" if column == "tax_included" else "text"}')
+                self.upgrade_quote_constraint(db)
+                db.executescript('''create table if not exists quote_events (
+                    workspace_id text not null, id text not null, quote_id text not null,
+                    status text not null check(status in ('sent','accepted','rejected')),
+                    recipient text not null, channel text not null check(channel in ('email','whatsapp','other')),
+                    note text not null, actor_label text not null, actor_user_id text references portal_users(id),
+                    created_at text not null, sort_order integer not null,
+                    primary key(workspace_id,id), unique(workspace_id,quote_id,sort_order),
+                    foreign key(workspace_id,quote_id) references quotes(workspace_id,id));''')
+                for table in ['quotes', 'quote_items', 'quote_events', 'activities', 'receipts', 'stage_history']:
                     for operation in ['update', 'delete']:
                         db.execute(f'''create trigger if not exists immutable_{table}_{operation} before {operation} on {table}
                             begin select raise(abort,'Historical records are immutable'); end''')
@@ -81,6 +97,34 @@ class RelationalRepository:
         finally:
             db.close()
 
+    def upgrade_quote_constraint(self, db):
+        schema = db.execute("select sql from sqlite_master where type='table' and name='quotes'").fetchone()['sql']
+        previous = 'total = subtotal - discount_amount + tax_amount'
+        if previous not in schema:
+            return
+        # SQLite no permite reemplazar CHECK: respaldo consistente y reconstrucción transaccional.
+        backup = self.path.with_name(self.path.stem + '.before-multiple-quotes.sqlite3')
+        if not backup.exists():
+            with closing(sqlite3.connect(backup)) as target:
+                db.backup(target)
+        db.execute('pragma foreign_keys=OFF')
+        try:
+            db.execute('begin immediate')
+            upgraded = schema.replace(previous, 'total = subtotal - discount_amount + case when coalesce(tax_included,0) then 0 else tax_amount end')
+            upgraded = re.sub(r'(?i)create table\s+"?quotes"?', 'create table quotes_upgrade', upgraded, count=1)
+            db.execute(upgraded)
+            db.execute('insert into quotes_upgrade select * from quotes')
+            db.execute('drop table quotes')
+            db.execute('alter table quotes_upgrade rename to quotes')
+            if db.execute('pragma foreign_key_check').fetchone():
+                raise sqlite3.IntegrityError('Relaciones inválidas después de actualizar cotizaciones.')
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.execute('pragma foreign_keys=ON')
+
     @staticmethod
     def validate_snapshot(snapshot):
         if not isinstance(snapshot['revision'], int) or snapshot['revision'] < 0:
@@ -114,7 +158,7 @@ class RelationalRepository:
         invalid = db.execute('''select q.id from quotes q left join quote_items i
             on i.workspace_id=q.workspace_id and i.quote_id=q.id
             where q.workspace_id=? group by q.id, q.subtotal
-            having count(i.line_number)<>1 or sum(i.unit_price*i.quantity)<>q.subtotal limit 1''', (self.workspace,)).fetchone()
+            having count(i.line_number) not between 1 and 50 or sum(i.unit_price*i.quantity)<>q.subtotal limit 1''', (self.workspace,)).fetchone()
         if invalid:
             raise ValueError('Las partidas no coinciden con el subtotal.')
 
@@ -127,7 +171,7 @@ class RelationalRepository:
                 query += ' and request_id=?'
                 params.append(request_id)
             tables[table] = [dict(r) for r in db.execute(query, params)]
-        return {'revision': workspace['revision'], 'data': decode_state(tables)}
+        return {'revision': workspace['revision'], 'data': decode_state(tables), 'schemaVersion': 2}
 
     async def load(self, request_id=None):
         try:
@@ -148,7 +192,7 @@ class RelationalRepository:
                 actor_id, actor_label = (actor or {}).get('id'), (actor or {}).get('name', 'Equipo de prueba')
                 for change in changes_between(before['data'], data, self.workspace):
                     row = change['row']
-                    if change['table'] == 'activities':
+                    if change['table'] in ['activities', 'quote_events']:
                         row['actor_user_id'] = actor_id
                     self.write_row(db, change['table'], row, insert=change['insert'])
                 for row in stage_events(before['data'], data, self.workspace, receipt['id'], actor_id, actor_label):

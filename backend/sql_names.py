@@ -7,6 +7,7 @@ TABLAS = {
     'prospects': 'prospectos', 'tasks': 'tareas', 'activities': 'actividades',
     'quotes': 'cotizaciones', 'quote_items': 'partidas_cotizacion',
     'receipts': 'recibos', 'stage_history': 'historial_etapas',
+    'quote_events': 'eventos_cotizacion',
 }
 COLUMNAS = {
     'workspace_id': 'espacio_id', 'user_id': 'usuario_id', 'name': 'nombre',
@@ -31,6 +32,10 @@ COLUMNAS = {
     'unit_price': 'precio_unitario', 'quantity': 'cantidad',
     'request_id': 'solicitud_id', 'digest': 'huella', 'from_stage': 'etapa_anterior',
     'to_stage': 'etapa_nueva', 'reason': 'motivo',
+    'issuer_name': 'emisor_nombre', 'issuer_ruc': 'emisor_ruc', 'issuer_address': 'emisor_direccion',
+    'customer_name': 'cliente_nombre', 'customer_ruc': 'cliente_ruc', 'contact_name': 'contacto_nombre',
+    'contact_email': 'contacto_correo', 'recipient': 'destinatario', 'channel': 'canal', 'note': 'nota',
+    'tax_included': 'impuesto_incluido',
 }
 
 

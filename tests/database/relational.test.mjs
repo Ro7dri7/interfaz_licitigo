@@ -10,6 +10,9 @@ const admin='20000000-0000-0000-0000-000000000001', advisor='20000000-0000-0000-
 const sources=['backend/migrations/002_relational_tables.sql','backend/migrations/003_relational_api.sql'].map(p=>readFileSync(p,'utf8'))
 const legacySources=['002_original_ingles.sql','003_original_ingles.sql'].map(p=>readFileSync('tests/database/fixtures/'+p,'utf8'))
 const transition=readFileSync('backend/migrations/005_traducir_esquema_existente.sql','utf8')
+const quoteMigration=readFileSync('backend/migrations/006_cotizaciones_multiples.sql','utf8')
+const catalogMigration=readFileSync('backend/migrations/007_catalogo_iso.sql','utf8').replace(/espacio_destino uuid := '[^']+'/,
+  `espacio_destino uuid := '${workspace}'`)
 const python=process.env.CRM_PYTHON || ['backend/.venv/Scripts/python.exe','../interfaz_licitigo/backend/.venv/Scripts/python.exe','backend/.venv/bin/python'].map(p=>resolve(p)).find(existsSync) || 'python'
 const run=spawnSync(python,['tests/database/fixtures.py'],{encoding:'utf8',windowsHide:true})
 assert.equal(run.status,0,run.stderr)
@@ -27,6 +30,7 @@ async function database({legacy=false}={}) {
     insert into auth.users values ('${admin}'),('${advisor}');
     insert into public.proveedores values ('20998877665');`)
   for(const sql of legacy ? legacySources : sources) await db.exec(sql)
+  if(!legacy) await db.exec(quoteMigration)
   await db.query(legacy ? 'insert into licihub_crm.workspaces(id,name) values($1,$2)' : 'insert into licihub_crm.espacios(id,nombre) values($1,$2)',[workspace,'Prueba relacional'])
   await db.query(`insert into licihub_crm.${legacy?'members':'miembros'} values($1,$2,'SQL admin','admin',true),($1,$3,'SQL asesor','commercial',true)`,[workspace,admin,advisor])
   await db.exec('set role service_role')
@@ -145,9 +149,45 @@ test('migrations can run again without changing portal or commercial data',()=>w
   await commit(db,fixture.events[0])
   await db.exec('reset role')
   for(const sql of sources) await db.exec(sql)
+  await db.exec(quoteMigration)
   await db.exec(transition) // Already Spanish: no-op.
   assert.equal((await db.query('select count(*)::int as n from licihub_crm.empresas')).rows[0].n,1)
   assert.equal((await db.query('select count(*)::int as n from public.proveedores')).rows[0].n,1)
+}))
+
+test('multiple gross-price items preserve included IGV, document snapshots and immutable state events',()=>withDatabase(async db=>{
+  for(const event of fixture.multipleEvents) await commit(db,event)
+  const state=(await db.query('select public.licihub_crm_estado($1::uuid) as state',[workspace])).rows[0].state
+  assert.equal(state.version_esquema,2)
+  assert.equal(state.tablas.partidas_cotizacion.length,2)
+  const quote=state.tablas.cotizaciones[0]
+  assert.equal(quote.total,45022)
+  assert.equal(quote.impuesto_importe,6868)
+  assert.equal(quote.impuesto_incluido,true)
+  assert.equal(quote.emisor_ruc,'20612137880')
+  assert.deepEqual(state.tablas.eventos_cotizacion.map(e=>e.estado),['sent','accepted'])
+  assert.equal(state.tablas.eventos_cotizacion[1].actor_usuario_id,admin)
+  await assert.rejects(db.query("update licihub_crm.eventos_cotizacion set nota='Cambio'"),e=>e.code==='42501'||e.code==='23514')
+}))
+
+test('SQL refuses acceptance before sending and rolls back the whole command',()=>withDatabase(async db=>{
+  for(const event of fixture.multipleEvents.slice(0,5)) await commit(db,event)
+  await assert.rejects(commit(db,{...fixture.multipleEvents[6],revision:5}),e=>e.code==='23514')
+  assert.equal((await db.query('select revision from licihub_crm.espacios')).rows[0].revision,5)
+  assert.equal((await db.query('select count(*)::int as n from licihub_crm.eventos_cotizacion')).rows[0].n,0)
+}))
+
+test('ISO catalog migration loads only authorized rows and preserves edited prices when repeated',()=>withDatabase(async db=>{
+  await db.exec('reset role')
+  await db.exec(catalogMigration)
+  assert.equal((await db.query('select count(*)::int as n from licihub_crm.productos')).rows[0].n,540)
+  const source=(await db.query("select id,precio from licihub_crm.productos where nombre='ISO 9001:2015 - Certificacion Inicial Micro Empresa (Virtual)'")).rows[0]
+  assert.equal(source.precio,444000)
+  await db.query('update licihub_crm.productos set precio=12345 where id=$1',[source.id])
+  await db.exec(catalogMigration)
+  assert.equal((await db.query('select count(*)::int as n from licihub_crm.productos')).rows[0].n,540)
+  assert.equal((await db.query('select precio from licihub_crm.productos where id=$1',[source.id])).rows[0].precio,12345)
+  assert.equal((await db.query('select revision from licihub_crm.espacios')).rows[0].revision,1)
 }))
 
 test('English installation migrates to Spanish and can roll back without losing its full state',async()=>{

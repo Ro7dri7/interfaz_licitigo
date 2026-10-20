@@ -41,7 +41,8 @@ class SupabaseRepository:
     def snapshot(value):
         if not value or 'tablas' not in value:
             raise StorageUnavailable()
-        return {'revision': value['revision'], 'data': decode_state(tablas_internas(value['tablas']))}
+        return {'revision': value['revision'], 'data': decode_state(tablas_internas(value['tablas'])),
+                'schemaVersion': value.get('version_esquema', 1)}
 
     async def load(self, request_id=None):
         value = await self.rpc('licihub_crm_estado', {'p_espacio_id': self.workspace, 'p_solicitud_id': request_id})

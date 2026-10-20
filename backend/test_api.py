@@ -36,6 +36,17 @@ class ApiTests(unittest.TestCase):
         self.client.headers['Origin'] = 'https://other.example'
         self.assertEqual(self.command().status_code, 403)
 
+    def test_quote_upgrade_guard_explains_missing_migration_without_writing(self):
+        old_snapshot = {'revision': 0, 'data': empty_state()}
+        with patch.object(self.repo, 'load', new=AsyncMock(return_value=old_snapshot)), \
+                patch.object(self.repo, 'save', new=AsyncMock()) as save:
+            for operation in ['quote', 'quote_status']:
+                response = self.client.post('/api/crm/commands', json={
+                    'revision': 0, 'requestId': 'old-schema', 'operation': operation, 'payload': {}})
+                self.assertEqual(response.status_code, 503)
+                self.assertIn('006_cotizaciones_multiples.sql', response.json()['detail'])
+            save.assert_not_awaited()
+
     def test_bad_data_is_rejected_without_mutation(self):
         response = self.client.post('/api/crm/commands', json={'revision': 0, 'requestId': 'bad', 'operation': 'product', 'payload': {'name': 'ISO', 'price': '-1'}})
         self.assertEqual(response.status_code, 422)

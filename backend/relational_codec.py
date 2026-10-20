@@ -1,6 +1,13 @@
 """Translate the existing UI contract to typed relational rows, never a saved workspace blob."""
 from copy import deepcopy
 from uuid import NAMESPACE_URL, uuid5
+from .quotations import quote_lines
+
+QUOTE_DOCUMENT_FIELDS = {
+    'title': 'title', 'issuerName': 'issuer_name', 'issuerRuc': 'issuer_ruc', 'issuerAddress': 'issuer_address',
+    'customerName': 'customer_name', 'customerRuc': 'customer_ruc', 'contactName': 'contact_name',
+    'contactEmail': 'contact_email', 'owner': 'owner_label', 'taxIncluded': 'tax_included',
+}
 
 TABLE_FIELDS = {
     'companies': {'id': 'id', 'name': 'name', 'ruc': 'ruc', 'origin': 'origin', 'createdAt': 'created_at'},
@@ -21,7 +28,7 @@ TABLE_FIELDS = {
     'receipts': {'id': 'request_id', 'digest': 'digest'},
 }
 # FK dependency order. A prospect may reference a deal, which references a contact.
-WRITE_ORDER = ['companies', 'contacts', 'products', 'deals', 'prospects', 'tasks', 'activities', 'quotes', 'quote_items']
+WRITE_ORDER = ['companies', 'contacts', 'products', 'deals', 'prospects', 'tasks', 'activities', 'quotes', 'quote_items', 'quote_events']
 
 
 def encode_state(data, workspace):
@@ -33,10 +40,18 @@ def encode_state(data, workspace):
             row.update(workspace_id=workspace, sort_order=index)
             if table == 'companies':
                 row['ruc'] = row['ruc'] or None
+            if table == 'quotes':
+                row['status'] = 'draft'  # El estado vigente se deriva de eventos inmutables.
+                row.update({column: entity.get(field) for field, column in QUOTE_DOCUMENT_FIELDS.items()})
             tables[table].append(row)
-    tables['quote_items'] = [dict(workspace_id=workspace, quote_id=q['id'], line_number=1,
-                                  product_id=q.get('productId'), product_name=q['productName'],
-                                  unit_price=q['unitPrice'], quantity=q['quantity']) for q in data['quotes']]
+    tables['quote_items'] = [dict(workspace_id=workspace, quote_id=q['id'], line_number=index + 1,
+                                  product_id=item.get('productId'), product_name=item['productName'],
+                                  unit_price=item['unitPrice'], quantity=item['quantity'])
+                             for q in data['quotes'] for index, item in enumerate(quote_lines(q))]
+    tables['quote_events'] = [dict(workspace_id=workspace, quote_id=q['id'], id=event['id'], status=event['status'],
+                                  recipient=event['recipient'], channel=event['channel'], note=event['note'],
+                                  actor_label=event['actor'], created_at=event['createdAt'], sort_order=index)
+                              for q in data['quotes'] for index, event in enumerate(q.get('events', []))]
     return tables
 
 
@@ -55,12 +70,22 @@ def decode_state(tables):
         deal['prospectIds'] = [p['id'] for p in data['prospects'] if p['dealId'] == deal['id']]
     for quote in data['quotes']:
         items = sorted((r for r in tables.get('quote_items', []) if r['quote_id'] == quote['id']), key=lambda r: r['line_number'])
-        if len(items) != 1:
-            raise ValueError('La interfaz actual requiere una partida por versión de cotización.')
+        if not 1 <= len(items) <= 50:
+            raise ValueError('La cotización requiere entre una y cincuenta partidas.')
         item = items[0]
         quote.update(productName=item['product_name'], unitPrice=item['unit_price'], quantity=item['quantity'])
         if item.get('product_id'):
             quote['productId'] = item['product_id']
+        quote['items'] = [dict(productName=i['product_name'], unitPrice=i['unit_price'], quantity=i['quantity'],
+                               **({'productId': i['product_id']} if i.get('product_id') else {})) for i in items]
+        header = next(row for row in tables['quotes'] if row['id'] == quote['id'])
+        quote.update({field: header[column] for field, column in QUOTE_DOCUMENT_FIELDS.items() if header.get(column) is not None})
+        if 'taxIncluded' in quote:
+            quote['taxIncluded'] = bool(int(quote['taxIncluded']))
+        events = sorted((row for row in tables.get('quote_events', []) if row['quote_id'] == quote['id']), key=lambda row: row['sort_order'])
+        quote['events'] = [dict(id=e['id'], status=e['status'], recipient=e['recipient'], channel=e['channel'],
+                                note=e['note'], actor=e['actor_label'], createdAt=e['created_at']) for e in events]
+        quote['status'] = events[-1]['status'] if events else 'draft'
     return data
 
 
@@ -78,7 +103,7 @@ def changes_between(before, after, workspace):
             raise ValueError('Esta entrega no permite eliminar registros comerciales.')
         for key, row in current.items():
             if previous.get(key) != row:
-                if key in previous and table in ['quotes', 'quote_items', 'activities']:
+                if key in previous and table in ['quotes', 'quote_items', 'quote_events', 'activities']:
                     raise ValueError('Las propuestas y actividades históricas son inmutables.')
                 changes.append({'table': table, 'row': row, 'insert': key not in previous})
     return changes

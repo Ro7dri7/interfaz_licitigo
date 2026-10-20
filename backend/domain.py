@@ -1,33 +1,22 @@
 """Commercial rules shared by the local pilot and Supabase persistence."""
 from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 import hashlib
 import json
 from typing import Literal
-from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import EmailStr, Field, field_validator
 from .iso_catalog import import_catalog
+from .commercial_utils import Input, now, uid, find, log, cents
+from .quotations import Quote, QuoteState, create_quote, change_quote_state
 
 STAGES = ['new', 'contacted', 'qualified', 'quoted', 'followup', 'won', 'lost']
 LABELS = dict(zip(STAGES, ['Nuevo', 'Contactado', 'Necesidad validada', 'Cotización enviada', 'Seguimiento', 'Ganado', 'Perdido']))
 
 
-def now():
-    return datetime.now(timezone.utc).isoformat()
-
-
-def uid():
-    return str(uuid4())
-
-
 def empty_state():
     return {key: [] for key in ['companies', 'contacts', 'prospects', 'deals', 'tasks', 'activities', 'products', 'quotes', 'receipts']}
-
-
-class Input(BaseModel):
-    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
 
 
 class Intake(Input):
@@ -84,29 +73,8 @@ class Product(Input):
     price: Decimal = Field(ge=0, le=10000000, decimal_places=2)
 
 
-class Quote(Input):
-    dealId: str
-    productId: str
-    quantity: int = Field(ge=1, le=1000)
-    discount: Decimal = Field(default=Decimal(0), ge=0, le=100, decimal_places=2)
-    tax: Decimal = Field(default=Decimal(0), ge=0, le=100, decimal_places=2)
-    validUntil: date
-    terms: str = Field(default='', max_length=2000)
-
-
 SCHEMAS = {'intake': Intake, 'convert': Convert, 'stage': Move, 'activity': Activity,
-           'task': Task, 'complete_task': Complete, 'product': Product, 'quote': Quote, 'import_iso': Input}
-
-
-def find(rows, identifier):
-    for row in rows:
-        if row['id'] == identifier:
-            return row
-    raise ValueError('El registro ya no está disponible. Actualiza la página.')
-
-
-def log(state, deal_id, kind, text, actor):
-    state['activities'].append(dict(id=uid(), dealId=deal_id, kind=kind, text=text, actor=actor, createdAt=now()))
+           'task': Task, 'complete_task': Complete, 'product': Product, 'quote': Quote, 'quote_status': QuoteState, 'import_iso': Input}
 
 
 def matching_deal(state, prospect):
@@ -156,30 +124,6 @@ def receive_intake(state, data, actor):
         log(state, deal['id'], 'signal', 'Nueva señal vinculada al negocio existente; no implica una solicitud.', actor)
 
 
-def cents(value):
-    return int(value.quantize(Decimal('1'), rounding=ROUND_HALF_UP))
-
-
-def create_quote(state, data, actor):
-    deal = find(state['deals'], data.dealId)
-    if deal['stage'] in ['won', 'lost']:
-        raise ValueError('Reabre el negocio antes de preparar otra cotización.')
-    product = find(state['products'], data.productId)
-    subtotal = product['price'] * data.quantity
-    discount = cents(Decimal(subtotal) * data.discount / 100)
-    tax = cents(Decimal(subtotal - discount) * data.tax / 100)
-    version = 1 + sum(q['dealId'] == deal['id'] for q in state['quotes'])
-    quote = dict(id=uid(), dealId=deal['id'], productId=product['id'], number=f'COT-{len(state["quotes"]) + 1:04d}', version=version,
-                 productName=product['name'], unitPrice=product['price'], quantity=data.quantity,
-                 subtotal=subtotal, discountPercent=float(data.discount), discountAmount=discount,
-                 taxPercent=float(data.tax), taxAmount=tax, total=subtotal - discount + tax,
-                 status='draft', validUntil=data.validUntil.isoformat(), terms=data.terms, createdAt=now())
-    state['quotes'].append(quote)
-    deal['amount'] = quote['total']
-    deal['updatedAt'] = now()
-    log(state, deal['id'], 'quote', f'{quote["number"]} · borrador v{version} preparado. No enviado.', actor)
-
-
 def apply_command(original, operation, payload, actor, request_id):
     if operation not in SCHEMAS:
         raise ValueError('Operación no reconocida.')
@@ -227,5 +171,7 @@ def apply_command(original, operation, payload, actor, request_id):
         import_catalog(state)
     elif operation == 'quote':
         create_quote(state, data, actor)
+    elif operation == 'quote_status':
+        change_quote_state(state, data, actor)
     state['receipts'].append(dict(id=request_id, digest=digest))
     return state

@@ -6,9 +6,10 @@ from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from backend.domain import apply_command, empty_state
-from backend.relational import RelationalRepository
+from backend.relational import RelationalRepository, sqlite_schema
 from backend.repository import Conflict, StorageUnavailable
 from backend.seed import demo_state
 
@@ -89,3 +90,47 @@ class RelationalStorageTests(unittest.TestCase):
         with self.assertRaises(StorageUnavailable):
             RelationalRepository(Path(self.tmp.name) / 'bad.sqlite3', demo_state(), legacy_path=source)
         self.assertEqual(source.read_text(), '{broken')
+
+    def test_multiple_inclusive_items_and_status_events_survive_restart(self):
+        self.intake()
+        self.command('product', {'name': 'ISO 9001', 'price': '100.05'})
+        self.command('product', {'name': 'Pack ISO', 'price': '200.10'})
+        data = self.load()['data']
+        state = self.command('quote', {'dealId': data['deals'][0]['id'], 'items': [
+            {'productId': p['id'], 'quantity': 1} for p in data['products']], 'tax': '18',
+            'taxIncluded': True, 'validUntil': '2099-12-31', 'terms': 'Pago según propuesta.'})
+        quote_id = state['data']['quotes'][0]['id']
+        self.command('quote_status', {'quoteId': quote_id, 'status': 'sent', 'recipient': 'Ana', 'note': 'Correo enviado.'})
+        saved = self.command('quote_status', {'quoteId': quote_id, 'status': 'accepted', 'recipient': 'Ana', 'note': 'Correo de aceptación.'})
+        restarted = RelationalRepository(self.path, empty_state())
+        self.assertEqual(asyncio.run(restarted.load()), saved)
+        q = saved['data']['quotes'][0]
+        self.assertEqual(q['total'], 30015)
+        self.assertEqual(q['taxAmount'], 4579)
+        self.assertEqual(q['status'], 'accepted')
+        self.assertEqual(len(q['items']), 2)
+        with closing(sqlite3.connect(self.path)) as db:
+            self.assertEqual(db.execute('select count(*) from quote_events').fetchone()[0], 2)
+            with self.assertRaises(sqlite3.IntegrityError):
+                db.execute("update quote_events set note='Cambio'")
+
+    def test_upgrading_old_quote_check_preserves_rows_foreign_keys_and_backup(self):
+        path = Path(self.tmp.name) / 'old.sqlite3'
+        old_sql = sqlite_schema().replace(
+            'total = subtotal - discount_amount + case when coalesce(tax_included,0) then 0 else tax_amount end',
+            'total = subtotal - discount_amount + tax_amount')
+        with patch('backend.relational.sqlite_schema', return_value=old_sql), \
+                patch.object(RelationalRepository, 'upgrade_quote_constraint'):
+            old = RelationalRepository(path, demo_state())
+        before = asyncio.run(old.load())
+        migrated = RelationalRepository(path, empty_state())
+        self.assertEqual(asyncio.run(migrated.load()), before)
+        backup = path.with_name('old.before-multiple-quotes.sqlite3')
+        self.assertTrue(backup.exists())
+        with closing(sqlite3.connect(backup)) as saved, closing(sqlite3.connect(path)) as current:
+            self.assertIn('total = subtotal - discount_amount + tax_amount', saved.execute(
+                "select sql from sqlite_master where name='quotes'").fetchone()[0])
+            self.assertIsNone(current.execute('pragma foreign_key_check').fetchone())
+            self.assertEqual(saved.execute('select * from quotes').fetchall(), current.execute('select * from quotes').fetchall())
+            with self.assertRaises(sqlite3.IntegrityError):
+                current.execute("update quotes set terms='No debe reescribir el historial'")
