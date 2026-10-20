@@ -4,6 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "start": "node scripts/start.mjs",
+    "test:startup": "node --test tests/startup.test.mjs",
     "dev": "vite --host 127.0.0.1",
     "dev:https": "node scripts/dev-https.mjs",
     "build": "tsc -b && vite build",

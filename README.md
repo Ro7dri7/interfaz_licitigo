@@ -16,17 +16,13 @@ Repositorio privado: [Favianlc/licihub-crm](https://github.com/Favianlc/licihub-
 
 ## Arrancar en este equipo
 
-Desde la carpeta donde se clonó `licihub-crm`, abrir dos terminales:
+Desde la carpeta donde se clonó `licihub-crm`, con las dependencias instaladas y `backend/.env` configurado:
 
 ```powershell
-# Terminal 1: API en http://127.0.0.1:8001
-npm run api
+npm start
 ```
 
-```powershell
-# Terminal 2: interfaz HTTPS para el modo Supabase configurado en este equipo
-npm run dev:https
-```
+Este comando inicia API y frontend juntos y muestra la dirección exacta configurada en `CRM_ORIGIN`, sin intercambiar `localhost` y `127.0.0.1`. Usa HTTPS para Supabase y HTTP para la demo predeterminada. Detener instancias anteriores antes de arrancar; `Ctrl+C` detiene ambos servicios. Como alternativa manual siguen disponibles `npm run api` y `npm run dev:https` (Supabase) o `npm run dev` (demo HTTP).
 
 El lanzador de API prefiere `backend/.venv`, después reutiliza el Python ya disponible en `../interfaz_licitigo/backend/.venv` en Windows. También admite `CRM_PYTHON` como ruta absoluta al ejecutable. No cambia las dependencias de Lici.
 
@@ -58,6 +54,7 @@ El modo demo no pide contraseña y solo admite acceso local. Usa `backend/data/d
 ```powershell
 npm run build
 npm run lint
+npm run test:startup
 & '.\backend\.venv\Scripts\python.exe' -m unittest discover -s backend -t .
 npm run test:db
 npm run test:e2e
@@ -65,7 +62,7 @@ npm run test:e2e
 
 Las pruebas usan el entorno propio `backend/.venv`. Las pruebas de navegador requieren Google Chrome instalado. Playwright levanta servicios independientes en **5175/8002**, con datos ficticios nuevos en un archivo temporal del sistema; no modifica la demo de 5174. Esos puertos deben estar libres. Los resultados y trazas de fallos quedan en `test-results/`, excluido de Git.
 
-Última validación: build y lint correctos; **44 pruebas Python, 15 pruebas PostgreSQL y 6 recorridos Playwright aprobados**. PostgreSQL se verifica con PGlite y un esquema mínimo de portal/Auth, sin Docker; el adaptador HTTP usa dobles controlados. No equivale a validar Supabase Auth remoto. Inspección visual previa en escritorio 1440 px y móvil 375 px, ficha y propuesta imprimible. El entorno Python compartido emite una advertencia de deprecación de TestClient/httpx; no impide las pruebas y no se alteró el entorno de Lici.
+Última validación: build y lint correctos; **45 pruebas Python, 15 pruebas PostgreSQL, 5 pruebas de arranque y 6 recorridos Playwright aprobados**. PostgreSQL se verifica con PGlite y un esquema mínimo de portal/Auth, sin Docker; el adaptador HTTP usa dobles controlados. No equivale a validar Supabase Auth remoto. Inspección visual previa en escritorio 1440 px y móvil 375 px, ficha y propuesta imprimible. El entorno Python compartido emite una advertencia de deprecación de TestClient/httpx; no impide las pruebas y no se alteró el entorno de Lici.
 
 ## Organización
 

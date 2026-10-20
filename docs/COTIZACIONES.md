@@ -62,6 +62,6 @@ La demo local actualiza su CHECK de totales mediante reconstrucción transaccion
 
 ## Verificación de esta entrega
 
-Build y lint correctos; 44 pruebas Python, 15 PostgreSQL/PGlite y 6 recorridos Chrome. Se verificaron suma de partidas, IGV incluido, versiones, precios congelados, rechazo/vencimiento, envío/aceptación auditados, reinicio, permisos, repetición del catálogo y actualización no destructiva del CHECK SQLite anterior con respaldo. PDF A4 revisado visualmente, escritorio y móvil 375 px; una propuesta breve de dos partidas y aceptación cabe en una página. Las pruebas utilizan datos ficticios y puertos 5175/8002, sin cargar ejemplos en Supabase.
+Build y lint correctos; 45 pruebas Python, 15 PostgreSQL/PGlite y 6 recorridos Chrome. Se verificaron suma de partidas, IGV incluido, versiones, precios congelados, rechazo/vencimiento, envío/aceptación auditados, reinicio, permisos, repetición del catálogo y actualización no destructiva del CHECK SQLite anterior con respaldo. PDF A4 revisado visualmente, escritorio y móvil 375 px; una propuesta breve de dos partidas y aceptación cabe en una página. Las pruebas utilizan datos ficticios y puertos 5175/8002, sin cargar ejemplos en Supabase.
 
 Pendientes: envío real por correo/360dialog, bandeja y automatizaciones n8n, firma/aceptación por enlace del cliente, PDF generado en servidor, edición/desactivación del catálogo, usuarios asesores reales y prueba del flujo con las cuentas comerciales remotas.

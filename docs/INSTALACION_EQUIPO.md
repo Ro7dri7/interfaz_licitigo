@@ -21,19 +21,13 @@ No es necesario activar el entorno virtual: el lanzador lo encuentra automática
 
 ## 2. Probar sin conexión a la base compartida
 
-La plantilla inicia en modo demo, con ejemplos ficticios guardados únicamente en ese equipo. Abrir dos terminales en la carpeta del repositorio:
+La plantilla inicia en modo demo, con ejemplos ficticios guardados únicamente en ese equipo. Desde la carpeta que contiene `package.json`:
 
 ```powershell
-# Terminal 1
-npm run api
+npm start
 ```
 
-```powershell
-# Terminal 2
-npm run dev
-```
-
-Abrir http://127.0.0.1:5174. La demo no pide contraseña y no envía sus registros a Supabase. Cada computadora tiene su propia demo. `Ctrl+C` detiene cada servicio.
+Este comando arranca la API y el frontend juntos y muestra la URL exacta, normalmente http://127.0.0.1:5174. La demo no pide contraseña y no envía sus registros a Supabase. Cada computadora tiene su propia demo. `Ctrl+C` detiene ambos servicios.
 
 ## 3. Usar el espacio comercial compartido
 
@@ -59,19 +53,13 @@ El administrador del proyecto ejecuta las migraciones **una sola vez por base**,
 
 Respaldar la base y detener las API del CRM antes de la migración. No ejecutar 001, no repetir 004 ni reejecutar 003 después de 006. Para una base nueva o una instalación anterior en inglés, consultar [SUPABASE_RELACIONAL.md](SUPABASE_RELACIONAL.md): requiere las tablas del portal y un orden diferente. No copiar el UUID actual a otro proyecto.
 
-Reiniciar la API después de configurar el entorno. En las dos terminales:
+Después de editar el entorno, detener las instancias anteriores de API/frontend con `Ctrl+C` y ejecutar:
 
 ```powershell
-# Terminal 1
-npm run api
+npm start
 ```
 
-```powershell
-# Terminal 2, en lugar de npm run dev
-npm run dev:https
-```
-
-Abrir exactamente https://127.0.0.1:5174. El certificado autofirmado es para desarrollo local. Iniciar sesión con una cuenta habilitada en el CRM. Todas las computadoras que usan ese proyecto/espacio ven los mismos registros; no es una copia de datos independiente.
+Lee `backend/.env`, activa HTTPS para el frontend y usa el puerto de `CRM_ORIGIN`. Abrir exactamente https://127.0.0.1:5174 cuando esa es la dirección configurada. No sustituirla por `localhost`, HTTP ni otro puerto. El certificado autofirmado es para desarrollo local. Iniciar sesión con una cuenta habilitada en el CRM. Todas las computadoras que usan ese proyecto/espacio ven los mismos registros; no es una copia de datos independiente.
 
 Para comprobar la base sin modificar registros:
 
@@ -91,6 +79,7 @@ npm ci
 & '.\backend\.venv\Scripts\python.exe' -m pip install -r backend/requirements.txt
 npm run build
 npm run lint
+npm run test:startup
 & '.\backend\.venv\Scripts\python.exe' -m unittest discover -s backend -t .
 npm run test:db
 npm run test:e2e
@@ -103,3 +92,17 @@ Reiniciar ambos servicios. Las pruebas usan datos ficticios y puertos separados 
 Git excluye `.env`, entornos Python, `node_modules`, certificados de desarrollo, SQLite, logs, capturas y resultados de pruebas. No copiar esos archivos al repositorio. Para trabajar en una mejora, crear una rama y compartir sus cambios mediante un pull request. No sobrescribir cambios locales para actualizar.
 
 En GitHub, el propietario agrega a los compañeros desde **Settings → Collaborators → Add people**. El enlace privado por sí solo no concede acceso. No se enviaron invitaciones automáticamente.
+
+## 6. Errores de carpeta, arranque y acceso
+
+- **ENOENT / no encuentra package.json:** la terminal está en otra carpeta. `Test-Path package.json` debe mostrar `True`. Entrar a la subcarpeta clonada antes de instalar o arrancar.
+- **No module named uvicorn:** falta el entorno Python o sus dependencias. Ejecutar `python -m venv backend/.venv` y después `& '.\backend\.venv\Scripts\python.exe' -m pip install -r backend/requirements.txt`. Reiniciar el CRM; no basta con `npm ci`, que instala únicamente las dependencias de Node.
+- **No existe el comando start:** actualizar con `git pull --ff-only` desde la carpeta correcta. Conservar los cambios propios antes de actualizar.
+- **Faltan dependencias del frontend:** detener el frontend y ejecutar `npm ci`. Usar Node.js 24 LTS y copiar el error completo si la instalación falla.
+- **Puerto ocupado:** detener las instancias anteriores del CRM. No cambiar solamente el puerto del navegador; `npm start` mantiene coordinadas las direcciones y rechaza un puerto ocupado.
+- **Origen de solicitud no permitido:** la dirección abierta no coincide exactamente con `CRM_ORIGIN`. En el entorno compartido local usar `CRM_MODE=supabase` y `CRM_ORIGIN=https://127.0.0.1:5174`, reiniciar y abrir esa misma dirección. La API rechaza la petición antes de comprobar la contraseña; el mensaje actualizado indica la URL esperada. Las variables de entorno del sistema/terminal tienen prioridad sobre el archivo si existen.
+- **Primero se veía una demo y luego aparece el login:** demo y Supabase son modos diferentes. Cambiar `CRM_MODE` y reiniciar cambia de origen de datos; no convierte los ejemplos en registros compartidos. Un `git pull` no reemplaza `backend/.env`, que está excluido del repositorio.
+- **Credenciales incorrectas:** después de corregir el origen, usar una cuenta que realmente exista en Supabase Auth. Escribir un correo nuevo en el login no crea una cuenta.
+- **Cuenta sin acceso comercial:** el administrador debe habilitar su UUID de Auth en `licihub_crm.miembros`, dentro del espacio configurado, con `activo=true` y rol `commercial` o `admin`. No repetir 004 para añadir compañeros; usar la instrucción de alta de miembros de [SUPABASE_RELACIONAL.md](SUPABASE_RELACIONAL.md).
+
+Si persiste un problema, compartir el texto exacto de la terminal, la URL abierta y el mensaje visible. No compartir contraseñas ni claves del archivo de entorno.

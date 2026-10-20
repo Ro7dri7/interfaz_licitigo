@@ -73,7 +73,8 @@ def create_app(settings=None, repository=None):
             return JSONResponse({'detail': 'El espacio de prueba solo admite acceso local.'}, status_code=403)
         if request.method not in ['GET', 'HEAD', 'OPTIONS']:
             if request.url.path != '/api/crm/events' and request.headers.get('origin') != config.origin:
-                return JSONResponse({'detail': 'Origen de solicitud no permitido.'}, status_code=403)
+                return JSONResponse({'detail': f'Origen de solicitud no permitido. Abre el CRM en {config.origin}. '
+                                     'Si cambiaste CRM_ORIGIN en backend/.env, reinicia la API.'}, status_code=403)
             body = await request.body()
             if len(body) > 65536:
                 return JSONResponse({'detail': 'Solicitud demasiado grande.'}, status_code=413)

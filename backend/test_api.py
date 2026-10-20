@@ -34,7 +34,21 @@ class ApiTests(unittest.TestCase):
 
     def test_disallows_foreign_origin(self):
         self.client.headers['Origin'] = 'https://other.example'
-        self.assertEqual(self.command().status_code, 403)
+        response = self.command()
+        self.assertEqual(response.status_code, 403)
+        self.assertIn('http://127.0.0.1:5174', response.json()['detail'])
+
+    def test_login_with_wrong_origin_is_rejected_before_checking_credentials(self):
+        config = Settings(_env_file=None, mode='supabase', origin='https://127.0.0.1:5174',
+                          supabase_url='https://project.example.com', supabase_secret_key='test-only', workspace_id='test')
+        with TestClient(create_app(config, self.repo)) as client, patch('backend.main.httpx.AsyncClient') as auth:
+            for origin in ['http://127.0.0.1:5174', 'https://localhost:5174', 'https://127.0.0.1:5175']:
+                response = client.post('/api/crm/login', headers={'Origin': origin},
+                                       json={'email': 'test@example.com', 'password': 'test-only'})
+                self.assertEqual(response.status_code, 403)
+                self.assertIn(config.origin, response.json()['detail'])
+                self.assertNotIn('set-cookie', response.headers)
+            auth.assert_not_called()
 
     def test_quote_upgrade_guard_explains_missing_migration_without_writing(self):
         old_snapshot = {'revision': 0, 'data': empty_state()}
