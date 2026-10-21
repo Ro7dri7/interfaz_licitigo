@@ -151,9 +151,15 @@ Dependencias: 12. Alcance: pequeño/medio, validación y documentación.
 ## Evidencia de esta entrega y siguiente paso
 
 - [x] `npm run build`, `npm run lint`: correctos, sin supresiones añadidas.
-- [x] 45 pruebas Python, 15 pruebas PostgreSQL y 6 pruebas E2E Chrome, con persistencia relacional, integridad, permisos, errores, teclado y móvil.
+- [x] 45 pruebas Python, 15 pruebas PostgreSQL y 8 pruebas E2E Chrome, con persistencia relacional, integridad, permisos, errores, teclado y móvil.
 - [x] Documentar arquitectura, arranque, contrato de eventos y límites en `README.md` y `docs/`.
 - [ ] Activar un espacio Supabase de prueba, provisionar miembros y validar permisos con cuentas reales.
 - [ ] Conectar el emisor de eventos de Lici y probar un desbloqueo seguido de solicitud realista.
 
 Avances parciales: acceso y roles están implementados en API y probados con dobles de Supabase, falta validación remota/visibilidad por asesor. El receptor Lici está preparado, falta emisor y actualización del análisis. Catálogo admite altas activas, no edición/desactivación/proveedor. Cotización admite múltiples partidas/paquetes, IGV incluido, documento INTERCERT y registro auditado de envío/aceptación/rechazo; faltan envíos externos reales. Aplicar 006/007 en Supabase sigue pendiente del usuario. Empresas/contactos admiten alta y consulta, no edición/fusión. Los puntos de revisión con datos reales y equipo comercial siguen abiertos. Comandos de ejecución y verificación en [../README.md](../README.md).
+
+## Directorio unificado (21/10/2026)
+- [x] Una entrada Directorio con pestañas Empresas y Contactos y filtros persistentes.
+- [x] Ficha de empresa con contactos, negocios y cotizaciones; acceso al documento comercial.
+- [x] Mantener rutas antiguas, datos relacionales y permisos sin SQL nuevo.
+- [x] Verificar escritorio/móvil, registros vacíos e inexistentes y consulta sin escrituras.

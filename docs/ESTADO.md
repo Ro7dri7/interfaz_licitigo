@@ -8,6 +8,8 @@ Actualización 19/10/2026: marca visible **LiciHub** aplicada al CRM y al Portal
 
 Ampliación comercial 20/10: cotizaciones múltiples y paquetes, estados auditados y documento INTERCERT implementados; precios del Excel con IGV incluido por decisión del usuario. Catálogo seleccionado: 540 referencias ISO, incluidas 165 de paquetes; Lucía Mendoza y Diego Salazar son responsables ficticios seleccionables. **Faltan ejecutar 006/007 en Supabase**; no se cargó el catálogo remoto ni se aplicó esa evolución desde aquí. [Activación y recorrido de prueba](COTIZACIONES.md).
 
+Actualización 21/10/2026: navegación unificada en **Directorio**, con Empresas como vista inicial y ficha por organización. Los datos y permisos se conservan; no requiere otra migración SQL. [Detalle y límites](DIRECTORIO.md).
+
 ## Disponible y verificado localmente
 
 | Módulo | Comportamiento implementado |
@@ -15,7 +17,7 @@ Ampliación comercial 20/10: cotizaciones múltiples y paquetes, estados auditad
 | Identidad y navegación | Estilos derivados de Lici React; barra lateral, escritorio/móvil, carga, error, vacío, formularios con teclado y Escape |
 | Mi día | Solicitudes explícitas asociadas a negocios nuevos, negocios abiertos y su valor, tareas vencidas, total de ventas ganadas, señales por revisar |
 | Prospectos | Alta manual multicanal; responsable e interés; vistas solicitudes/señales; conversión explícita por asesor |
-| Empresas/contactos | Listados, búsqueda y negocios asociados; coincidencia de empresa por RUC y contacto por correo dentro de su empresa |
+| Directorio | Empresas y Contactos en una entrada con pestañas, búsqueda, filtros y ficha de empresa; consulta de personas, negocios y versiones de cotización; rutas antiguas compatibles |
 | Negocios | Tablero/lista, filtros de origen/responsable/servicio, ficha con propiedades, contexto ISO, actividades, contactos y propuestas |
 | Seguimiento | Etapas persistentes; notas, llamadas/reuniones registradas; tareas con zona horaria, pendientes y completadas |
 | Catálogo | Formulario Nuevo producto con precio PEN/IGV incluido y estado; rechazo de cursos; importación ISO idempotente (375 variantes individuales y 165 paquetes), búsqueda y filtros por tipo/paquete |
@@ -63,7 +65,7 @@ También faltan: rate limiting del login y del receptor, límites de cuerpo en e
 - TypeScript/Vite: build correcto; oxlint sin hallazgos, sin desactivar reglas.
 - 45 pruebas Python: reglas/API, vínculos, versiones/precios, moneda/fechas, origen, tamaño, demo local, permisos con respuestas simuladas de Supabase Auth; SQLite con claves foráneas, rollback, guardado solo de cambios, reinicio e importación íntegra del JSON incluso con la configuración anterior; adaptador HTTP relacional y fallos de funciones ausentes.
 - 15 pruebas PostgreSQL con PGlite: flujo completo, bloqueo de roles cliente, membresía/rol, idempotencia y conflictos, límites de espacio/empresa y rollback, propuestas inmutables, validación de enlaces al portal, restricciones de integración, plantilla de administrador, repetición de migraciones y transición inglés/español con reversión íntegra y rechazo de esquemas mezclados. Usan un esquema mínimo de portal/Auth, no una instancia Supabase remota.
-- 6 pruebas Chrome: señal→solicitud multicanal→cotización→actividad→tarea→ganado con recarga; conversión de señal y pérdida; móvil/teclado/foco; vacío/error/reintento.
+- 8 pruebas Chrome: señal→solicitud multicanal→cotización→actividad→tarea→ganado con recarga; conversión de señal y pérdida; móvil/teclado/foco; vacío/error/reintento.
 - Revisión visual: Mi día, tablero, ficha a 1440 px, ficha a 375 px sin desborde horizontal y propuesta en modo impresión. Se revisó además el documento INTERCERT A4 de dos partidas con IGV incluido y aceptación en una página. No equivale a auditoría WCAG completa ni a validación en Safari/Firefox.
 - Hallazgos corregidos: señal que llegaba después de una solicitud quedaba sin vincular; reconversión de prospecto cerrado podía generar negocio huérfano; foco del modal y propuesta oculta al imprimir; contraseña con espacios debía preservarse; fechas de tarea se normalizan a UTC.
 

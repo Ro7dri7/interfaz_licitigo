@@ -40,6 +40,8 @@ Para configurar valores propios, copiar `backend/.env.example` a `backend/.env`.
 
 El modo demo no pide contraseña y solo admite acceso local. Usa `backend/data/demo.sqlite3`: si existe el antiguo `demo.json`, lo importa una sola vez y conserva el original intacto. Recargar o reiniciar conserva los cambios en tablas. Usar **un único proceso de API** sobre esa demo. Para respaldarla, detener la API y copiar SQLite junto con sus archivos `-wal`/`-shm` si existen; el JSON conservado no incluye cambios posteriores. Para comenzar otra demo, asignar un archivo SQLite nuevo con `CRM_DATA_FILE`. No ingresar datos reales en esta demo ni publicarla a través de un proxy.
 
+**Directorio (21/10):** Empresas y Contactos comparten una sola entrada de navegación, con pestañas y ficha de empresa que reúne personas, negocios y cotizaciones. Conserva enlaces antiguos y datos existentes; no requiere SQL adicional. [Funcionamiento del directorio](docs/DIRECTORIO.md).
+
 ## Recorrido disponible
 
 1. En **Prospectos**, registrar empresa, contacto, origen, responsable y servicio. Un RUC exacto vincula la empresa; sin RUC se crea un registro independiente.
@@ -62,7 +64,7 @@ npm run test:e2e
 
 Las pruebas usan el entorno propio `backend/.venv`. Las pruebas de navegador requieren Google Chrome instalado. Playwright levanta servicios independientes en **5175/8002**, con datos ficticios nuevos en un archivo temporal del sistema; no modifica la demo de 5174. Esos puertos deben estar libres. Los resultados y trazas de fallos quedan en `test-results/`, excluido de Git.
 
-Última validación: build y lint correctos; **45 pruebas Python, 15 pruebas PostgreSQL, 5 pruebas de arranque y 6 recorridos Playwright aprobados**. PostgreSQL se verifica con PGlite y un esquema mínimo de portal/Auth, sin Docker; el adaptador HTTP usa dobles controlados. No equivale a validar Supabase Auth remoto. Inspección visual previa en escritorio 1440 px y móvil 375 px, ficha y propuesta imprimible. El entorno Python compartido emite una advertencia de deprecación de TestClient/httpx; no impide las pruebas y no se alteró el entorno de Lici.
+Última validación: build y lint correctos; **45 pruebas Python, 15 pruebas PostgreSQL, 5 pruebas de arranque y 8 recorridos Playwright aprobados**. PostgreSQL se verifica con PGlite y un esquema mínimo de portal/Auth, sin Docker; el adaptador HTTP usa dobles controlados. No equivale a validar Supabase Auth remoto. Inspección visual previa en escritorio 1440 px y móvil 375 px, ficha y propuesta imprimible. El entorno Python compartido emite una advertencia de deprecación de TestClient/httpx; no impide las pruebas y no se alteró el entorno de Lici.
 
 ## Organización
 

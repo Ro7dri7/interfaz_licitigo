@@ -19,7 +19,7 @@ export default function DealDetail() {
   const prospects = data.prospects.filter(p => deal.prospectIds.includes(p.id)), context = prospects.filter(p => p.tender || p.evidence !== 'none')
   const activities = data.activities.filter(a => a.dealId === deal.id && (filter === 'all' || a.kind === filter)).slice().reverse()
   const tasks = data.tasks.filter(t => t.dealId === deal.id), quotes = data.quotes.filter(q => q.dealId === deal.id)
-  return <><div className="breadcrumb"><Link to="/negocios">Negocios</Link><span>/</span><span>{company?.name}</span></div>
+  return <><div className="breadcrumb"><Link to="/negocios">Negocios</Link><span>/</span><Link to={`/directorio/empresas/${deal.companyId}`}>{company?.name}</Link></div>
     <div className="detail-grid"><aside className="panel detail-properties"><div className="detail-title"><div className="company-icon"><Icon name="company" size={25} /></div><p className="eyebrow">{originLabel(deal.origin).toUpperCase()} · CERTIFICACIONES</p><h1>{company?.name}</h1><p>{deal.service}</p></div>
       <div className="deal-value"><small>Valor comercial</small><strong>{deal.amount ? money(deal.amount) : 'Por cotizar'}</strong></div>
       <label className="stage-label">Etapa del negocio<select aria-label="Etapa del negocio" value={deal.stage} disabled={busy} onChange={async e => {

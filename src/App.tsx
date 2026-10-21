@@ -5,14 +5,22 @@ import { useCRM } from './crm-context'
 import { api } from './api'
 import { IntakeForm, ProductForm } from './Forms'
 import Overview from './Overview'
-import { Directory, Pipeline, Prospects } from './Collections'
+import { Pipeline, Prospects } from './Collections'
+import Directory from './Directory'
+import CompanyDetail from './CompanyDetail'
 import DealDetail from './DealDetail'
 import { Agenda, Catalog, Quotes, SettingsPage } from './Operations'
 import { initials } from './types'
 
-const navigation = [['/', 'home', 'Mi día'], ['/prospectos', 'radar', 'Prospectos'], ['/empresas', 'company', 'Empresas'],
-  ['/contactos', 'users', 'Contactos'], ['/negocios', 'deals', 'Negocios'], ['/agenda', 'calendar', 'Agenda'],
+const navigation = [['/', 'home', 'Mi día'], ['/prospectos', 'radar', 'Prospectos'], ['/directorio', 'company', 'Directorio'],
+  ['/negocios', 'deals', 'Negocios'], ['/agenda', 'calendar', 'Agenda'],
   ['/cotizaciones', 'file', 'Cotizaciones'], ['/catalogo', 'box', 'Catálogo']]
+
+function LegacyDirectory({ contacts = false }: { contacts?: boolean }) {
+  const location = useLocation(), params = new URLSearchParams(location.search)
+  if (contacts) params.set('vista', 'contactos'); else params.delete('vista')
+  return <Navigate replace to={`/directorio${params.size ? '?' + params.toString() : ''}${location.hash}`} />
+}
 
 export default function App() {
   const { session, snapshot: { data } } = useCRM(), location = useLocation()
@@ -25,7 +33,8 @@ export default function App() {
       <div className="sidebar-bottom"><div className="ecosystem"><Icon name="radar" /><strong>Conectado a tu proceso</strong><p>Del interés en una licitación a una relación comercial.</p></div><NavLink to="/configuracion" onClick={() => setMenu(false)}><Icon name="settings" />Espacio e integraciones</NavLink><div className="sidebar-foot">LiciHub CRM <span>v0.1</span></div></div></aside>
     <div className="workspace"><header className="topbar"><div className="topbar-context"><button className="icon-button mobile-menu" aria-label="Abrir navegación" aria-expanded={menu} onClick={() => setMenu(!menu)}><Icon name="list" /></button><span>Espacio comercial</span><span className="divider">/</span><strong>{page}</strong></div><div className="topbar-right"><span className={`environment ${session.mode === 'demo' ? 'demo' : ''}`}><span className="status-dot" />{session.mode === 'demo' ? 'Prueba local · datos ficticios' : 'Espacio compartido'}</span><span className="avatar">{initials(session.user.name)}</span>{session.mode === 'supabase' && <button onClick={async () => { await api('logout', {}); window.location.reload() }}>Salir</button>}</div></header>
       <main id="main"><Routes><Route path="/" element={<Overview onCreate={create} />} /><Route path="/prospectos" element={<Prospects onCreate={create} />} />
-        <Route path="/empresas" element={<Directory onCreate={create} />} /><Route path="/contactos" element={<Directory contacts onCreate={create} />} />
+        <Route path="/directorio" element={<Directory onCreate={create} />} /><Route path="/directorio/empresas/:id" element={<CompanyDetail />} />
+        <Route path="/empresas" element={<LegacyDirectory />} /><Route path="/contactos" element={<LegacyDirectory contacts />} />
         <Route path="/negocios" element={<Pipeline onCreate={create} />} /><Route path="/negocios/:id" element={<DealDetail />} />
         <Route path="/agenda" element={<Agenda />} /><Route path="/cotizaciones" element={<Quotes />} /><Route path="/catalogo" element={<Catalog onCreate={() => setModal('product')} />} />
         <Route path="/configuracion" element={<SettingsPage />} /><Route path="*" element={<Navigate to="/" replace />} /></Routes>

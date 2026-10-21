@@ -116,5 +116,6 @@ test('empty filters and failed API have a recovery path', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'No pudimos cargar el CRM' })).toBeVisible()
   await page.unroute('**/api/crm/state')
   await page.getByRole('button', { name: 'Reintentar conexión' }).click()
-  await expect(page.getByRole('heading', { name: 'Contactos', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Directorio', exact: true })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Vistas del directorio' }).getByRole('link', { name: /Contactos/ })).toHaveAttribute('aria-current', 'page')
 })

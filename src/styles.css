@@ -292,6 +292,17 @@ tbody tr:hover { background: #fcfdff; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
 
 .quote-lines { display: grid; gap: 16px; }
+.directory-tabs { display: flex; gap: 24px; border-bottom: 1px solid var(--color-line); margin-bottom: 20px; }
+.directory-tabs a { display: flex; align-items: center; gap: 8px; padding: 12px 0; border-bottom: 2px solid transparent; color: var(--color-muted); font-size: 12px; font-weight: 600; }
+.directory-tabs a[aria-current="page"] { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+.directory-tabs span { background: var(--color-primary-soft); color: var(--color-primary); border-radius: 4px; padding: 1px 6px; font-size: 10px; }
+.company-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+.company-summary > div { background: white; border: 1px solid var(--color-line); border-radius: var(--radius-sm); padding: 20px; }
+.company-summary small { display: block; color: var(--color-muted); margin-bottom: 12px; }
+.company-summary strong { font-size: 22px; overflow-wrap: anywhere; }
+.company-sections { display: grid; gap: 24px; }
+@media (max-width: 900px) { .company-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .company-summary { gap: 12px; } .company-summary > div { padding: 16px; } .company-summary strong { font-size: 18px; } }
 .quote-line { min-width: 0; border: 1px solid #dce5f5; border-radius: 9px; padding: 17px; background: #fbfcff; }
 .quote-line legend { padding-inline: 7px; color: #315bce; font-size: 11px; font-weight: 600; }
 .quote-line-detail { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 14px; align-items: end; margin-top: 15px; }
