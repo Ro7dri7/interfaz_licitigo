@@ -13,7 +13,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .domain import Input, apply_command
-from .repository import AccessDenied, Conflict, StorageUnavailable, SupabaseRepository
+from .repository import AccessDenied, Conflict, StorageUnavailable, SupabaseRepository, TelegramSchemaMissing
 from .relational import RelationalRepository
 from .seed import demo_state
 from .iso_catalog import metadata, catalog
@@ -118,7 +118,13 @@ def create_app(settings=None, repository=None):
     @app.exception_handler(httpx.HTTPError)
     @app.exception_handler(OSError)
     async def storage_handler(_request, _error):
-        return JSONResponse({'detail': 'No se pudo acceder al almacenamiento. Tus cambios no se han confirmado.'}, status_code=503)
+        return JSONResponse({'detail': 'No se pudo acceder al almacenamiento. Tus cambios no se han confirmado.',
+                             'code': 'crm_storage_unavailable'}, status_code=503)
+
+    @app.exception_handler(TelegramSchemaMissing)
+    async def telegram_schema_handler(_request, _error):
+        return JSONResponse({'detail': 'La base rechaza el origen Telegram. Ejecuta 008_origen_telegram.sql en el proyecto Supabase de este CRM.',
+                             'code': 'crm_telegram_schema_missing'}, status_code=503)
 
     @app.exception_handler(RequestValidationError)
     @app.exception_handler(ValidationError)
@@ -180,14 +186,16 @@ def create_app(settings=None, repository=None):
     @app.post('/api/crm/events')
     async def event(data: Event, request: Request):
         if not config.ingest_key:
-            raise HTTPException(503, 'La recepción de eventos de Lici no está habilitada.')
+            return JSONResponse({'detail': 'La recepción comercial está deshabilitada. Configura CRM_INGEST_KEY en backend/.env del CRM y reinicia su API.',
+                                 'code': 'crm_ingest_disabled'}, status_code=503)
         supplied = request.headers.get('x-crm-ingest-key', '')
         if not secrets.compare_digest(supplied.encode(), config.ingest_key.encode()):
             raise HTTPException(401, 'Credencial de integración no válida.')
         if data.payload.get('origin') not in ['Lici', 'Telegram']:
             raise HTTPException(422, 'Este canal solo recibe solicitudes del portal o Telegram.')
         if data.payload.get('kind') not in ['advice', 'quote']:
-            raise HTTPException(422, 'Solo se registran solicitudes explícitas de asesoría o cotización.')
+            return JSONResponse({'detail': 'Solo se registran solicitudes explícitas de asesoría o cotización.',
+                                 'code': 'crm_explicit_request_required'}, status_code=422)
         for _ in range(3):
             snapshot = await repo.load(request_id=f'lici:{data.requestId}')
             updated = apply_command(snapshot['data'], 'intake', data.payload, f'Integración {data.payload["origin"]}', f'lici:{data.requestId}')

@@ -112,6 +112,8 @@ def receive_intake(state, data, actor):
         contact = dict(id=uid(), companyId=company['id'], name=data.contact or 'Contacto por completar',
                        email=str(data.email), phone=data.phone)
         state['contacts'].append(contact)
+    elif contact and data.phone and not contact['phone']:
+        contact['phone'] = data.phone
     prospect = dict(id=uid(), companyId=company['id'], contactId=contact['id'] if contact else None,
                     kind=data.kind, origin=data.origin, service=data.service, owner=data.owner, evidence=data.evidence,
                     tender=data.tender, deadline=data.deadline.isoformat() if data.deadline else None,

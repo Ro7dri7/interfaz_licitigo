@@ -5,7 +5,7 @@ import httpx
 
 from backend.domain import apply_command, empty_state
 from backend.relational_codec import encode_state
-from backend.repository import SupabaseRepository, Conflict, StorageUnavailable
+from backend.repository import SupabaseRepository, Conflict, StorageUnavailable, TelegramSchemaMissing
 from backend.sql_names import TABLAS, fila_sql
 
 WORKSPACE = '10000000-0000-0000-0000-000000000001'
@@ -13,6 +13,13 @@ ACTOR = {'id': '20000000-0000-0000-0000-000000000001', 'name': 'Asesor', 'role':
 
 
 class SupabaseAdapterTests(unittest.TestCase):
+    def test_origin_constraint_is_classified_without_exposing_failed_row(self):
+        response = {'code': '23514', 'message': 'new row for relation "negocios" violates check constraint "negocios_origen_check"',
+                    'details': 'Failed row contains private contact data'}
+        repo = SupabaseRepository('https://project.example', 'test-only', WORKSPACE,
+                                  transport=httpx.MockTransport(lambda _: httpx.Response(400, json=response)))
+        with self.assertRaises(TelegramSchemaMissing):
+            asyncio.run(repo.rpc('licihub_crm_guardar', {}))
     def test_uses_service_only_rpcs_and_sends_only_changed_rows(self):
         original = apply_command(empty_state(), 'intake', {'company': 'Empresa', 'service': 'ISO 9001', 'kind': 'quote'}, 'Asesor', 'first')
         before = {'revision': 1, 'data': original}

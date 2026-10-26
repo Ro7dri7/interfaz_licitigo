@@ -13,6 +13,10 @@ class StorageUnavailable(Exception):
     pass
 
 
+class TelegramSchemaMissing(StorageUnavailable):
+    pass
+
+
 class AccessDenied(Exception):
     pass
 
@@ -34,6 +38,10 @@ class SupabaseRepository:
                 raise Conflict()
             if error.get('code') == '42501':
                 raise AccessDenied()
+            origin_checks = ['empresas_origen_check', 'negocios_origen_check', 'prospectos_origen_check',
+                             'companies_origin_check', 'deals_origin_check', 'prospects_origin_check']
+            if error.get('code') == '23514' and any(name in error.get('message', '') for name in origin_checks):
+                raise TelegramSchemaMissing()
             raise StorageUnavailable()
         return response.json()
 

@@ -10,6 +10,8 @@ Se reutiliza `POST /api/crm/events`, autenticado de servidor a servidor con `X-C
 
 El portal expone `POST /api/asesorias` con sesión, UUID estable `solicitudId` y `licitacionId`. Verifica que la cuenta haya desbloqueado esa licitación. Empresa, RUC y contacto se obtienen en el servidor. Telegram requiere chat privado y cuenta vinculada; `/asesor [servicio]` presenta una confirmación antes de enviar datos comerciales.
 
+Ampliación 26/10: el bot pregunta tipo de solicitud, servicio, necesidad y teléfono opcional; reutiliza los datos de la cuenta y muestra un resumen antes de enviar. El tipo cotización se registra como `quote`, sin generar ni enviar automáticamente una propuesta. El asesor ve los datos en la ficha de Negocios y puede registrar seguimiento. `/estadoasesoria` consulta la entrega. No incluye una bandeja de conversación bidireccional, según el alcance confirmado por el usuario.
+
 ## Entrega y resultado
 
 El emisor conserva un evento inmutable en una cola SQLite local antes de intentar entregarlo. API y bot comparten el archivo en una instalación. Reintenta errores de conexión, 409, 429 y 5xx con espera creciente; errores definitivos quedan visibles para operación. Conserva el mismo identificador y contenido entre reintentos. No guarda tokens ni conversaciones completas en la cola.
@@ -29,6 +31,10 @@ El 26/10 se verificó getMe del bot `@LiciLicitacionesBot`, sin enviar mensajes 
 Recorrido: entrar al portal con una cuenta propia, vincular Telegram desde Mi perfil, enviar `/asesor` al bot y confirmar **Solicitar asesoría**. En CRM abrir Negocios y filtrar Telegram; revisar contacto y tarea inicial. La interfaz se actualiza cada 30 segundos y al recuperar foco. Para el otro recorrido, confirmar **Hablar con un asesor** en una licitación ya desbloqueada y revisar el contexto en la ficha. Si se solicita el mismo servicio para el mismo RUC, se conserva el negocio abierto y se agrega la nueva solicitud.
 
 Configuración, arranque y recuperación de errores definitivos de la cola: [guía del portal](../../interfaz_licitigo/docs/ASESORIAS_CRM.md).
+
+## Receptor deshabilitado: causa confirmada del 503 del equipo
+
+El usuario confirmó que su CRM muestra recepción habilitada y el del compañero, deshabilitada; SQL 008 ya fue ejecutado. El compañero debe configurar una `CRM_INGEST_KEY` coincidente con la del emisor y reiniciar su API. La herramienta `python -m app.configurar_crm --crm RUTA_DEL_CRM`, ejecutada con el entorno del portal desde su carpeta backend, enlaza ambas configuraciones locales sin imprimir secretos. Luego `python -m app.asesorias diagnostico` comprueba clave/recepción sin crear datos y `python -m app.asesorias reintentar-pendientes` entrega las peticiones guardadas en esa misma máquina. Los nuevos errores incluyen códigos operativos seguros para distinguir configuración, esquema y almacenamiento.
 
 ## Verificación requerida
 

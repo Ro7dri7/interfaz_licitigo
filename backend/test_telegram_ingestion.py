@@ -6,6 +6,8 @@ from fastapi.testclient import TestClient
 
 from backend.domain import empty_state
 from backend.main import Settings, create_app
+from unittest.mock import AsyncMock, patch
+from backend.repository import TelegramSchemaMissing
 from backend.relational import RelationalRepository
 
 
@@ -50,6 +52,28 @@ class TelegramIngestionTests(unittest.TestCase):
         self.assertEqual(len(data['contacts']), 1)
         self.assertEqual(len(data['deals']), 1)
         self.assertEqual({p['origin'] for p in data['prospects']}, {'Lici', 'Telegram'})
+
+    def test_disabled_receiver_explains_503_without_confirming_or_writing(self):
+        with TestClient(create_app(Settings(_env_file=None, mode='demo'), self.repo)) as client:
+            response = client.post('/api/crm/events', json={'requestId': 'one', 'payload': {}})
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()['code'], 'crm_ingest_disabled')
+        self.assertIn('CRM_INGEST_KEY', response.json()['detail'])
+
+    def test_missing_telegram_constraint_has_specific_safe_response(self):
+        with patch.object(self.repo, 'save', new=AsyncMock(side_effect=TelegramSchemaMissing())):
+            response = self.send()
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()['code'], 'crm_telegram_schema_missing')
+        self.assertIn('008_origen_telegram.sql', response.json()['detail'])
+        self.assertNotIn('ana@example.com', response.text)
+
+    def test_confirmed_phone_fills_empty_existing_contact(self):
+        self.assertEqual(self.send('web:1', origin='Lici').status_code, 200)
+        self.assertEqual(self.send(phone='+51999988877').status_code, 200)
+        data = self.client.get('/api/crm/state').json()['data']
+        self.assertEqual(len(data['contacts']), 1)
+        self.assertEqual(data['contacts'][0]['phone'], '+51999988877')
 
 
 if __name__ == '__main__':
