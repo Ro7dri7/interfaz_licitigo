@@ -66,9 +66,14 @@ class ColaAsesorias:
             db.execute("update solicitudes set estado=?,intentos=?,ultimo_error=?,proximo_intento=?,evento=case when ?='entregada' then '' else evento end where id=? and estado='pendiente'",
                        (estado, intentos, error, time.time() + min(3600, 15 * 2 ** min(intentos, 8)), estado, request_id))
 
-    def pendientes(self) -> list[str]:
+    def pendientes(self, *, ignorar_espera=False) -> list[str]:
         with closing(self.conectar()) as db:
-            return [r['id'] for r in db.execute("select id from solicitudes where estado='pendiente' and proximo_intento<=? order by creado_en limit 20", (time.time(),))]
+            return [r['id'] for r in db.execute("select id from solicitudes where estado='pendiente' and (? or proximo_intento<=?) order by creado_en limit 20", (ignorar_espera,time.time()))]
+
+    def ultima_de_perfil(self, perfil_id: str) -> dict | None:
+        with closing(self.conectar()) as db:
+            fila = db.execute('select id,estado from solicitudes where perfil_id=? order by creado_en desc limit 1', (perfil_id,)).fetchone()
+            return dict(fila) if fila else None
 
     def reactivar(self, request_id: str) -> None:
         with closing(self.conectar()) as db, db:
@@ -102,7 +107,10 @@ async def entregar(request_id: str, *, transport=None) -> str:
             return 'entregada'
         reintentable = respuesta.status_code in (409, 429) or respuesta.status_code >= 500 or respuesta.status_code == 200
         estado = 'pendiente' if reintentable else 'error'
-        cola.actualizar(request_id, estado, f'HTTP {respuesta.status_code}')
+        codes = {'crm_ingest_disabled', 'crm_storage_unavailable', 'crm_telegram_schema_missing'}
+        code = resultado.get('code') if isinstance(resultado, dict) else None
+        motivo = f'HTTP {respuesta.status_code}' + (f': {code}' if code in codes else '')
+        cola.actualizar(request_id, estado, motivo)
         log.warning('Entrega CRM %s: %s, HTTP %s', request_id, estado, respuesta.status_code)
         return estado
     except httpx.HTTPError:
@@ -116,6 +124,38 @@ async def reintentar_pendientes() -> None:
         return
     for request_id in ColaAsesorias(config.crm_outbox_file).pendientes():
         await entregar(request_id)
+
+
+def estado_de_solicitud(perfil_id: str) -> str:
+    path = get_settings().crm_outbox_file
+    fila = ColaAsesorias(path).ultima_de_perfil(perfil_id) if path.exists() else None
+    if not fila:
+        return 'Todavía no tienes solicitudes confirmadas en este bot. Usa /asesor para preparar una.'
+    referencia = hashlib.sha256(fila['id'].encode()).hexdigest()[:8].upper()
+    textos = {'entregada':'El CRM recibió tu solicitud y el equipo comercial puede darle seguimiento.',
+              'pendiente':'Tu solicitud está guardada y pendiente de entrega al CRM. No necesitas volver a enviarla.',
+              'error':'Tu solicitud está guardada. El equipo debe revisar su entrega al CRM; no necesitas repetirla.'}
+    return f'Solicitud {referencia}: {textos[fila["estado"]]}'
+
+
+async def diagnostico(*, transport=None) -> dict:
+    config = get_settings()
+    if not config.crm_api_url or not config.crm_ingest_key:
+        return {'codigo':'emisor_sin_configurar', 'mensaje':'Falta CRM_API_URL o CRM_INGEST_KEY en el backend del portal.'}
+    try:
+        async with httpx.AsyncClient(timeout=10,transport=transport,follow_redirects=False,trust_env=False) as http:
+            response = await http.post(config.crm_api_url + '/api/crm/events',
+                headers={'X-CRM-Ingest-Key':config.crm_ingest_key},
+                json={'requestId':'diagnostico-sin-escritura','payload':{'origin':'Lici','kind':'diagnostic'}})
+        if response.status_code == 422:
+            return {'codigo':'recepcion_habilitada','mensaje':'El CRM acepta la clave de integración. No se crearon registros; el almacenamiento no se probó.'}
+        if response.status_code == 401:
+            return {'codigo':'claves_no_coinciden','mensaje':'CRM_INGEST_KEY debe coincidir en ambos backend/.env. Reinicia los dos procesos después de cambiarla.'}
+        if response.status_code == 503:
+            return {'codigo':'receptor_no_disponible','mensaje':'Comprueba Recepción habilitada en el CRM. Si está deshabilitada, configura CRM_INGEST_KEY y reinicia su API.'}
+        return {'codigo':'respuesta_inesperada','http':response.status_code,'mensaje':'Revisa CRM_API_URL: debe apuntar a la API del CRM.'}
+    except httpx.HTTPError:
+        return {'codigo':'sin_conexion','mensaje':'No hay conexión con la API del CRM. Revisa el servidor y CRM_API_URL.'}
 
 
 async def preparar(perfil_id: str, email: str, origen: str, *, servicio: str = SERVICIO_GENERAL,
@@ -166,14 +206,23 @@ if __name__ == '__main__':
     import asyncio
 
     parser = argparse.ArgumentParser(description='Estado y recuperación de la cola comercial. No muestra datos de contacto.')
-    parser.add_argument('accion', choices=['estado', 'reintentar'])
+    parser.add_argument('accion', choices=['estado', 'reintentar', 'diagnostico', 'reintentar-pendientes'])
     parser.add_argument('solicitud_id', nargs='?')
     args = parser.parse_args()
-    cola = ColaAsesorias(get_settings().crm_outbox_file)
-    if args.accion == 'reintentar':
+    if args.accion == 'diagnostico':
+        print(json.dumps(asyncio.run(diagnostico()),ensure_ascii=False,indent=2))
+    elif args.accion == 'reintentar-pendientes':
+        cola = ColaAsesorias(get_settings().crm_outbox_file)
+        async def recuperar():
+            return [await entregar(request_id) for request_id in cola.pendientes(ignorar_espera=True)]
+        resultados = asyncio.run(recuperar())
+        print(json.dumps({estado:resultados.count(estado) for estado in ['entregada','pendiente','error']},ensure_ascii=False))
+    elif args.accion == 'reintentar':
+        cola = ColaAsesorias(get_settings().crm_outbox_file)
         if not args.solicitud_id:
             parser.error('Indica el identificador de la solicitud guardada.')
         cola.reactivar(args.solicitud_id)
         print(asyncio.run(entregar(args.solicitud_id)))
     else:
+        cola = ColaAsesorias(get_settings().crm_outbox_file)
         print(json.dumps(cola.resumen(), ensure_ascii=False, indent=2))

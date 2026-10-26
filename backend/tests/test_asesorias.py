@@ -61,6 +61,34 @@ class AsesoriaTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await asesorias.entregar('telegram:1', transport=httpx.MockTransport(
             lambda _: httpx.Response(200, json={'accepted': False}))), 'pendiente')
 
+    async def test_disabled_receiver_code_is_preserved_without_private_error_text(self):
+        queue=asesorias.ColaAsesorias(self.config.crm_outbox_file)
+        queue.registrar('telegram:1','profile',self.event())
+        transport=httpx.MockTransport(lambda _:httpx.Response(503,json={
+            'code':'crm_ingest_disabled','detail':'private-provider-error'}))
+        self.assertEqual(await asesorias.entregar('telegram:1',transport=transport),'pendiente')
+        error=queue.obtener('telegram:1')['ultimo_error']
+        self.assertIn('crm_ingest_disabled',error)
+        self.assertNotIn('private-provider-error',error)
+
+    async def test_diagnostic_sends_invalid_intent_and_never_creates_an_outbox(self):
+        sent=[]
+        def respond(request):
+            sent.append(json.loads(request.content))
+            return httpx.Response(422,json={'code':'crm_explicit_request_required'})
+        result=await asesorias.diagnostico(transport=httpx.MockTransport(respond))
+        self.assertEqual(result['codigo'],'recepcion_habilitada')
+        self.assertEqual(sent[0]['payload']['kind'],'diagnostic')
+        self.assertFalse(self.config.crm_outbox_file.exists())
+
+    def test_customer_status_is_scoped_to_linked_profile(self):
+        queue=asesorias.ColaAsesorias(self.config.crm_outbox_file)
+        queue.registrar('telegram:1','profile',self.event())
+        queue.actualizar('telegram:1','entregada')
+        self.assertIn('recibió',asesorias.estado_de_solicitud('profile'))
+        self.assertIn('no tienes solicitudes',asesorias.estado_de_solicitud('other-profile'))
+        self.assertEqual(queue.obtener('telegram:1')['evento'],'')
+
     async def test_unlocked_tender_is_required_and_server_uses_current_profile(self):
         db = AsyncMock()
         db.select.side_effect = [
