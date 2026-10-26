@@ -14,7 +14,7 @@ El SQL vigente usa nombres en español (`empresas`, `negocios`, `cotizaciones`, 
 
 ## Instalación para el equipo
 
-Repositorio privado: [Favianlc/licihub-crm](https://github.com/Favianlc/licihub-crm). [Guía para clonar, instalar, configurar Supabase y trabajar en equipo](docs/INSTALACION_EQUIPO.md). El CRM funciona por separado del portal. Cada integrante necesita acceso al repositorio y su propia configuración local; las migraciones compartidas se ejecutan una sola vez.
+Repositorio compartido: [Ro7dri7/interfaz_licitigo, rama licihub-crm](https://github.com/Ro7dri7/interfaz_licitigo/tree/licihub-crm). La rama `main` contiene el portal y el bot; `licihub-crm` contiene el CRM. Clonar cada rama en una carpeta distinta. [Guía para clonar, instalar, configurar Supabase y trabajar en equipo](docs/INSTALACION_EQUIPO.md). Cada integrante necesita su propia configuración local; las migraciones compartidas se ejecutan una sola vez.
 
 ## Arrancar en este equipo
 

@@ -1,6 +1,6 @@
 # Instalación del CRM en otra computadora
 
-Repositorio privado: https://github.com/Favianlc/licihub-crm. Cada integrante necesita acceso al repositorio. El CRM se instala de forma independiente; no necesita tener descargado el Portal Clientes.
+Repositorio compartido: https://github.com/Ro7dri7/interfaz_licitigo.git. La rama `licihub-crm` contiene el CRM; `main` contiene el Portal Clientes y el bot de Telegram. Clonar en carpetas diferentes para mantener separados sus archivos de configuración y dependencias. El CRM puede ejecutarse por separado; el flujo del bot también necesita el portal configurado.
 
 ## 1. Descargar e instalar
 
@@ -9,8 +9,8 @@ Requisitos: Git, Node.js 24 LTS con npm y Python 3.12 o posterior (instalación 
 En PowerShell:
 
 ```powershell
-git clone https://github.com/Favianlc/licihub-crm.git
-cd licihub-crm
+git clone --branch licihub-crm --single-branch https://github.com/Ro7dri7/interfaz_licitigo.git lici-crm
+cd lici-crm
 npm ci
 py -3 -m venv backend/.venv
 & '.\backend\.venv\Scripts\python.exe' -m pip install -r backend/requirements.txt
@@ -46,10 +46,7 @@ CRM_INGEST_KEY=
 
 Completar `CRM_SUPABASE_SECRET_KEY` únicamente en el servidor local de un desarrollador autorizado; nunca en variables `VITE_*`. No hace falta configurar la clave de integración para usar el CRM. El equipo comercial puede usar un despliegue central del backend sin recibir esta clave.
 
-El administrador del proyecto ejecuta las migraciones **una sola vez por base**, no una vez por computadora. En el proyecto compartido actual ya existen 002/003, espacio y administrador; siguen pendientes:
-
-1. [006_cotizaciones_multiples.sql](../backend/migrations/006_cotizaciones_multiples.sql): partidas, documento comercial y eventos de envío/aceptación/rechazo.
-2. [007_catalogo_iso.sql](../backend/migrations/007_catalogo_iso.sql): 540 variantes ISO (375 individuales y 165 paquetes), sin cursos. Ya contiene el UUID del espacio actual. Alternativamente, cargar el catálogo desde su botón administrativo después de 006.
+El administrador ejecuta las migraciones **una sola vez por base**, no una vez por computadora. La lectura del 26/10/2026 confirmó versión 2 y 540 productos ISO en el proyecto compartido: 006/007 ya están reflejados. Para habilitar el origen Telegram, aplicar [008_origen_telegram.sql](../backend/migrations/008_origen_telegram.sql). No volver a provisionar el espacio.
 
 Respaldar la base y detener las API del CRM antes de la migración. No ejecutar 001, no repetir 004 ni reejecutar 003 después de 006. Para una base nueva o una instalación anterior en inglés, consultar [SUPABASE_RELACIONAL.md](SUPABASE_RELACIONAL.md): requiere las tablas del portal y un orden diferente. No copiar el UUID actual a otro proyecto.
 
@@ -70,6 +67,23 @@ Para comprobar la base sin modificar registros:
 La ampliación queda lista cuando muestra `schema_version: 2`, `quote_schema_ready: true` y el catálogo cargado. Nunca imprime la clave ni datos de clientes.
 
 ## 4. Actualizar y verificar
+
+Si la copia existente todavía apunta a `Favianlc/licihub-crm`, cambiar su remoto desde la carpeta del CRM. Estos comandos conservan los archivos locales y establecen la rama compartida correcta:
+
+```powershell
+git remote set-url origin https://github.com/Ro7dri7/interfaz_licitigo.git
+git remote set-branches origin licihub-crm
+git fetch origin
+git branch --set-upstream-to=origin/licihub-crm
+```
+
+No cambiar esta copia a `main`: esa rama contiene otra aplicación. Para descargar el portal y su bot en una carpeta hermana, ejecutar desde el directorio que contiene `lici-crm`:
+
+```powershell
+git clone --branch main --single-branch https://github.com/Ro7dri7/interfaz_licitigo.git interfaz_licitigo
+```
+
+La configuración y arranque del bot están en [la guía del portal](https://github.com/Ro7dri7/interfaz_licitigo/blob/main/docs/ASESORIAS_CRM.md). Ejecutar una sola instancia por token de Telegram.
 
 Con los servidores detenidos y sin cambios locales pendientes:
 
