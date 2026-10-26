@@ -5,9 +5,10 @@ import logging
 import math
 import re
 import time
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
 from typing import Annotated
+from uuid import UUID
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
@@ -15,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from . import auth, desbloqueos, licitaciones, suscripciones
+from . import asesorias, auth, desbloqueos, licitaciones, suscripciones
 from .auth import AuthError, Usuario, usuario_actual
 from .config import get_settings
 from .desbloqueos import DesbloqueoError
@@ -32,8 +33,21 @@ MAX_LARGO_KEYWORD = 80
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    yield
-    await get_db().close()
+    async def entregar_pendientes():
+        while True:
+            try:
+                await asesorias.reintentar_pendientes()
+            except Exception:
+                log.error('No se pudo procesar la cola comercial. Revisa almacenamiento y configuración.')
+            await asyncio.sleep(30)
+    tarea = asyncio.create_task(entregar_pendientes())
+    try:
+        yield
+    finally:
+        tarea.cancel()
+        with suppress(asyncio.CancelledError):
+            await tarea
+        await get_db().close()
 
 
 app = FastAPI(title="Lici API", version="0.2.0", lifespan=lifespan)
@@ -43,6 +57,23 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+
+@app.exception_handler(asesorias.AsesoriaError)
+async def _error_asesoria(_: Request, error: asesorias.AsesoriaError) -> JSONResponse:
+    return JSONResponse({'detail': error.mensaje}, error.status)
+
+
+class SolicitudAsesoria(BaseModel):
+    model_config = {'extra': 'forbid'}
+    solicitudId: UUID
+    licitacionId: int = Field(gt=0)
+
+
+@app.post('/api/asesorias')
+async def solicitar_asesoria(body: SolicitudAsesoria, usuario: Annotated[Usuario, Depends(usuario_actual)]) -> dict:
+    payload = await asesorias.preparar(usuario.id, usuario.email, 'Lici', licitacion_id=body.licitacionId)
+    return await asesorias.solicitar(f'web:{usuario.id}:{body.solicitudId}', usuario.id, payload)
 
 
 @app.exception_handler(SupabaseError)
@@ -112,6 +143,7 @@ async def health() -> dict:
         "tablasBackend": await get_db().existe_tabla("desbloqueos"),
         "telegramConfigurado": bool(s.telegram_bot_token),
         "analisisIaConfigurado": bool(s.n8n_webhook_url),
+        "comercialConfigurado": bool(s.crm_api_url and s.crm_ingest_key),
     }
 
 

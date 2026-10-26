@@ -15,17 +15,19 @@ from datetime import timedelta
 from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.error import Forbidden
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
 
 from . import licitaciones, suscripciones
 from .config import get_settings
 from .supabase import get_db
+from . import asesorias, bot_asesorias
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger("lici.bot")
 
 COMANDOS = [
+    ("asesor", "Solicitar contacto de un asesor comercial"),
     ("licitaciones", "Licitaciones vigentes que calzan con tu perfil"),
     ("nuevas", "Publicadas en las últimas 24 horas para tu perfil"),
     ("buscar", "Buscar en la BD: /buscar cemento portland"),
@@ -148,6 +150,7 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         await responder(update, f"✅ Alertas activadas para <b>{_e(sus.get('razon_social') or sus.get('ruc'))}</b>.\n"
                                 f"🏷️ Keywords: {kws}\n\nTe escribiré cuando se publique una licitación nueva que calce.")
         await _bienvenida_con_vigentes(update, sus)
+        await responder(update, 'Si necesitas orientación comercial, envía <b>/asesor</b> para solicitar contacto del equipo LiciHub.')
         return
 
     sus = await suscripciones.de_chat(chat.id)
@@ -283,7 +286,11 @@ async def cmd_ayuda(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     await responder(update, "<b>Comandos de Lici</b>\n" + "\n".join(f"/{c} — {_e(d)}" for c, d in COMANDOS))
 
 
-async def texto_libre(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+async def texto_libre(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    if bot_asesorias.pide_asesor(update.effective_message.text or ''):
+        ctx.args = []
+        await bot_asesorias.cmd_asesor(update, ctx)
+        return
     digitos = re.sub(r"\D", "", update.effective_message.text or "")
     if len(digitos) == 11:
         await responder(update, "El RUC se registra una sola vez en tu cuenta de la web y no se puede consultar ni "
@@ -339,6 +346,13 @@ async def post_shutdown(_: Application) -> None:
     await get_db().close()
 
 
+async def reintentar_asesorias(_: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        await asesorias.reintentar_pendientes()
+    except Exception:
+        log.error('No se pudo procesar la cola comercial. Revisa almacenamiento y configuración.')
+
+
 def main() -> None:
     s = get_settings()
     if not s.telegram_bot_token:
@@ -346,14 +360,17 @@ def main() -> None:
 
     app = Application.builder().token(s.telegram_bot_token).post_init(post_init).post_shutdown(post_shutdown).build()
     handlers = {
+        "asesor": bot_asesorias.cmd_asesor,
         "start": cmd_start, "ruc": cmd_ruc_deshabilitado, "licitaciones": cmd_licitaciones, "nuevas": cmd_nuevas,
         "buscar": cmd_buscar, "resumen": cmd_resumen, "keywords": cmd_keywords, "agregar": cmd_agregar,
         "quitar": cmd_quitar, "pausar": cmd_pausar, "reanudar": cmd_reanudar, "ayuda": cmd_ayuda, "help": cmd_ayuda,
     }
     for nombre, fn in handlers.items():
         app.add_handler(CommandHandler(nombre, fn))
+    app.add_handler(CallbackQueryHandler(bot_asesorias.confirmar_asesoria, pattern=r'^asesoria:(confirmar|cancelar):[a-f0-9]{16}$'))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, texto_libre))
     app.job_queue.run_repeating(revisar_nuevas, interval=s.alert_interval_min * 60, first=30)
+    app.job_queue.run_repeating(reintentar_asesorias, interval=30, first=5)
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 

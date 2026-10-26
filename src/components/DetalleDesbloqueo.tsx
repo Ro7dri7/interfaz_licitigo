@@ -3,6 +3,7 @@ import * as api from '../lib/api'
 import { mensajeError } from '../lib/api'
 import { btnPrimary, btnSecondary, dialogError, mono, overlay, pillSuccess, pillVeredicto, spinner } from '../lib/ui'
 import type { Desbloqueo } from '../types/models'
+import { SolicitarAsesor } from './SolicitarAsesor'
 
 /** Datos mínimos de la licitación para el encabezado del panel. */
 export interface LicitacionResumen {
@@ -179,6 +180,7 @@ export function DetalleDesbloqueo({ lic, inicial = null, onCerrar, onActualizado
               <h4>Análisis ISO con IA</h4>
               <Analisis data={data} reintentando={reintentando} onReanalizar={reanalizar} />
             </section>
+            {data.desbloqueada && <SolicitarAsesor key={lic.id} licitacionId={lic.id} />}
             <p className={`${muted} mt-[22px]`}>
               Te quedan {data.disponibles} de {data.limite} desbloqueos.
             </p>

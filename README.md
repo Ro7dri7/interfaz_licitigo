@@ -1,6 +1,6 @@
 # LiciHub · Portal Clientes
 
-La marca visible se actualizó a LiciHub el 19/10/2026. El portal comercial complementario está en `../lici-crm`. El [documento de flujos y requisitos](../lici-crm/docs/LICIHUB_FLUJOS_Y_REQUISITOS.md) recoge la captación automática desde este portal, la futura bandeja WhatsApp y la propuesta de chatbot con 360dialog/n8n. El botón comercial y esas integraciones siguen pendientes; este cambio actualiza la identidad visible.
+El portal comercial complementario está en `../lici-crm`. Desde el 26/10/2026, una licitación desbloqueada permite **Hablar con un asesor** y el bot de Telegram incorpora `/asesor`, ambos con confirmación y entrega persistente al CRM. Solo las solicitudes explícitas crean negocios; no se envían señales por desbloquear o consultar. [Activación, límites y pruebas](docs/ASESORIAS_CRM.md). La bandeja WhatsApp y 360dialog/n8n continúan pendientes.
 
 Plataforma de inteligencia para contrataciones del Estado peruano (SEACE): valida la empresa por RUC, sugiere los
 términos más licitados de su rubro, lista las licitaciones vigentes que le calzan y avisa por Telegram cuando sale

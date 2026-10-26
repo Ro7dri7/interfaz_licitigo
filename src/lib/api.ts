@@ -104,6 +104,12 @@ async function request<T>(path: string, o: Opciones = {}): Promise<T> {
 
 // ----------------------------------------------------------------------------- cuenta
 
+export function solicitarAsesoria(solicitudId: string, licitacionId: number): Promise<{
+  solicitudId: string; estado: 'pendiente' | 'entregada'; mensaje: string
+}> {
+  return request('/api/asesorias', { method: 'POST', body: { solicitudId, licitacionId } })
+}
+
 export async function login(email: string, password: string): Promise<Sesion> {
   const s = await request<Sesion>('/api/auth/login', { method: 'POST', body: { email, password } })
   guardarSesion(s)
