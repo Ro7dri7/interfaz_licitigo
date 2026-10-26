@@ -30,7 +30,7 @@ export default function CompanyDetail() {
       <section className="panel" aria-label="Negocios de la empresa"><div className="section-head"><div><h2>Negocios</h2><p>Oportunidades abiertas y cerradas de esta empresa.</p></div><Badge>{deals.length}</Badge></div>
         <div className="table-wrap"><table><thead><tr><th>Servicio</th><th>Etapa</th><th>Asesor</th><th>Valor comercial</th></tr></thead><tbody>{deals.map(d => <tr key={d.id}>
           <td><Link className="record-button" to={`/negocios/${d.id}`}>{d.service}</Link></td><td><Badge>{stages.find(s => s.id === d.stage)?.name}</Badge></td><td>{d.owner}</td><td>{money(d.amount)}</td></tr>)}</tbody></table></div>
-        {!deals.length && <Empty title="Sin negocios registrados">El interés de la empresa se conserva en Prospectos hasta confirmar una oportunidad.</Empty>}</section>
+        {!deals.length && <Empty title="Sin negocios registrados">Los negocios aparecerán cuando se registre una solicitud comercial.</Empty>}</section>
       <section className="panel" aria-label="Cotizaciones de la empresa"><div className="section-head"><div><h2>Cotizaciones</h2><p>Versiones históricas de los negocios asociados.</p></div><Badge>{quotes.length}</Badge></div>
         <div className="table-wrap"><table><thead><tr><th>Propuesta</th><th>Negocio</th><th>Estado</th><th>Vigencia</th><th>Total</th></tr></thead><tbody>{quotes.map(q => <tr key={q.id}>
           <td><button className="record-button" onClick={() => setQuote(q)}>{q.number}</button><small>Versión {q.version} · {q.items.length} {q.items.length === 1 ? 'partida' : 'partidas'}</small></td>

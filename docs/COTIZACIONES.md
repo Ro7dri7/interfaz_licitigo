@@ -1,5 +1,7 @@
 # Cotizaciones ISO y catálogo comercial
 
+Actualización 26/10/2026: el flujo vigente centraliza solicitudes explícitas en Negocios y retira Prospectos del menú. Portal y Telegram tienen confirmación y cola de entrega. Aplicar manualmente SQL 008 para el origen Telegram. Supabase ya devuelve versión 2 y 540 productos ISO. [Flujo y activación](ASESORIA_PORTAL_TELEGRAM.md). Las referencias anteriores a señales o 006/007 pendientes corresponden a versiones previas.
+
 ## Alcance aprobado el 20/10/2026
 
 Varias certificaciones o servicios por propuesta; paquetes del catálogo original; versiones con precios y datos comerciales congelados; registro de envío, aceptación y rechazo con actor, fecha, destinatario y evidencia; documento comercial imprimible/PDF. Registrar envío no realiza una comunicación externa, y registrar aceptación no equivale a cobro ni cierre automático del negocio.

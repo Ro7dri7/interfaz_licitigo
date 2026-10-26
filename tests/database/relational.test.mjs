@@ -11,6 +11,7 @@ const sources=['backend/migrations/002_relational_tables.sql','backend/migration
 const legacySources=['002_original_ingles.sql','003_original_ingles.sql'].map(p=>readFileSync('tests/database/fixtures/'+p,'utf8'))
 const transition=readFileSync('backend/migrations/005_traducir_esquema_existente.sql','utf8')
 const quoteMigration=readFileSync('backend/migrations/006_cotizaciones_multiples.sql','utf8')
+const telegramMigration=readFileSync('backend/migrations/008_origen_telegram.sql','utf8')
 const catalogMigration=readFileSync('backend/migrations/007_catalogo_iso.sql','utf8').replace(/espacio_destino uuid := '[^']+'/,
   `espacio_destino uuid := '${workspace}'`)
 const python=process.env.CRM_PYTHON || ['backend/.venv/Scripts/python.exe','../interfaz_licitigo/backend/.venv/Scripts/python.exe','backend/.venv/bin/python'].map(p=>resolve(p)).find(existsSync) || 'python'
@@ -41,6 +42,32 @@ async function commit(db,event,{user=admin,integration=false,space=workspace}={}
     [space,event.revision,JSON.stringify(event.changes),event.receipt.id,event.receipt.digest,user,integration])).rows[0].state
 }
 async function withDatabase(fn) {const db=await database();try{await fn(db)}finally{await db.close()}}
+
+test('Telegram migration upgrades Spanish and translated legacy databases without weakening access', async () => {
+  for (const legacy of [false, true]) {
+    const db = await database({legacy})
+    try {
+      await db.exec('reset role')
+      if (legacy) { await db.exec(transition); for (const source of sources) await db.exec(source); await db.exec(quoteMigration) }
+      await db.exec(telegramMigration)
+      await db.exec(telegramMigration)
+      await db.exec('set role service_role')
+      for (const original of fixture.events.slice(0, 2)) {
+        const event = structuredClone(original)
+        for (const change of event.changes) {
+          if ('origen' in change.fila) change.fila.origen = 'Telegram'
+        }
+        await commit(db, event, {user:null, integration:true})
+      }
+      const state = (await db.query('select public.licihub_crm_estado($1::uuid) as state', [workspace])).rows[0].state
+      assert.equal(state.tablas.empresas[0].origen, 'Telegram')
+      assert.equal(state.tablas.negocios[0].origen, 'Telegram')
+      await assert.rejects(db.query('update licihub_crm.empresas set origen=$1', ['Inexistente']), e=>e.code==='23514')
+      await db.exec('reset role; set role authenticated')
+      await assert.rejects(db.query('select * from licihub_crm.negocios'), e=>e.code==='42501')
+    } finally { await db.close() }
+  }
+})
 
 test('PostgreSQL schema supports the complete existing domain flow with relational rows',()=>withDatabase(async db=>{
   for(const event of fixture.events) await commit(db,event)

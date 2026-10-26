@@ -1,5 +1,7 @@
 # Activar la base relacional de LiciHub
 
+Actualización 26/10/2026: el flujo vigente centraliza solicitudes explícitas en Negocios y retira Prospectos del menú. Portal y Telegram tienen confirmación y cola de entrega. Aplicar manualmente SQL 008 para el origen Telegram. Supabase ya devuelve versión 2 y 540 productos ISO. [Flujo y activación](ASESORIA_PORTAL_TELEGRAM.md). Las referencias anteriores a señales o 006/007 pendientes corresponden a versiones previas.
+
 Actualizado: 20/10/2026. El usuario ejecutó los scripts y proporcionó el espacio. Se creó `backend/.env` fuera de Git y se verificó por lectura real la conexión, las tres funciones y el espacio vacío, revisión 0. HTTPS local y pantalla de acceso comprobados; el servidor registró posteriormente inicio de sesión y lecturas autenticadas correctos. Falta validar el primer guardado comercial y los distintos roles con cuentas reales. No se cargaron ejemplos ni datos comerciales remotos desde estas verificaciones. La demo SQLite se conserva aparte.
 
 ## Ampliación de cotizaciones sobre el espacio ya creado

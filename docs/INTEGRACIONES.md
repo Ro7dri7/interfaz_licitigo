@@ -2,7 +2,7 @@
 
 ## Supabase: preparación disponible
 
-El proyecto vigente del Portal Clientes React es `jwxdwszinjdhzoierizm`. La persistencia vigente usa el esquema privado `licihub_crm`, con 13 tablas iniciales, claves al portal y funciones de servicio. El usuario aplicó 002/003 y provisionó el espacio; se verificó lectura real sin cambios. La ampliación 006 agrega una tabla de eventos (14 en total) y 007 el catálogo ISO; **ambas están pendientes de ejecución manual**. [Cotizaciones y activación](COTIZACIONES.md). Orden, plantilla de administrador y comprobaciones en [SUPABASE_RELACIONAL.md](SUPABASE_RELACIONAL.md).
+El proyecto vigente del Portal Clientes React es `jwxdwszinjdhzoierizm`. La persistencia vigente usa el esquema privado `licihub_crm`, con 13 tablas iniciales, claves al portal y funciones de servicio. El usuario aplicó 002/003 y provisionó el espacio; se verificó lectura real sin cambios. La lectura del 26/10 confirmó versión 2 y 540 productos ISO, por lo que 006/007 ya están reflejados en la base. La nueva migración **008_origen_telegram.sql** debe ejecutarse manualmente para admitir Telegram como origen. [Cotizaciones y activación](COTIZACIONES.md). Orden, plantilla de administrador y comprobaciones en [SUPABASE_RELACIONAL.md](SUPABASE_RELACIONAL.md).
 
 1. Ejecutar `backend/migrations/002_relational_tables.sql` y después `003_relational_api.sql`. No ejecutar el histórico `001_crm.sql`.
 2. Personalizar `004_provision.example.sql` con el UUID del administrador elegido en Supabase Auth y ejecutarlo una sola vez para crear el espacio vacío y su membresía.
@@ -19,7 +19,7 @@ values ('UUID_DEL_ESPACIO', 'UUID_DEL_USUARIO_AUTH', 'Nombre del asesor', 'comme
 
 El adaptador no carga semillas ficticias en Supabase. La creación de espacio vacío y miembros es separada. Ante un despliegue fallido, detener el servicio CRM y revertir su configuración; conservar tablas y respaldo para evitar pérdida. No borrar tablas compartidas ni usuarios de Lici como rollback.
 
-## Contrato inicial Lici → CRM
+## Contrato Portal / Telegram → CRM
 
 `POST /api/crm/events`, de servidor a servidor. Cabecera `X-CRM-Ingest-Key` con secreto independiente configurado como `CRM_INGEST_KEY`. Sin ese valor, responde 503 (integración deshabilitada). No colocar esta clave en el navegador ni reutilizar el token Telegram.
 
@@ -33,30 +33,30 @@ El adaptador no carga semillas ficticias en Supabase. La creación de espacio va
     "email": "ana@example.com",
     "phone": "",
     "origin": "Lici",
-    "kind": "signal",
+    "kind": "advice",
     "service": "ISO 9001",
     "owner": "Sin asignar",
     "evidence": "required",
     "tender": "LP-EJEMPLO-001",
     "deadline": "2026-12-31",
-    "notes": "Requisito detectado en una licitación desbloqueada."
+    "notes": "El cliente confirmó que quiere comunicarse con un asesor desde la licitación desbloqueada."
   }
 }
 ```
 
-`kind`: `signal` (desbloqueo/contexto), `advice` (asesoría), `quote` (cotización), `manual` (registro sin intención confirmada). `evidence`: `required`, `recommended`, `pending`, `none`. El canal de integración solo acepta `origin=Lici`. Empresa y servicio son obligatorios; RUC/contacto pueden faltar. El RUC suministrado tiene 11 dígitos; el formato no acredita validez ante SUNAT.
+`kind`: solo `advice` (asesoría) o `quote` (cotización). `evidence`: `required`, `recommended`, `pending`, `none`. El canal de integración acepta `origin=Lici` para el portal y `origin=Telegram` para el bot. Empresa y servicio son obligatorios; RUC/contacto pueden faltar en el contrato general, pero el emisor actual requiere cuenta con RUC y obtiene los datos en servidor. No se aceptan señales automáticas ni registros manuales sin intención confirmada. El RUC suministrado tiene 11 dígitos; el formato no acredita validez ante SUNAT.
 
 Reglas de vinculación:
 
 - Empresa por RUC exacto no vacío. Contacto por correo dentro de su empresa. Sin RUC no se asume identidad por razón social.
 - Negocio abierto compatible = misma empresa y mismo texto de servicio, sin distinguir mayúsculas. Los alias de servicios aún requieren un catálogo de correspondencias en el emisor.
 - Solicitud explícita crea/vincula negocio y tarea inicial de atención a 24 horas si abre negocio. Una señal aislada no crea negocio.
-- Una señal previa se vincula cuando llega la solicitud; una señal posterior se añade al negocio abierto compatible. Conserva requisito/recomendación y tipo original.
+- Se conserva el historial previo, incluidas señales históricas ya vinculadas. No se reciben señales nuevas por la integración. Cada solicitud nueva conserva origen y contexto en la ficha; el primer origen del negocio no se sobrescribe.
 - Un negocio ganado/perdido no se reutiliza automáticamente ante una nueva solicitud; se abre otro. No puede reconvertirse un prospecto ya asociado: se abre su ficha o se registra una nueva entrada.
 
 Respuesta: `{"accepted":true,"duplicate":false}` o `duplicate:true` para repetición idéntica. Repetir **el mismo requestId y payload** permite reintentar tras timeout sin duplicar. Cambiar el payload con el mismo ID devuelve 422; la actualización tardía de análisis necesita un contrato adicional aún pendiente. No reenviar como si fuera el mismo evento modificado.
 
-Errores: 401 clave inválida; 422 entrada inválida/conflicto de ID; 409 conflicto de revisión tras tres intentos internos; 413 cuerpo >64 KiB; 503 deshabilitado/almacenamiento no disponible. El emisor debe guardar los eventos en outbox, reintentar timeouts/409/503 con backoff y alertar sobre errores definitivos. **Ese emisor no está implementado.**
+Errores: 401 clave inválida; 422 entrada inválida/conflicto de ID; 409 conflicto de revisión tras tres intentos internos; 413 cuerpo >64 KiB; 503 deshabilitado/almacenamiento no disponible. El emisor debe guardar los eventos en outbox, reintentar timeouts/409/503 con backoff y alertar sobre errores definitivos. El emisor ya está implementado en `interfaz_licitigo/backend/app/asesorias.py`, con cola SQLite persistente y recuperación operativa. La prueba remota requiere activar SQL 008 y el proceso del bot; [flujo vigente](ASESORIA_PORTAL_TELEGRAM.md).
 
 ## API de la interfaz
 
@@ -68,7 +68,7 @@ Las escrituras de interfaz requieren la cabecera Origin exacta. El receptor de e
 
 ## Telegram
 
-El bot de `../interfaz_licitigo/backend/app/bot.py` pertenece al flujo existente de Lici. Su presencia y configuración local no prueban que esté ejecutándose. El CRM no inicia ese bot, no comparte su token y no envía mensajes. Para integrarlo faltan mapeo asesor/usuario/chat, reglas de notificación, cola idempotente, límites de envío y prueba con destinatario autorizado.
+El bot de `../interfaz_licitigo/backend/app/bot.py` ahora admite `/asesor` y confirmación en chat privado vinculado. Se verificó su token con getMe: `@LiciLicitacionesBot`. La prueba conjunta local validó recepción, cola y reentrega sin enviar mensajes reales. Su configuración no prueba que esté ejecutándose. El CRM no inicia ese bot ni comparte su token. El alcance actual solicita contacto comercial; la conversación bidireccional desde una bandeja CRM, la asignación de asesores reales y las notificaciones a sus chats siguen pendientes. [Activación completa en el portal](../../interfaz_licitigo/docs/ASESORIAS_CRM.md).
 
 ## Referencias técnicas
 

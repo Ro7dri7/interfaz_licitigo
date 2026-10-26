@@ -1,9 +1,7 @@
-import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Badge, Empty, Icon, Modal, PageHead } from './components'
+import { Badge, Empty, Icon, PageHead } from './components'
 import { useCRM } from './crm-context'
-import { originLabel, dateLabel, evidenceLabels, initials, kindLabels, money, origins, stages } from './types'
-import type { Prospect } from './types'
+import { originLabel, dateLabel, initials, money, origins, stages } from './types'
 
 export function Filters({ children, preserve = [] }: { children?: React.ReactNode; preserve?: string[] }) {
   const [params, setParams] = useSearchParams()
@@ -13,39 +11,11 @@ export function Filters({ children, preserve = [] }: { children?: React.ReactNod
     {[...params.keys()].some(key => !preserve.includes(key)) && <button className="text-button" onClick={() => setParams(new URLSearchParams([...params].filter(([key]) => preserve.includes(key))))}>Limpiar filtros</button>}</div>
 }
 
-export function Prospects({ onCreate }: { onCreate: () => void }) {
-  const { snapshot: { data }, command } = useCRM(), [params, setParams] = useSearchParams()
-  const [selected, setSelected] = useState<Prospect | null>(null), [error, setError] = useState(''), [busy, setBusy] = useState(false)
-  const mode = params.get('tipo') ?? 'all', search = (params.get('q') ?? '').toLocaleLowerCase()
-  const rows = data.prospects.filter(p => {
-    const c = data.companies.find(c => c.id === p.companyId)
-    return (mode === 'all' || (mode === 'signal' ? p.kind === 'signal' : ['advice', 'quote'].includes(p.kind))) &&
-      (!params.get('origen') || p.origin === params.get('origen')) && `${c?.name} ${c?.ruc} ${p.service}`.toLocaleLowerCase().includes(search)
-  })
-  return <><PageHead title="Prospectos" description="Distingue una señal de interés de una solicitud comercial."><button className="primary" onClick={onCreate}><Icon name="plus" /> Agregar prospecto</button></PageHead>
-    <div className="tabs">{[['all', 'Todos los prospectos'], ['request', 'Solicitudes explícitas'], ['signal', 'Señales LiciHub']].map(([id, name]) => <button key={id} aria-pressed={mode === id} className={mode === id ? 'active' : ''} onClick={() => setParams(p => { p.set('tipo', id); return p })}>{name}<span>{data.prospects.filter(p => id === 'all' || (id === 'signal' ? p.kind === 'signal' : ['advice', 'quote'].includes(p.kind))).length}</span></button>)}</div>
-    <Filters />{mode === 'signal' && <div className="info-strip"><Icon name="radar" />Estas señales orientan la prospección. Confirma la necesidad con el cliente antes de abrir una venta.</div>}
-    <section className="panel"><div className="table-wrap"><table><thead><tr><th>Empresa</th><th>Interés / procedencia</th><th>Contexto ISO</th><th>Responsable</th><th>Estado</th></tr></thead><tbody>{rows.map(p => {
-      const c = data.companies.find(c => c.id === p.companyId)
-      return <tr key={p.id}><td><button className="record-button" onClick={() => { setSelected(p); setError('') }}>{c?.name}</button><small>{c?.ruc || 'RUC por completar'}</small></td>
-        <td><strong>{p.service}</strong><small>{originLabel(p.origin)} · {kindLabels[p.kind]}</small></td><td><Badge tone={p.evidence === 'required' ? 'amber' : p.evidence === 'recommended' ? 'blue' : ''}>{evidenceLabels[p.evidence]}</Badge>{p.tender && <small>{p.tender}</small>}</td><td>{p.owner}</td>
-        <td>{p.dealId ? <Link className="text-link" to={`/negocios/${p.dealId}`}>Ver negocio <Icon name="arrow" size={16} /></Link> : <Badge>Por revisar</Badge>}</td></tr>
-    })}</tbody></table>{!rows.length && <Empty />}</div><div className="table-foot">{rows.length} registros · Las señales conservan su origen al convertirse en negocio.</div></section>
-    {selected && <Modal title={data.companies.find(c => c.id === selected.companyId)?.name ?? 'Prospecto'} onClose={() => setSelected(null)}><div className="form-body">
-      <Badge tone={selected.kind === 'signal' ? 'amber' : 'blue'}>{kindLabels[selected.kind]}</Badge><h3>{selected.service}</h3>
-      <dl className="properties"><div><dt>Origen</dt><dd>{originLabel(selected.origin)}</dd></div><div><dt>Responsable</dt><dd>{selected.owner}</dd></div><div><dt>Análisis</dt><dd>{evidenceLabels[selected.evidence]}</dd></div><div><dt>Licitación</dt><dd>{selected.tender || 'No asociada'}</dd></div><div><dt>Plazo</dt><dd>{selected.deadline ? dateLabel(selected.deadline) : 'Sin fecha'}</dd></div></dl>
-      <p>{selected.notes || 'Sin notas adicionales.'}</p><p className="hint">La recomendación de una ISO no equivale a una carencia confirmada en la empresa.</p>{error && <p className="error" role="alert">{error}</p>}
-    </div><footer>{selected.dealId ? <Link className="button primary" to={`/negocios/${selected.dealId}`} onClick={() => setSelected(null)}>Abrir negocio</Link> : <button className="primary" disabled={busy} onClick={async () => {
-      setBusy(true); try { await command('convert', { prospectId: selected.id }); setSelected(null) } catch (e) { setError((e as Error).message) } finally { setBusy(false) }
-    }}>{busy ? 'Guardando…' : 'Confirmar interés y abrir negocio'}</button>}</footer></Modal>}
-  </>
-}
-
 export function Pipeline({ onCreate }: { onCreate: () => void }) {
   const { snapshot: { data }, now } = useCRM(), [params, setParams] = useSearchParams()
   const view = params.get('vista') ?? 'board', search = (params.get('q') ?? '').toLocaleLowerCase()
   const filtered = data.deals.filter(d => `${data.companies.find(c => c.id === d.companyId)?.name} ${d.service}`.toLocaleLowerCase().includes(search)
-    && (!params.get('origen') || d.origin === params.get('origen')) && (!params.get('etapa') || d.stage === params.get('etapa'))
+    && (!params.get('origen') || (d.origin === params.get('origen') || data.prospects.some(p => p.dealId === d.id && p.origin === params.get('origen')))) && (!params.get('etapa') || d.stage === params.get('etapa'))
     && (!params.get('responsable') || d.owner === params.get('responsable')))
   return <><PageHead title="Negocios" description={`${filtered.length} oportunidades · ${money(filtered.filter(d => !['won', 'lost'].includes(d.stage)).reduce((s, d) => s + d.amount, 0))} en cartera abierta`}>
     <div className="segmented">{[['board', 'Tablero'], ['list', 'Lista']].map(([id, text]) => <button key={id} aria-pressed={view === id} className={view === id ? 'active' : ''} onClick={() => setParams(p => { p.set('vista', id); return p })}><Icon name={id} />{text}</button>)}</div>

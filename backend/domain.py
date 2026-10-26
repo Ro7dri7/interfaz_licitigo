@@ -25,7 +25,7 @@ class Intake(Input):
     contact: str = Field(default='', max_length=100)
     email: EmailStr | Literal[''] = ''
     phone: str = Field(default='', max_length=30, pattern=r'^[+\d\s()\-]*$')
-    origin: Literal['Lici', 'WhatsApp', 'Referido', 'Campaña', 'Manual', 'Partner'] = 'Manual'
+    origin: Literal['Lici', 'Telegram', 'WhatsApp', 'Referido', 'Campaña', 'Manual', 'Partner'] = 'Manual'
     kind: Literal['signal', 'advice', 'quote', 'manual'] = 'manual'
     service: str = Field(min_length=2, max_length=160)
     owner: str = Field(default='Sin asignar', min_length=2, max_length=80)

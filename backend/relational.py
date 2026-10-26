@@ -19,6 +19,7 @@ def sqlite_schema():
     sql = MIGRATION.read_text(encoding='utf-8').split('-- INICIO TABLAS')[1].split('-- FIN TABLAS')[0]
     sql = sql[sql.index('create table'):].replace('licihub_crm.', '')
     sql = esquema_sqlite_compatible(sql)
+    sql = sql.replace("'Lici','WhatsApp'", "'Lici','Telegram','WhatsApp'")
     sql = sql.replace('create table if not exists quotes (', 'create table if not exists quotes (\n  tax_included boolean,')
     sql = sql.replace('total = subtotal - discount_amount + tax_amount',
                       'total = subtotal - discount_amount + case when coalesce(tax_included,0) then 0 else tax_amount end')
@@ -54,6 +55,7 @@ class RelationalRepository:
                     if column not in existing:
                         db.execute(f'alter table quotes add column {column} {"boolean" if column == "tax_included" else "text"}')
                 self.upgrade_quote_constraint(db)
+                self.upgrade_telegram_origin(db)
                 db.executescript('''create table if not exists quote_events (
                     workspace_id text not null, id text not null, quote_id text not null,
                     status text not null check(status in ('sent','accepted','rejected')),
@@ -118,6 +120,38 @@ class RelationalRepository:
             db.execute('alter table quotes_upgrade rename to quotes')
             if db.execute('pragma foreign_key_check').fetchone():
                 raise sqlite3.IntegrityError('Relaciones inválidas después de actualizar cotizaciones.')
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.execute('pragma foreign_keys=ON')
+
+    def upgrade_telegram_origin(self, db):
+        tables = [(table, db.execute("select sql from sqlite_master where type='table' and name=?", (table,)).fetchone()['sql'])
+                  for table in ['companies', 'deals', 'prospects']]
+        pending = [(table, schema) for table, schema in tables if "'Telegram'" not in schema]
+        if not pending:
+            return
+        backup = self.path.with_name(self.path.stem + '.before-telegram.sqlite3')
+        if not backup.exists():
+            with closing(sqlite3.connect(backup)) as target:
+                db.backup(target)
+        db.execute('pragma foreign_keys=OFF')
+        try:
+            db.execute('begin immediate')
+            for table, schema in pending:
+                indexes = [r['sql'] for r in db.execute("select sql from sqlite_master where tbl_name=? and type in ('index','trigger') and sql is not null", (table,))]
+                upgraded = schema.replace("'Lici','WhatsApp'", "'Lici','Telegram','WhatsApp'")
+                upgraded = re.sub(r'(?i)create table\s+"?' + table + r'"?', 'create table ' + table + '_upgrade', upgraded, count=1)
+                db.execute(upgraded)
+                db.execute(f'insert into {table}_upgrade select * from {table}')
+                db.execute(f'drop table {table}')
+                db.execute(f'alter table {table}_upgrade rename to {table}')
+                for index in indexes:
+                    db.execute(index)
+            if db.execute('pragma foreign_key_check').fetchone():
+                raise sqlite3.IntegrityError('Relaciones inválidas después de habilitar Telegram.')
             db.commit()
         except Exception:
             db.rollback()

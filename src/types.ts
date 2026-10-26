@@ -5,7 +5,7 @@ export const stages: { id: Stage; name: string; color: string }[] = [
   { id: 'followup', name: 'Seguimiento', color: '#7c3aed' }, { id: 'won', name: 'Ganado', color: '#15803d' },
   { id: 'lost', name: 'Perdido', color: '#dc2626' },
 ]
-export const origins = ['Lici', 'WhatsApp', 'Referido', 'Campaña', 'Manual', 'Partner']
+export const origins = ['Lici', 'Telegram', 'WhatsApp', 'Referido', 'Campaña', 'Manual', 'Partner']
 export const kindLabels = { signal: 'Señal LiciHub', advice: 'Asesoría solicitada', quote: 'Cotización solicitada', manual: 'Prospecto manual' }
 export const evidenceLabels = { required: 'Requisito ISO detectado', recommended: 'ISO recomendada', pending: 'Análisis pendiente', none: 'Sin análisis asociado' }
 export interface Company { id: string; name: string; ruc: string; origin: string; createdAt: string }
@@ -35,7 +35,7 @@ export interface QuoteEvent { id: string; status: 'sent' | 'accepted' | 'rejecte
 export const quoteStatusLabels = { draft: 'Borrador', sent: 'Enviada', accepted: 'Aceptada', rejected: 'Rechazada' }
 export interface Data { companies: Company[]; contacts: Contact[]; prospects: Prospect[]; deals: Deal[]; tasks: Task[]; activities: Activity[]; products: Product[]; quotes: Quote[] }
 export interface Snapshot { revision: number; data: Data; schemaVersion?: number }
-export interface Session { mode: 'demo' | 'supabase'; user: { name: string; role: 'admin' | 'commercial' }; advisors?: string[]; isoCatalogSize?: number; issuer?: { name: string; ruc: string; address: string } }
+export interface Session { mode: 'demo' | 'supabase'; user: { name: string; role: 'admin' | 'commercial' }; advisors?: string[]; isoCatalogSize?: number; issuer?: { name: string; ruc: string; address: string }; intakeEnabled?: boolean }
 export const money = (cents: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 2 }).format(cents / 100)
 export const dateLabel = (value: string) => new Intl.DateTimeFormat('es-PE', { day: 'numeric', month: 'short', timeZone: 'America/Lima' }).format(new Date(value.length === 10 ? value + 'T12:00:00-05:00' : value))
 export const dateTime = (value: string) => new Intl.DateTimeFormat('es-PE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Lima' }).format(new Date(value))
@@ -43,4 +43,4 @@ export const initials = (value: string) => value.split(' ').slice(0, 2).map(p =>
 export const openDeal = (d: Deal) => d.stage !== 'won' && d.stage !== 'lost'
 
 // Keep the persisted/API origin stable while displaying the current product name.
-export const originLabel = (value: string) => value === 'Lici' ? 'LiciHub' : value
+export const originLabel = (value: string) => value === 'Lici' ? 'Portal LiciHub' : value

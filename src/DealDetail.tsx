@@ -34,7 +34,12 @@ export default function DealDetail() {
         <div><dt>Moneda</dt><dd>PEN · Sol peruano</dd></div>{deal.lossReason && <div><dt>Motivo de pérdida</dt><dd>{deal.lossReason}</dd></div>}</dl>
       <p className="hint">El valor comercial corresponde al servicio cotizado, independiente del monto de la licitación.</p>
     </aside><div className="detail-center"><section className="panel"><div className="section-head"><h2>Resumen del negocio</h2><Badge tone={deal.stage === 'won' ? 'green' : 'blue'}>{stages.find(s => s.id === deal.stage)?.name}</Badge></div>
-      <div className="summary-content"><div><small>RELACIÓN COMERCIAL</small><p>{company?.name}</p></div><div><small>SOLICITUDES Y SEÑALES</small><div className="badge-row">{[...new Set(prospects.map(p => p.kind))].map(k => <Badge key={k} tone={k === 'signal' ? 'amber' : 'blue'}>{kindLabels[k]}</Badge>)}</div></div></div></section>
+      <div className="summary-content"><div><small>RELACIÓN COMERCIAL</small><p>{company?.name}</p></div><div><small>TIPO DE SOLICITUD</small><div className="badge-row">{[...new Set(prospects.map(p => p.kind))].map(k => <Badge key={k} tone={k === 'signal' ? 'amber' : 'blue'}>{kindLabels[k]}</Badge>)}</div></div></div></section>
+      <section className="panel" aria-label="Solicitudes del cliente"><div className="section-head"><h2>Solicitudes del cliente</h2></div>
+        {prospects.filter(p => ['advice', 'quote'].includes(p.kind)).map(p => <div className="context-item" key={p.id}>
+          <div className="badge-row"><Badge tone="blue">{originLabel(p.origin)}</Badge><Badge>{kindLabels[p.kind]}</Badge></div>
+          <p>{p.notes || p.service}</p><small>{dateTime(p.createdAt)}</small>
+        </div>)}</section>
       <section className="panel context-panel"><div className="section-head"><h2><Icon name="radar" /> Contexto LiciHub</h2><span className="tiny-label">INTELIGENCIA COMERCIAL</span></div>
         {context.length ? context.map(p => <div className="context-item" key={p.id}><Badge tone={p.evidence === 'required' ? 'amber' : 'blue'}>{evidenceLabels[p.evidence]}</Badge><h3>{p.service}</h3><p>{p.tender || 'Sin licitación asociada'}</p><small>{p.deadline ? `Plazo del proceso: ${dateLabel(p.deadline)} · ` : ''}Registrado {dateLabel(p.createdAt)}</small>{p.notes && <p>{p.notes}</p>}</div>) : <div className="context-item"><p>Este negocio llegó por {originLabel(deal.origin)}. Puede gestionarse sin una licitación asociada.</p></div>}
         <p className="context-note">Valida con el cliente qué certificaciones posee. Un requisito o recomendación no confirma una carencia.</p></section>

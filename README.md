@@ -1,5 +1,7 @@
 # LiciHub CRM
 
+Actualización 26/10/2026: el flujo vigente centraliza solicitudes explícitas en Negocios y retira Prospectos del menú. Portal y Telegram tienen confirmación y cola de entrega. Aplicar manualmente SQL 008 para el origen Telegram. Supabase ya devuelve versión 2 y 540 productos ISO. [Flujo y activación](docs/ASESORIA_PORTAL_TELEGRAM.md). Las referencias anteriores a señales o 006/007 pendientes corresponden a versiones previas.
+
 **Actualización 19/10/2026:** la marca visible del CRM y del Portal Clientes React es LiciHub. Se revisaron los videos y el CRM/Bandeja de referencia; [flujos, requisitos y propuesta 360dialog/n8n](docs/LICIHUB_FLUJOS_Y_REQUISITOS.md). Las integraciones descritas en ese documento son próximas entregas; los directorios y el identificador técnico de origen `Lici` se conservan.
 
 Primera entrega funcional del CRM comercial complementario a **Lici React** (`../interfaz_licitigo`). React 19, TypeScript 6, Vite 8, Tailwind CSS 4 y FastAPI. Identidad compartida a partir de los tokens del proyecto vigente; no usa la aplicación anterior Angular.
@@ -44,9 +46,9 @@ El modo demo no pide contraseña y solo admite acceso local. Usa `backend/data/d
 
 ## Recorrido disponible
 
-1. En **Prospectos**, registrar empresa, contacto, origen, responsable y servicio. Un RUC exacto vincula la empresa; sin RUC se crea un registro independiente.
-2. Elegir **Señal Lici** para guardar un requisito/recomendación sin generar una venta. Seleccionar **Asesoría solicitada** o **Cotización solicitada** abre un negocio o vincula uno abierto para la misma empresa/servicio.
-3. Una señal se convierte al confirmar interés desde su ficha. Si ya hay negocio abierto compatible, las nuevas señales se vinculan como contexto conservando su naturaleza.
+1. El cliente confirma **Hablar con un asesor** desde una licitación desbloqueada o `/asesor` desde Telegram. Desbloquear por sí solo no envía datos comerciales.
+2. La solicitud abre o vincula un negocio compatible en **Negocios → Nuevo**, con contacto, origen y tarea inicial. Se puede registrar una petición recibida por otro canal con **Nuevo negocio**.
+3. La ficha conserva cada solicitud y su procedencia, incluso si portal y Telegram se vinculan al mismo negocio. **Directorio** reúne las empresas y sus contactos.
 4. En **Negocios**, usar tablero o lista y abrir la ficha. Registrar actividades, programar tareas y cambiar la etapa desde el selector.
 5. **Cotizar** combina hasta 50 certificaciones/paquetes, con cantidades, descuento, IGV incluido editable, vigencia y condiciones. Conserva versiones y permite imprimir/guardar el documento de INTERCERT como PDF. El asesor registra envío, aceptación o rechazo con evidencia; estas acciones no envían comunicaciones externas.
 6. **Ganado** exige un importe positivo cotizado. **Perdido** exige motivo. Ambos registran historial; no equivalen a cobro ni entrega.

@@ -8,6 +8,6 @@ export default defineConfig({
   use: { baseURL: 'http://127.0.0.1:5175', channel: 'chrome', trace: 'retain-on-failure', screenshot: 'only-on-failure' },
   webServer: {
     command: 'npm start', url: 'http://127.0.0.1:5175/api/crm/session', reuseExistingServer: false,
-    env: { CRM_MODE: 'demo', CRM_PORT: '8002', CRM_ORIGIN: 'http://127.0.0.1:5175', CRM_DATA_FILE: join(tmpdir(), `lici-crm-e2e-${randomUUID()}.sqlite3`), CRM_INGEST_KEY: '' },
+    env: { CRM_MODE: 'demo', CRM_PORT: '8002', CRM_ORIGIN: 'http://127.0.0.1:5175', CRM_DATA_FILE: join(tmpdir(), `lici-crm-e2e-${randomUUID()}.sqlite3`), CRM_INGEST_KEY: 'e2e-integration-only' },
   },
 })

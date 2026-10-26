@@ -133,7 +133,7 @@ def create_app(settings=None, repository=None):
     @app.get('/api/crm/session')
     async def session(request: Request):
         return {'mode': config.mode, 'user': await account(request), 'advisors': TEST_ADVISORS,
-                'isoCatalogSize': len(catalog()), 'issuer': ISSUER}
+                'isoCatalogSize': len(catalog()), 'issuer': ISSUER, 'intakeEnabled': bool(config.ingest_key)}
 
     @app.post('/api/crm/login')
     async def login(data: Login, response: Response):
@@ -184,11 +184,13 @@ def create_app(settings=None, repository=None):
         supplied = request.headers.get('x-crm-ingest-key', '')
         if not secrets.compare_digest(supplied.encode(), config.ingest_key.encode()):
             raise HTTPException(401, 'Credencial de integración no válida.')
-        if data.payload.get('origin') != 'Lici':
-            raise HTTPException(422, 'Este canal solo recibe eventos de Lici.')
+        if data.payload.get('origin') not in ['Lici', 'Telegram']:
+            raise HTTPException(422, 'Este canal solo recibe solicitudes del portal o Telegram.')
+        if data.payload.get('kind') not in ['advice', 'quote']:
+            raise HTTPException(422, 'Solo se registran solicitudes explícitas de asesoría o cotización.')
         for _ in range(3):
             snapshot = await repo.load(request_id=f'lici:{data.requestId}')
-            updated = apply_command(snapshot['data'], 'intake', data.payload, 'Integración Lici', f'lici:{data.requestId}')
+            updated = apply_command(snapshot['data'], 'intake', data.payload, f'Integración {data.payload["origin"]}', f'lici:{data.requestId}')
             if updated is snapshot['data']:
                 return {'accepted': True, 'duplicate': True}
             try:

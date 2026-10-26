@@ -80,7 +80,7 @@ test('ISO catalog, multiple included-tax lines, status history and distinct dire
   await expect(page.locator('tbody tr')).toHaveCount(1)
   await expect(page.locator('tbody')).not.toContainText('Ana Comercial')
   await page.goto('/')
-  await page.getByRole('button', { name: 'Nuevo prospecto' }).click()
+  await page.getByRole('button', { name: 'Nuevo negocio' }).click()
   await expect(dialog.getByLabel('Responsable').getByRole('option', { name: 'Lucía Mendoza (prueba)' })).toHaveCount(1)
   await expect(dialog.getByLabel('Responsable').getByRole('option', { name: 'Diego Salazar (prueba)' })).toHaveCount(1)
   expect(errors).toEqual([])

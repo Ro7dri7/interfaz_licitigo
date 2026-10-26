@@ -44,6 +44,26 @@ class RelationalStorageTests(unittest.TestCase):
         restarted = RelationalRepository(self.path, empty_state())
         self.assertEqual(asyncio.run(restarted.load()), snapshot)
 
+    def test_telegram_upgrade_preserves_existing_records_indexes_and_backup(self):
+        old_path = Path(self.tmp.name) / 'old.sqlite3'
+        old_schema = sqlite_schema().replace("'Lici','Telegram','WhatsApp'", "'Lici','WhatsApp'")
+        with patch('backend.relational.sqlite_schema', return_value=old_schema), \
+                patch.object(RelationalRepository, 'upgrade_telegram_origin'):
+            repo = RelationalRepository(old_path, demo_state())
+        before = asyncio.run(repo.load())
+        upgraded = RelationalRepository(old_path, empty_state())
+        self.assertEqual(asyncio.run(upgraded.load()), before)
+        self.assertTrue(old_path.with_name('old.before-telegram.sqlite3').exists())
+        updated = apply_command(before['data'], 'intake', {
+            'company': 'Empresa Telegram', 'ruc': '20991110000', 'service': 'ISO 9001',
+            'kind': 'advice', 'origin': 'Telegram'}, 'Integración', 'telegram-upgrade')
+        result = asyncio.run(upgraded.save(updated, before['revision'], before=before))
+        self.assertEqual(result['data']['deals'][-1]['origin'], 'Telegram')
+        with closing(sqlite3.connect(old_path)) as db:
+            self.assertIsNone(db.execute('pragma foreign_key_check').fetchone())
+            self.assertIsNotNone(db.execute("select name from sqlite_master where name='one_open_need'").fetchone())
+        self.assertEqual(asyncio.run(RelationalRepository(old_path, empty_state()).load()), result)
+
     def test_quotes_have_header_and_frozen_line_and_completion_updates_only_task(self):
         self.intake()
         self.command('product', {'name': 'ISO 9001', 'price': '100.05'})

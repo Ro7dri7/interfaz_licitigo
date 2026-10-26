@@ -1,5 +1,7 @@
 # LiciHub: requisitos revisados y funcionamiento de los flujos
 
+Actualización de alcance 26/10/2026: ya no se captan señales automáticas ni se usa Prospectos como apartado. Solo una solicitud explícita abre un negocio. El botón del portal y `/asesor` de Telegram están implementados con confirmación y cola de entrega; falta activación SQL 008 y prueba real. [Flujo vigente](ASESORIA_PORTAL_TELEGRAM.md). Las propuestas sobre señales contenidas más abajo corresponden al planteamiento histórico del 19/10.
+
 Fecha: 19 de octubre de 2026. Nombre común: **LiciHub**, con dos áreas: **Portal Clientes** y **Portal Comercial / CRM**. El chatbot del diagrama se denomina provisionalmente **LiciChat**; su nombre final puede ser LiciHub Chat.
 
 Este documento recoge lo solicitado por el usuario, lo explicado en los videos, lo visible en las capturas y la revisión de CRM/Bandeja de la referencia. Las propuestas de implementación se identifican como tales. Describe el próximo desarrollo; no declara conectadas las integraciones.

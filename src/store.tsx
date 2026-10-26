@@ -14,7 +14,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 60000); return () => window.clearInterval(timer) }, [])
   const refresh = useCallback(async () => {
     const next = await fetchWorkspace()
-    setSession(next.session); setSnapshot(next.snapshot); setError(''); setLogin(false)
+    setSession(next.session); setSnapshot(current => !current || next.snapshot.revision >= current.revision ? next.snapshot : current); setError(''); setLogin(false)
   }, [])
   const load = useCallback(() => refresh().catch((e: unknown) => {
     setError((e as Error).message); setLogin(e instanceof ApiError && e.status === 401)
@@ -28,10 +28,19 @@ export function CRMProvider({ children }: { children: ReactNode }) {
     }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [])
+  useEffect(() => {
+    if (!session || login) return
+    const update = () => {
+      if (document.visibilityState === 'visible') void load()
+    }
+    const timer = window.setInterval(update, 30000)
+    window.addEventListener('focus', update)
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', update) }
+  }, [session, login, load])
   async function command(operation: string, payload: unknown, requestId: string = crypto.randomUUID()) {
     try {
       const next = await api<Snapshot>('commands', { operation, payload, requestId, revision: snapshot?.revision })
-      setSnapshot(next)
+      setSnapshot(current => !current || next.revision >= current.revision ? next : current)
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) await refresh()
       if (e instanceof ApiError && e.status === 401) { setLogin(true); setSnapshot(null) }
