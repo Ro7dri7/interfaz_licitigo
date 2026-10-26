@@ -28,6 +28,8 @@ log = logging.getLogger("lici.bot")
 
 COMANDOS = [
     ("asesor", "Solicitar contacto de un asesor comercial"),
+    ("estadoasesoria", "Ver si el CRM recibió tu última solicitud"),
+    ("cancelar", "Cancelar una solicitud todavía no confirmada"),
     ("licitaciones", "Licitaciones vigentes que calzan con tu perfil"),
     ("nuevas", "Publicadas en las últimas 24 horas para tu perfil"),
     ("buscar", "Buscar en la BD: /buscar cemento portland"),
@@ -287,6 +289,8 @@ async def cmd_ayuda(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def texto_libre(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    if await bot_asesorias.texto_asesoria(update, ctx):
+        return
     if bot_asesorias.pide_asesor(update.effective_message.text or ''):
         ctx.args = []
         await bot_asesorias.cmd_asesor(update, ctx)
@@ -361,13 +365,16 @@ def main() -> None:
     app = Application.builder().token(s.telegram_bot_token).post_init(post_init).post_shutdown(post_shutdown).build()
     handlers = {
         "asesor": bot_asesorias.cmd_asesor,
+        "estadoasesoria": bot_asesorias.cmd_estado, "cancelar": bot_asesorias.cmd_cancelar, "omitir": bot_asesorias.cmd_omitir,
         "start": cmd_start, "ruc": cmd_ruc_deshabilitado, "licitaciones": cmd_licitaciones, "nuevas": cmd_nuevas,
         "buscar": cmd_buscar, "resumen": cmd_resumen, "keywords": cmd_keywords, "agregar": cmd_agregar,
         "quitar": cmd_quitar, "pausar": cmd_pausar, "reanudar": cmd_reanudar, "ayuda": cmd_ayuda, "help": cmd_ayuda,
     }
     for nombre, fn in handlers.items():
         app.add_handler(CommandHandler(nombre, fn))
-    app.add_handler(CallbackQueryHandler(bot_asesorias.confirmar_asesoria, pattern=r'^asesoria:(confirmar|cancelar):[a-f0-9]{16}$'))
+    app.add_handler(CallbackQueryHandler(bot_asesorias.confirmar_asesoria,
+        pattern=r'^asesoria:(tipo_(advice|quote)|servicio_(9001|14001|45001|37001|paquete|general|otro)|confirmar|cancelar):[a-f0-9]{16}$'))
+    app.add_handler(MessageHandler(filters.CONTACT, bot_asesorias.texto_asesoria))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, texto_libre))
     app.job_queue.run_repeating(revisar_nuevas, interval=s.alert_interval_min * 60, first=30)
     app.job_queue.run_repeating(reintentar_asesorias, interval=30, first=5)

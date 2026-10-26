@@ -28,6 +28,7 @@ async def probar(crm_path: Path):
             crm_outbox_file=Path(directory) / 'cola.sqlite3')
         repo = RelationalRepository(Path(directory) / 'crm.sqlite3', empty_state())
         crm = create_app(CRMSettings(_env_file=None, mode='demo', ingest_key=config.crm_ingest_key), repo)
+        crm_deshabilitado = create_app(CRMSettings(_env_file=None, mode='demo'), repo)
         with patch('app.config.get_settings', return_value=config):
             from app.main import app as portal_app
         portal_app.dependency_overrides[usuario_actual] = lambda: Usuario('perfil-prueba', 'ana@example.com', 'Ana')
@@ -42,10 +43,11 @@ async def probar(crm_path: Path):
         db.select.side_effect = select
         original_entregar = asesorias.entregar
         disponible = False
+        recepcion_habilitada = False
 
         async def entregar(request_id):
             if disponible:
-                transport = httpx.ASGITransport(app=crm)
+                transport = httpx.ASGITransport(app=crm if recepcion_habilitada else crm_deshabilitado)
             else:
                 def apagado(request):
                     raise httpx.ConnectError('Servidor de prueba apagado', request=request)
@@ -54,7 +56,7 @@ async def probar(crm_path: Path):
 
         update = SimpleNamespace(effective_chat=SimpleNamespace(id=123,type='private'),
             effective_user=SimpleNamespace(id=123,username='ana_prueba'),
-            effective_message=SimpleNamespace(reply_text=AsyncMock()),
+            effective_message=SimpleNamespace(reply_text=AsyncMock(),text='',contact=None),
             callback_query=SimpleNamespace(answer=AsyncMock(),edit_message_text=AsyncMock(),data='',message=SimpleNamespace(message_id=50)))
         ctx = SimpleNamespace(args=[],user_data={})
         auth_http = AsyncMock()
@@ -68,6 +70,14 @@ async def probar(crm_path: Path):
                 auth_factory.return_value.__aenter__.return_value = auth_http
                 await bot_asesorias.cmd_asesor(update,ctx)
                 nonce = ctx.user_data[bot_asesorias.PENDIENTE]['nonce']
+                update.callback_query.data=f'asesoria:tipo_quote:{nonce}'
+                await bot_asesorias.confirmar_asesoria(update,ctx)
+                update.callback_query.data=f'asesoria:servicio_general:{nonce}'
+                await bot_asesorias.confirmar_asesoria(update,ctx)
+                update.effective_message.text='Necesito cotizar una certificación inicial para postular.'
+                await bot_asesorias.texto_asesoria(update,ctx)
+                update.effective_message.text='+51 999 888 777'
+                await bot_asesorias.texto_asesoria(update,ctx)
                 assert (await repo.load())['revision'] == 0
                 update.callback_query.data=f'asesoria:confirmar:{nonce}'
                 await bot_asesorias.confirmar_asesoria(update,ctx)
@@ -76,11 +86,18 @@ async def probar(crm_path: Path):
                 solicitud_id = cola.resumen()[0]['id']
                 assert cola.obtener(solicitud_id)['estado'] == 'pendiente'
                 disponible=True
+                assert await entregar(solicitud_id)=='pendiente'
+                assert 'crm_ingest_disabled' in cola.obtener(solicitud_id)['ultimo_error']
+                assert (await repo.load())['revision']==0
+                recepcion_habilitada=True
                 await entregar(solicitud_id)
                 await bot_asesorias.confirmar_asesoria(update,ctx)
                 snapshot=await repo.load()
                 assert len(snapshot['data']['deals']) == len(snapshot['data']['prospects']) == 1
                 assert snapshot['data']['deals'][0]['origin']=='Telegram'
+                assert snapshot['data']['contacts'][0]['phone']=='+51 999 888 777'
+                assert snapshot['data']['prospects'][0]['kind']=='quote'
+                assert 'certificación inicial' in snapshot['data']['prospects'][0]['notes']
                 async with httpx.AsyncClient(transport=httpx.ASGITransport(app=portal_app),base_url='http://testserver') as http:
                     response=await http.post('/api/asesorias',json={'solicitudId':'00000000-0000-0000-0000-000000000001','licitacionId':12})
                 assert response.status_code==200, response.text
@@ -90,7 +107,7 @@ async def probar(crm_path: Path):
                 assert len(data['deals'])==len(data['companies'])==len(data['contacts'])==len(data['tasks'])==1
                 assert {p['origin'] for p in data['prospects']}=={'Lici','Telegram'}
                 assert any(p['tender']=='LP-PRUEBA-001' for p in data['prospects'])
-                print('Correcto: confirmación Telegram, cola persistente, recuperación, reentrega y petición web; un negocio con ambos orígenes y su tarea.')
+                print('Correcto: preguntas y confirmación Telegram, teléfono y necesidad en CRM, cola persistente, CRM apagado/deshabilitado, recuperación sin duplicados y petición web; un negocio con ambos orígenes y su tarea.')
         finally:
             portal_app.dependency_overrides.clear()
 

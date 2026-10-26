@@ -8,7 +8,24 @@ Solo al confirmar una solicitud comercial. Registrarse, desbloquear una licitaci
 
 En el portal: abrir una licitación ya desbloqueada, pulsar **Hablar con un asesor** y después **Confirmar solicitud**. El servidor verifica el desbloqueo de la cuenta y toma empresa, RUC, nombre y correo desde datos autenticados. Envía la referencia de la licitación; no afirma que la empresa carece de una ISO.
 
-En Telegram: conectar el chat desde Mi perfil del portal. En el chat privado usar `/asesor` o `/asesor ISO 9001`; también reconoce «quiero hablar con un asesor». El bot explica qué datos compartirá y ofrece **Solicitar asesoría** y **Cancelar**. No envía datos comerciales antes de confirmar. Funciona también si las alertas están pausadas. La confirmación vence a los 15 minutos; tras reiniciar el bot se debe pedir una nueva si aún no se confirmó. Una solicitud confirmada y guardada sí sobrevive al reinicio.
+En Telegram: conectar el chat desde Mi perfil del portal. En el chat privado usar `/asesor` o `/asesor ISO 9001`; también reconoce «quiero hablar con un asesor». El bot reutiliza empresa, RUC, nombre y correo de la cuenta. Pregunta si se necesita orientación o cotización, permite elegir ISO/paquete u otro servicio, pide una breve descripción y ofrece añadir teléfono propio o usar el correo. Muestra el resumen y solicita **Enviar solicitud** o **Cancelar**. Compartir un contacto de otro usuario no se acepta. No guarda la solicitud en la cola ni envía datos al CRM antes de confirmar. Funciona también si las alertas están pausadas. La confirmación vence a los 15 minutos; tras reiniciar el bot se debe pedir una nueva si aún no se confirmó. Una solicitud confirmada y guardada sí sobrevive al reinicio.
+
+`/omitir` permite precisar la necesidad con el asesor; `/cancelar` cancela una captura aún no confirmada. `/estadoasesoria` muestra el estado de entrega de la última solicitud de la cuenta vinculada. Una petición ya confirmada no se revoca desde el botón Cancelar. Las preguntas recogen los datos para atención comercial, sin calcular automáticamente precios ni enviar una cotización definitiva.
+
+```mermaid
+flowchart TD
+    A[Cuenta vinculada: /asesor] --> B[Asesoría o cotización]
+    B --> C[Certificación o servicio]
+    C --> D[Necesidad y teléfono opcional]
+    D --> E[Resumen con datos de la cuenta]
+    E --> F{Confirma envío}
+    F -->|No| G[Cancelar sin crear negocio]
+    F -->|Sí| H[Guardar solicitud y entregar al CRM]
+    H --> I{CRM recibe}
+    I -->|Sí| J[Negocios: Nuevo, origen Telegram, contacto y tarea]
+    I -->|No| K[Pendiente: reintento sin duplicar]
+    K --> H
+```
 
 En el CRM: aparece en **Negocios**, etapa **Nuevo**, responsable **Sin asignar**, con contacto, procedencia y tarea de primera atención a 24 horas. Se reutiliza un negocio abierto de la misma empresa y servicio. Cada solicitud conserva su canal en la ficha aunque el negocio ya existiera. La interfaz actualiza los datos cada 30 segundos mientras está visible y al recuperar el foco.
 
@@ -44,6 +61,28 @@ En el repositorio CRM: `npm start`. El portal y el bot comparten `CRM_OUTBOX_FIL
 
 ## Fallos y recuperación
 
+Si el CRM responde 503 y **Espacio e integraciones** muestra **Recepción deshabilitada**, su API no tiene `CRM_INGEST_KEY` cargada. No implica que el cliente haya omitido datos ni que deba repetir la solicitud. Desde la carpeta `backend` del portal, en **CMD o PowerShell**, enlazar las dos configuraciones locales sin mostrar claves. Si la carpeta hermana del CRM se llama `licihub-crm`:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.configurar_crm --crm ..\..\licihub-crm
+```
+
+Si la carpeta se llama `lici-crm`, usar ese nombre en la ruta. La herramienta requiere ambos `.env` existentes, conserva las claves de Supabase y reutiliza la clave de integración del receptor; si está vacía reutiliza la del portal o genera una nueva. No imprime el valor. Reiniciar **API CRM, API portal y bot** para cargarla. Esto enlaza los proyectos indicados en este equipo; si el emisor apunta a un servidor remoto se debe configurar la clave de ese servidor de forma privada.
+
+Comprobar la conexión sin crear un negocio:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.asesorias diagnostico
+```
+
+El diagnóstico envía una intención inválida que el receptor rechaza antes de guardar; comprueba recepción/clave, no escritura en Supabase. Después de corregir la configuración, recuperar hasta 20 solicitudes pendientes sin esperar su próximo reintento:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.asesorias reintentar-pendientes
+```
+
+Conservar la misma cola del equipo que recibió la solicitud original. Una cola local no se copia con Git. Los mensajes 503 ahora distinguen recepción deshabilitada, rechazo del origen por SQL 008 y fallo de almacenamiento sin exponer datos de clientes. El usuario informó que SQL 008 ya se aplicó; no hace falta otra migración para este flujo de preguntas.
+
 La solicitud se guarda en `backend/data/asesorias.sqlite3` antes de intentar enviarla. Una caída del CRM muestra «guardada y pendiente de entrega», nunca una confirmación falsa. API y bot reintentan con espera creciente entre 30 segundos y una hora. La cola procesa hasta 20 entradas por ronda y conserva identificador y contenido. No guarda claves ni conversaciones; al confirmar recepción borra el contenido de contacto de la cola y conserva el recibo de deduplicación.
 
 401/403/422 y redirecciones se consideran errores de configuración o datos y requieren revisión; no se descartan. Timeouts, 409, 429 y 5xx se reintentan. Tras corregir la configuración, desde `backend`:
@@ -70,6 +109,6 @@ Prueba conjunta desde la raíz del portal, con ambos repositorios descargados:
 
 Utiliza bases temporales y los receptores reales de ambas aplicaciones; simula únicamente identidad, lectura de perfil y transporte de Telegram. Comprueba confirmación, CRM apagado, recuperación, reentrega y origen web, sin crear usuarios ni contactar clientes.
 
-Prueba real pendiente: después de aplicar SQL 008 y encender los procesos, confirmar `/asesor` desde una cuenta propia vinculada y comprobar su negocio en el CRM. Revisar también el botón con una licitación realmente desbloqueada. La validación local no sustituye esta prueba.
+Prueba real: una vez habilitada la recepción y con una sola instancia del bot, completar `/asesor`, confirmar el resumen y comprobar Negocios filtrado por Telegram. Verificar contacto, teléfono si se indicó, tipo, necesidad y tarea. Consultar `/estadoasesoria` si la entrega estaba pendiente. Revisar también el botón con una licitación realmente desbloqueada. Las pruebas locales no sustituyen la comprobación en el equipo del operador.
 
-Referencias: [Telegram Bot API](https://core.telegram.org/bots/api#inlinekeyboardbutton) y [tareas periódicas del bot](https://docs.python-telegram-bot.org/en/latest/telegram.ext.jobqueue.html).
+Referencias: [Telegram Bot API: botones](https://core.telegram.org/bots/api#keyboardbutton), [contactos](https://core.telegram.org/bots/api#contact) y [tareas periódicas del bot](https://docs.python-telegram-bot.org/en/latest/telegram.ext.jobqueue.html).
