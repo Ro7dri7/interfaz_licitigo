@@ -1,0 +1,80 @@
+import tempfile
+import unittest
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+
+from backend.domain import empty_state
+from backend.main import Settings, create_app
+from unittest.mock import AsyncMock, patch
+from backend.repository import TelegramSchemaMissing
+from backend.relational import RelationalRepository
+
+
+class TelegramIngestionTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.repo = RelationalRepository(Path(self.tmp.name) / 'crm.sqlite3', empty_state())
+        self.client = TestClient(create_app(Settings(_env_file=None, mode='demo', ingest_key='test-integration'), self.repo))
+
+    def tearDown(self):
+        self.client.close()
+        self.tmp.cleanup()
+
+    def send(self, request_id='telegram:1', **changes):
+        payload = dict(company='Empresa Telegram', ruc='20123456789', contact='Ana Prueba',
+                       email='ana@example.com', service='Asesoría certificaciones ISO', origin='Telegram',
+                       kind='advice', notes='Contacto Telegram: @ana_prueba')
+        return self.client.post('/api/crm/events', headers={'x-crm-ingest-key': 'test-integration'},
+                                json={'requestId': request_id, 'payload': payload | changes})
+
+    def test_telegram_request_persists_and_replay_never_duplicates(self):
+        self.assertEqual(self.send().json(), {'accepted': True, 'duplicate': False})
+        self.assertEqual(self.send().json(), {'accepted': True, 'duplicate': True})
+        data = self.client.get('/api/crm/state').json()['data']
+        self.assertEqual(len(data['deals']), 1)
+        self.assertEqual(len(data['prospects']), 1)
+        self.assertEqual(data['deals'][0]['origin'], 'Telegram')
+        self.assertEqual(data['deals'][0]['stage'], 'new')
+        self.assertEqual(len(data['tasks']), 1)
+        self.assertIn('@ana_prueba', data['prospects'][0]['notes'])
+
+    def test_only_explicit_requests_can_enter_from_integration(self):
+        for kind in ['signal', 'manual']:
+            self.assertEqual(self.send(kind=kind, origin='Lici').status_code, 422)
+        self.assertEqual(self.client.get('/api/crm/state').json()['revision'], 0)
+
+    def test_channels_share_open_need_and_preserve_each_request(self):
+        self.assertEqual(self.send('web:1', origin='Lici').status_code, 200)
+        self.assertEqual(self.send().status_code, 200)
+        data = self.client.get('/api/crm/state').json()['data']
+        self.assertEqual(len(data['companies']), 1)
+        self.assertEqual(len(data['contacts']), 1)
+        self.assertEqual(len(data['deals']), 1)
+        self.assertEqual({p['origin'] for p in data['prospects']}, {'Lici', 'Telegram'})
+
+    def test_disabled_receiver_explains_503_without_confirming_or_writing(self):
+        with TestClient(create_app(Settings(_env_file=None, mode='demo'), self.repo)) as client:
+            response = client.post('/api/crm/events', json={'requestId': 'one', 'payload': {}})
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()['code'], 'crm_ingest_disabled')
+        self.assertIn('CRM_INGEST_KEY', response.json()['detail'])
+
+    def test_missing_telegram_constraint_has_specific_safe_response(self):
+        with patch.object(self.repo, 'save', new=AsyncMock(side_effect=TelegramSchemaMissing())):
+            response = self.send()
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()['code'], 'crm_telegram_schema_missing')
+        self.assertIn('008_origen_telegram.sql', response.json()['detail'])
+        self.assertNotIn('ana@example.com', response.text)
+
+    def test_confirmed_phone_fills_empty_existing_contact(self):
+        self.assertEqual(self.send('web:1', origin='Lici').status_code, 200)
+        self.assertEqual(self.send(phone='+51999988877').status_code, 200)
+        data = self.client.get('/api/crm/state').json()['data']
+        self.assertEqual(len(data['contacts']), 1)
+        self.assertEqual(data['contacts'][0]['phone'], '+51999988877')
+
+
+if __name__ == '__main__':
+    unittest.main()
