@@ -114,6 +114,6 @@ async def probar(crm_path: Path):
 
 if __name__ == '__main__':
     parser=argparse.ArgumentParser()
-    parser.add_argument('--crm-path',type=Path,default=Path(__file__).resolve().parents[2] / 'lici-crm')
+    parser.add_argument('--crm-path',type=Path,default=Path(__file__).resolve().parents[2] / 'crm')
     args=parser.parse_args()
     asyncio.run(probar(args.crm_path.resolve()))

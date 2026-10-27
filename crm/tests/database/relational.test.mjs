@@ -14,7 +14,7 @@ const quoteMigration=readFileSync('backend/migrations/006_cotizaciones_multiples
 const telegramMigration=readFileSync('backend/migrations/008_origen_telegram.sql','utf8')
 const catalogMigration=readFileSync('backend/migrations/007_catalogo_iso.sql','utf8').replace(/espacio_destino uuid := '[^']+'/,
   `espacio_destino uuid := '${workspace}'`)
-const python=process.env.CRM_PYTHON || ['backend/.venv/Scripts/python.exe','../interfaz_licitigo/backend/.venv/Scripts/python.exe','backend/.venv/bin/python'].map(p=>resolve(p)).find(existsSync) || 'python'
+const python=process.env.CRM_PYTHON || ['backend/.venv/Scripts/python.exe','backend/.venv/bin/python'].map(p=>resolve(p)).find(existsSync) || 'python'
 const run=spawnSync(python,['tests/database/fixtures.py'],{encoding:'utf8',windowsHide:true})
 assert.equal(run.status,0,run.stderr)
 const fixture=JSON.parse(run.stdout)

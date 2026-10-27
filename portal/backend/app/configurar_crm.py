@@ -33,7 +33,7 @@ def configurar(portal: Path, crm: Path) -> None:
 
 if __name__ == '__main__':
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--crm',required=True,type=Path,help='Carpeta raíz de la copia local del CRM.')
+    parser.add_argument('--crm',default=BACKEND_DIR.parent.parent / 'crm',type=Path,help='Carpeta raíz del CRM; por defecto usa crm/ del mismo repositorio.')
     args=parser.parse_args()
     try:
         configurar(BACKEND_DIR.parent,args.crm)

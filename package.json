@@ -1,0 +1,22 @@
+{
+  "name": "licihub",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "instalar": "node scripts/instalar.mjs",
+    "start": "node scripts/iniciar.mjs todo",
+    "portal": "node scripts/iniciar.mjs portal",
+    "crm": "node scripts/iniciar.mjs crm",
+    "bot": "node scripts/iniciar.mjs bot",
+    "enlazar": "node scripts/iniciar.mjs enlazar",
+    "diagnostico": "node scripts/iniciar.mjs diagnostico",
+    "build": "npm --prefix portal run build && npm --prefix crm run build",
+    "lint": "npm --prefix portal run lint && npm --prefix crm run lint",
+    "test": "node --test tests/*.test.mjs",
+    "test:portal": "node scripts/iniciar.mjs test-portal",
+    "test:crm": "node scripts/iniciar.mjs test-crm",
+    "test:integracion": "node scripts/iniciar.mjs test-integracion"
+  }
+}

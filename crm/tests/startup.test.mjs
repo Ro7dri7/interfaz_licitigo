@@ -42,7 +42,7 @@ test('API launcher explains how to install missing Python dependencies', () => {
   const directory = mkdtempSync(join(tmpdir(), 'licihub-python-test-'))
   try {
     const python = process.env.CRM_PYTHON || [
-      'backend/.venv/Scripts/python.exe', '../interfaz_licitigo/backend/.venv/Scripts/python.exe', 'backend/.venv/bin/python',
+      'backend/.venv/Scripts/python.exe', 'backend/.venv/bin/python',
     ].map(p => resolve(p)).find(existsSync) || 'python'
     const created = spawnSync(python, ['-m', 'venv', '--without-pip', join(directory, '.venv')], { encoding: 'utf8', windowsHide: true })
     assert.equal(created.status, 0, created.stderr)

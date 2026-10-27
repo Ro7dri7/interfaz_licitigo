@@ -14,7 +14,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--env-file', type=Path, default=ROOT / 'backend/.env')
 parser.add_argument('--portal-env', action='store_true', help='Use the existing portal env for a read-only schema check')
 args = parser.parse_args()
-file = ROOT.parent / 'interfaz_licitigo/backend/.env' if args.portal_env else args.env_file
+file = ROOT.parent / 'portal/backend/.env' if args.portal_env else args.env_file
 values = dotenv_values(file)
 url = values.get('CRM_SUPABASE_URL') or values.get('SUPABASE_URL')
 key = values.get('CRM_SUPABASE_SECRET_KEY') or values.get('SUPABASE_SECRET_KEY')
