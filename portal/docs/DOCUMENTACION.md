@@ -109,7 +109,7 @@ Dashboard (SQL Editor, Table Editor) y MCP de Supabase.
 ## 3. Estructura del repositorio
 
 ```
-interfaz_licitigo/
+licihub/portal/
 ├── src/                           Frontend React
 │   ├── main.tsx                   Monta la app: BrowserRouter + OnboardingProvider
 │   ├── App.tsx                    Rutas y guard

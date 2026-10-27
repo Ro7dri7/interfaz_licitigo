@@ -24,7 +24,7 @@ Entrar a **http://127.0.0.1:5174/**. Se necesitan ambos servicios: frontend en 5
 
 Los datos ficticios se guardan ahora en `backend/data/demo.sqlite3`; el JSON anterior se importa una sola vez y se conserva intacto. Reiniciar no borra los cambios y no hay que iniciar sesión en la demo. Es el flujo local construido el 16 de octubre, actualizado de marca y almacenamiento; aún no es un espacio compartido conectado a Supabase ni al CRM externo.
 
-El Portal Clientes React se mantiene en `../interfaz_licitigo`, con frontend 5173 y API propia 8000. Allí `npm run dev` inicia su interfaz; el arranque/configuración de su backend se describe en su README. Los comandos anteriores corresponden específicamente al CRM.
+El Portal Clientes React se mantiene en `../portal`, con frontend 5173 y API propia 8000. Allí `npm run dev` inicia su interfaz; el arranque/configuración de su backend se describe en su README. Los comandos anteriores corresponden específicamente al CRM.
 
 ## 2. Fuentes y grado de certeza
 

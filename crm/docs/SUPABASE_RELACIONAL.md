@@ -85,10 +85,10 @@ CRM_WORKSPACE_ID=UUID_DEL_ESPACIO
 
 La clave debe ser de servidor, compatible con `service_role`. Guardarla solo en el backend; nunca en React, variables `VITE_*`, Git ni mensajes de chat. Se pueden usar claves secretas nuevas o la clave JWT de servicio anterior. La aplicación no copia automáticamente la configuración del portal.
 
-Desde la carpeta `lici-crm`, comprobar sin modificar registros:
+Desde la carpeta `crm`, comprobar sin modificar registros:
 
 ```powershell
-& '..\interfaz_licitigo\backend\.venv\Scripts\python.exe' scripts/supabase_status.py
+& '.\backend\.venv\Scripts\python.exe' scripts/supabase_status.py
 ```
 
 Con el entorno propio, usar `backend/.venv/Scripts/python.exe`. El informe muestra proyecto, presencia de funciones, revisión y cantidades de registros; no muestra claves ni datos de clientes. Código de salida 0: funciones y espacio accesibles y esquema de cotizaciones versión 2; 1: preparación incompleta; 2: error de configuración/conexión. `--portal-env` permite comprobar las funciones usando el archivo de configuración existente del portal; no configura el CRM y normalmente no incluye su espacio.

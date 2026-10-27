@@ -56,7 +56,7 @@ Reglas de vinculación:
 
 Respuesta: `{"accepted":true,"duplicate":false}` o `duplicate:true` para repetición idéntica. Repetir **el mismo requestId y payload** permite reintentar tras timeout sin duplicar. Cambiar el payload con el mismo ID devuelve 422; la actualización tardía de análisis necesita un contrato adicional aún pendiente. No reenviar como si fuera el mismo evento modificado.
 
-Errores: 401 clave inválida; 422 entrada inválida/conflicto de ID; 409 conflicto de revisión tras tres intentos internos; 413 cuerpo >64 KiB; 503 deshabilitado/almacenamiento no disponible. El emisor debe guardar los eventos en outbox, reintentar timeouts/409/503 con backoff y alertar sobre errores definitivos. El emisor ya está implementado en `interfaz_licitigo/backend/app/asesorias.py`, con cola SQLite persistente y recuperación operativa. La prueba remota requiere activar SQL 008 y el proceso del bot; [flujo vigente](ASESORIA_PORTAL_TELEGRAM.md).
+Errores: 401 clave inválida; 422 entrada inválida/conflicto de ID; 409 conflicto de revisión tras tres intentos internos; 413 cuerpo >64 KiB; 503 deshabilitado/almacenamiento no disponible. El emisor debe guardar los eventos en outbox, reintentar timeouts/409/503 con backoff y alertar sobre errores definitivos. El emisor ya está implementado en `portal/backend/app/asesorias.py`, con cola SQLite persistente y recuperación operativa. La prueba remota requiere activar SQL 008 y el proceso del bot; [flujo vigente](ASESORIA_PORTAL_TELEGRAM.md).
 
 ## API de la interfaz
 
@@ -68,7 +68,7 @@ Las escrituras de interfaz requieren la cabecera Origin exacta. El receptor de e
 
 ## Telegram
 
-El bot de `../interfaz_licitigo/backend/app/bot.py` ahora admite `/asesor` y confirmación en chat privado vinculado. Se verificó su token con getMe: `@LiciLicitacionesBot`. La prueba conjunta local validó recepción, cola y reentrega sin enviar mensajes reales. Su configuración no prueba que esté ejecutándose. El CRM no inicia ese bot ni comparte su token. El alcance actual solicita contacto comercial; la conversación bidireccional desde una bandeja CRM, la asignación de asesores reales y las notificaciones a sus chats siguen pendientes. [Activación completa en el portal](../../interfaz_licitigo/docs/ASESORIAS_CRM.md).
+El bot de `../portal/backend/app/bot.py` ahora admite `/asesor` y confirmación en chat privado vinculado. Se verificó su token con getMe: `@LiciLicitacionesBot`. La prueba conjunta local validó recepción, cola y reentrega sin enviar mensajes reales. Su configuración no prueba que esté ejecutándose. El CRM no inicia ese bot ni comparte su token. El alcance actual solicita contacto comercial; la conversación bidireccional desde una bandeja CRM, la asignación de asesores reales y las notificaciones a sus chats siguen pendientes. [Activación completa en el portal](../../portal/docs/ASESORIAS_CRM.md).
 
 ## Referencias técnicas
 

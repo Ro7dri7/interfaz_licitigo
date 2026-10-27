@@ -30,7 +30,7 @@ El 26/10 se verificó getMe del bot `@LiciLicitacionesBot`, sin enviar mensajes 
 
 Recorrido: entrar al portal con una cuenta propia, vincular Telegram desde Mi perfil, enviar `/asesor` al bot y confirmar **Solicitar asesoría**. En CRM abrir Negocios y filtrar Telegram; revisar contacto y tarea inicial. La interfaz se actualiza cada 30 segundos y al recuperar foco. Para el otro recorrido, confirmar **Hablar con un asesor** en una licitación ya desbloqueada y revisar el contexto en la ficha. Si se solicita el mismo servicio para el mismo RUC, se conserva el negocio abierto y se agrega la nueva solicitud.
 
-Configuración, arranque y recuperación de errores definitivos de la cola: [guía del portal](../../interfaz_licitigo/docs/ASESORIAS_CRM.md).
+Configuración, arranque y recuperación de errores definitivos de la cola: [guía del portal](../../portal/docs/ASESORIAS_CRM.md).
 
 ## Receptor deshabilitado: causa confirmada del 503 del equipo
 

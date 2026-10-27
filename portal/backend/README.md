@@ -1,4 +1,6 @@
-# Lici backend (FastAPI + bot de Telegram)
+# LiciHub backend (FastAPI + bot de Telegram)
+
+Este backend está en `portal/backend/`. Para la instalación conjunta, seguir [el README de la raíz](../../README.md). Los comandos manuales siguientes se ejecutan desde `portal/` o `portal/backend` según se indica.
 
 API en Python que alimenta el frontend React y un bot de Telegram que avisa de nuevas licitaciones.
 Lee las convocatorias SEACE (OECE, PROD2 y PROD6) de la base unificada en Supabase. El filtrado, la afinidad y la
@@ -22,7 +24,7 @@ backend/
    ```bash
    cd backend
    python -m venv .venv
-   .venv\Scripts\pip install -r requirements.txt
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
    ```
 
 2. **Variables**: copia `.env.example` a `.env` y completa `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `APIMIGO_TOKEN`,
@@ -31,16 +33,16 @@ backend/
 3. **API** (puerto 8000; documentación interactiva en http://localhost:8000/docs):
 
    ```bash
-   .venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
+   .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
    ```
 
 4. **Bot** (en otra terminal):
 
    ```bash
-   .venv\Scripts\python -m app.bot
+   .\.venv\Scripts\python.exe -m app.bot
    ```
 
-5. **Frontend**: en la raíz del repo, `npm run dev`. El proxy de Vite (`vite.config.ts`) manda `/api` al puerto 8000.
+5. **Frontend**: desde `portal/`, `npm run dev`. El proxy de Vite (`vite.config.ts`) manda `/api` al puerto 8000.
 
 ## Endpoints
 

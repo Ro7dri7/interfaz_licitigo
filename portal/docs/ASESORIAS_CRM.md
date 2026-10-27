@@ -1,6 +1,6 @@
 # Asesoría comercial desde el portal y Telegram
 
-Actualización: 26/10/2026.
+Actualización: 27/10/2026. Portal y CRM viven en `portal/` y `crm/` de la misma rama `main`. [Instalación conjunta](../../README.md).
 
 ## Cuándo se crea un negocio
 
@@ -33,7 +33,7 @@ Esto solicita contacto del equipo; no abre una conversación en vivo ni implemen
 
 ## Activación
 
-1. En el proyecto CRM, aplicar manualmente `backend/migrations/008_origen_telegram.sql` en Supabase. Es repetible, conserva registros y permisos; no requiere volver a provisionar el espacio ni importar datos de demostración.
+1. Para una base aún no actualizada, aplicar manualmente `crm/backend/migrations/008_origen_telegram.sql` en Supabase una sola vez. El usuario confirmó que ya fue aplicado en el proyecto compartido. Es repetible, conserva registros y permisos; no requiere volver a provisionar el espacio ni importar datos de demostración.
 2. En `backend/.env` del CRM configurar `CRM_INGEST_KEY` con un secreto independiente.
 3. En `backend/.env` de este portal configurar el mismo `CRM_INGEST_KEY` y `CRM_API_URL`. La URL es el origen de la **API** del CRM, por ejemplo `http://127.0.0.1:8001`, sin `/api/crm/events`. Si ambos procesos están en distintos equipos, localhost no comunica esos equipos: usar un servidor HTTPS alcanzable por el emisor y configurar su host en el CRM. No usar la URL del frontend como si fuera la API.
 4. Reiniciar la API del CRM, la API del portal y el proceso del bot. Las claves permanecen en los servidores, nunca en variables `VITE_*` ni en Git.
@@ -57,19 +57,19 @@ cd backend
 .\.venv\Scripts\python.exe -m app.bot
 ```
 
-En el repositorio CRM: `npm start`. El portal y el bot comparten `CRM_OUTBOX_FILE` en una instalación. Si se despliegan separados, cada cola necesita almacenamiento persistente y un proceso activo que la reintente; la deduplicación final sigue en el CRM.
+Desde la raíz general: `npm run crm` (o `npm start` para ambas aplicaciones). El portal y el bot comparten `CRM_OUTBOX_FILE` en una instalación. Si se despliegan separados, cada cola necesita almacenamiento persistente y un proceso activo que la reintente; la deduplicación final sigue en el CRM.
 
 ## Fallos y recuperación
 
-Si el CRM responde 503 y **Espacio e integraciones** muestra **Recepción deshabilitada**, su API no tiene `CRM_INGEST_KEY` cargada. No implica que el cliente haya omitido datos ni que deba repetir la solicitud. Desde la carpeta `backend` del portal, en **CMD o PowerShell**, enlazar las dos configuraciones locales sin mostrar claves. Si la carpeta hermana del CRM se llama `licihub-crm`:
+Si el CRM responde 503 y **Espacio e integraciones** muestra **Recepción deshabilitada**, su API no tiene `CRM_INGEST_KEY` cargada. No implica que el cliente haya omitido datos ni que deba repetir la solicitud. Desde la raíz del repositorio, en **CMD o PowerShell**, enlazar las dos configuraciones locales sin mostrar claves:
 
 ```powershell
-.\.venv\Scripts\python.exe -m app.configurar_crm --crm ..\..\licihub-crm
+npm run enlazar
 ```
 
-Si la carpeta se llama `lici-crm`, usar ese nombre en la ruta. La herramienta requiere ambos `.env` existentes, conserva las claves de Supabase y reutiliza la clave de integración del receptor; si está vacía reutiliza la del portal o genera una nueva. No imprime el valor. Reiniciar **API CRM, API portal y bot** para cargarla. Esto enlaza los proyectos indicados en este equipo; si el emisor apunta a un servidor remoto se debe configurar la clave de ese servidor de forma privada.
+Alternativa desde `portal/backend`: `.\.venv\Scripts\python.exe -m app.configurar_crm --crm ..\..\crm`. La herramienta requiere ambos `.env` existentes, conserva las claves de Supabase y reutiliza la clave de integración del receptor; si está vacía reutiliza la del portal o genera una nueva. No imprime el valor. Reiniciar **API CRM, API portal y bot** para cargarla. Esto enlaza los proyectos indicados en este equipo; si el emisor apunta a un servidor remoto se debe configurar la clave de ese servidor de forma privada.
 
-Comprobar la conexión sin crear un negocio:
+Comprobar la conexión sin crear un negocio, desde `portal/backend`:
 
 ```powershell
 .\.venv\Scripts\python.exe -m app.asesorias diagnostico
@@ -101,10 +101,10 @@ cd backend
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Prueba conjunta desde la raíz del portal, con ambos repositorios descargados:
+Prueba conjunta desde la raíz del portal, con ambas aplicaciones del mismo repositorio:
 
 ```powershell
-.\backend\.venv\Scripts\python.exe scripts/probar_integracion_crm.py --crm-path ..\lici-crm
+.\backend\.venv\Scripts\python.exe scripts/probar_integracion_crm.py --crm-path ..\crm
 ```
 
 Utiliza bases temporales y los receptores reales de ambas aplicaciones; simula únicamente identidad, lectura de perfil y transporte de Telegram. Comprueba confirmación, CRM apagado, recuperación, reentrega y origen web, sin crear usuarios ni contactar clientes.
