@@ -18,6 +18,12 @@ const paths: Record<string, ReactNode> = {
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
   radar: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><path d="m12 12 6-7" /><circle cx="12" cy="12" r="1" /></>,
   list: <path d="M7 6h14M7 12h14M7 18h14M3 6h.1M3 12h.1M3 18h.1" />,
+  phone: <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z" />,
+  mail: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>,
+  chat: <path d="M4 20l1.5-4A8 8 0 1 1 8 18.5z" />,
+  filter: <path d="M4 5h16l-6 8v6l-4-2v-4z" />,
+  upload: <path d="M12 15V3m-5 5 5-5 5 5M4 20h16" />,
+  download: <path d="M12 3v12m-5-5 5 5 5-5M4 20h16" />,
   board: <><rect x="3" y="4" width="5" height="16" rx="1" /><rect x="10" y="4" width="5" height="12" rx="1" /><rect x="17" y="4" width="4" height="14" rx="1" /></>,
 }
 export function Icon({ name, size = 18 }: { name: string; size?: number }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name] ?? paths.file}</svg> }

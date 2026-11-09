@@ -15,7 +15,8 @@ TABLE_FIELDS = {
     'products': {'id': 'id', 'name': 'name', 'price': 'price', 'currency': 'currency', 'active': 'active'},
     'deals': {'id': 'id', 'companyId': 'company_id', 'contactId': 'contact_id', 'service': 'service',
               'origin': 'origin', 'owner': 'owner_label', 'stage': 'stage', 'amount': 'amount',
-              'createdAt': 'created_at', 'updatedAt': 'updated_at', 'closedAt': 'closed_at', 'lossReason': 'loss_reason'},
+              'createdAt': 'created_at', 'updatedAt': 'updated_at', 'closedAt': 'closed_at', 'lossReason': 'loss_reason',
+              'priority': 'priority', 'expectedClose': 'expected_close'},
     'prospects': {'id': 'id', 'companyId': 'company_id', 'contactId': 'contact_id', 'kind': 'kind',
                   'origin': 'origin', 'service': 'service', 'owner': 'owner_label', 'evidence': 'evidence',
                   'tender': 'tender', 'deadline': 'deadline', 'notes': 'notes', 'createdAt': 'created_at', 'dealId': 'deal_id'},
@@ -27,6 +28,8 @@ TABLE_FIELDS = {
                'terms': 'terms', 'createdAt': 'created_at'},
     'receipts': {'id': 'request_id', 'digest': 'digest'},
 }
+# Columnas de migraciones posteriores: si la base aún no las tiene, el negocio sigue funcionando con su valor predeterminado.
+OPTIONAL_COLUMNS = {'deals': {'priority': 'normal', 'expected_close': None}}
 # FK dependency order. A prospect may reference a deal, which references a contact.
 WRITE_ORDER = ['companies', 'contacts', 'products', 'deals', 'prospects', 'tasks', 'activities', 'quotes', 'quote_items', 'quote_events']
 
@@ -40,6 +43,8 @@ def encode_state(data, workspace):
             row.update(workspace_id=workspace, sort_order=index)
             if table == 'companies':
                 row['ruc'] = row['ruc'] or None
+            if table == 'deals':
+                row['priority'] = row['priority'] or 'normal'
             if table == 'quotes':
                 row['status'] = 'draft'  # El estado vigente se deriva de eventos inmutables.
                 row.update({column: entity.get(field) for field, column in QUOTE_DOCUMENT_FIELDS.items()})
@@ -58,7 +63,8 @@ def encode_state(data, workspace):
 def decode_state(tables):
     data = {}
     for table, mapping in TABLE_FIELDS.items():
-        data[table] = [{field: row[column] for field, column in mapping.items()}
+        optional = OPTIONAL_COLUMNS.get(table, {})
+        data[table] = [{field: row.get(column, optional[column]) if column in optional else row[column] for field, column in mapping.items()}
                        for row in sorted(tables.get(table, []), key=lambda r: (r.get('sort_order', 0), str(r.get('id', ''))))]
     for company in data['companies']:
         company['ruc'] = company['ruc'] or ''
@@ -93,6 +99,13 @@ def row_key(table, row):
     return (row['quote_id'], row['line_number']) if table == 'quote_items' else row['id']
 
 
+def without_unchanged_optional(table, row, before):
+    # No se envían columnas opcionales que no cambian: así una base sin la migración 009 sigue guardando.
+    omit = {column for column, default in OPTIONAL_COLUMNS.get(table, {}).items()
+            if row[column] == (before[column] if before else default)}
+    return {column: value for column, value in row.items() if column not in omit}
+
+
 def changes_between(before, after, workspace):
     old, new = encode_state(before, workspace), encode_state(after, workspace)
     changes = []
@@ -105,7 +118,7 @@ def changes_between(before, after, workspace):
             if previous.get(key) != row:
                 if key in previous and table in ['quotes', 'quote_items', 'quote_events', 'activities']:
                     raise ValueError('Las propuestas y actividades históricas son inmutables.')
-                changes.append({'table': table, 'row': row, 'insert': key not in previous})
+                changes.append({'table': table, 'row': without_unchanged_optional(table, row, previous.get(key)), 'insert': key not in previous})
     return changes
 
 

@@ -54,6 +54,10 @@ class RelationalRepository:
                 for column in QUOTE_DOCUMENT_FIELDS.values():
                     if column not in existing:
                         db.execute(f'alter table quotes add column {column} {"boolean" if column == "tax_included" else "text"}')
+                deal_columns = {row['name'] for row in db.execute('pragma table_info(deals)')}
+                for column, definition in [('priority', "text not null default 'normal'"), ('expected_close', 'text')]:
+                    if column not in deal_columns:
+                        db.execute(f'alter table deals add column {column} {definition}')
                 self.upgrade_quote_constraint(db)
                 self.upgrade_telegram_origin(db)
                 db.executescript('''create table if not exists quote_events (

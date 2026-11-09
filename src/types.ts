@@ -5,6 +5,10 @@ export const stages: { id: Stage; name: string; color: string }[] = [
   { id: 'followup', name: 'Seguimiento', color: '#7c3aed' }, { id: 'won', name: 'Ganado', color: '#15803d' },
   { id: 'lost', name: 'Perdido', color: '#dc2626' },
 ]
+export type Priority = 'low' | 'normal' | 'high'
+export const priorityLabels: Record<Priority, string> = { high: 'Alta', normal: 'Normal', low: 'Baja' }
+// Probabilidad de cierre estimada por etapa para el pronóstico ponderado. Son valores de partida: ajústalos con tu supervisor.
+export const stageProbability: Record<Stage, number> = { new: 0.1, contacted: 0.2, qualified: 0.4, quoted: 0.6, followup: 0.75, won: 1, lost: 0 }
 export const origins = ['Lici', 'Telegram', 'WhatsApp', 'Referido', 'Campaña', 'Manual', 'Partner']
 export const kindLabels = { signal: 'Señal LiciHub', advice: 'Asesoría solicitada', quote: 'Cotización solicitada', manual: 'Prospecto manual' }
 export const evidenceLabels = { required: 'Requisito ISO detectado', recommended: 'ISO recomendada', pending: 'Análisis pendiente', none: 'Sin análisis asociado' }
@@ -18,6 +22,7 @@ export interface Prospect {
 export interface Deal {
   id: string; companyId: string; contactId: string | null; service: string; origin: string; owner: string;
   stage: Stage; amount: number; createdAt: string; updatedAt: string; closedAt: string | null; lossReason: string; prospectIds: string[];
+  priority?: Priority; expectedClose?: string | null;
 }
 export interface Task { id: string; dealId: string; title: string; dueAt: string; done: boolean; completedAt: string | null }
 export interface Activity { id: string; dealId: string; kind: string; text: string; actor: string; createdAt: string }

@@ -35,7 +35,7 @@ COLUMNAS = {
     'issuer_name': 'emisor_nombre', 'issuer_ruc': 'emisor_ruc', 'issuer_address': 'emisor_direccion',
     'customer_name': 'cliente_nombre', 'customer_ruc': 'cliente_ruc', 'contact_name': 'contacto_nombre',
     'contact_email': 'contacto_correo', 'recipient': 'destinatario', 'channel': 'canal', 'note': 'nota',
-    'tax_included': 'impuesto_incluido',
+    'tax_included': 'impuesto_incluido', 'priority': 'prioridad', 'expected_close': 'cierre_esperado',
 }
 
 

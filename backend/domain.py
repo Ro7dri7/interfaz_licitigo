@@ -35,6 +35,33 @@ class Intake(Input):
     notes: str = Field(default='', max_length=3000)
 
 
+class AddContact(Input):
+    dealId: str
+    name: str = Field(min_length=2, max_length=100)
+    email: EmailStr | Literal[''] = ''
+    phone: str = Field(default='', max_length=30, pattern=r'^[+\d\s()\-]*$')
+
+
+class NewContact(Input):
+    companyId: str
+    name: str = Field(min_length=2, max_length=100)
+    email: EmailStr | Literal[''] = ''
+    phone: str = Field(default='', max_length=30, pattern=r'^[+\d\s()\-]*$')
+
+
+class EditContact(Input):
+    contactId: str
+    name: str = Field(min_length=2, max_length=100)
+    email: EmailStr | Literal[''] = ''
+    phone: str = Field(default='', max_length=30, pattern=r'^[+\d\s()\-]*$')
+
+
+class DealDetails(Input):
+    dealId: str
+    priority: Literal['low', 'normal', 'high'] = 'normal'
+    expectedClose: date | None = None
+
+
 class Convert(Input):
     prospectId: str
 
@@ -74,7 +101,7 @@ class Product(Input):
     active: bool = True
 
 
-SCHEMAS = {'intake': Intake, 'convert': Convert, 'stage': Move, 'activity': Activity,
+SCHEMAS = {'intake': Intake, 'contact': AddContact, 'deal_details': DealDetails, 'contact_create': NewContact, 'contact_edit': EditContact, 'convert': Convert, 'stage': Move, 'activity': Activity,
            'task': Task, 'complete_task': Complete, 'product': Product, 'quote': Quote, 'quote_status': QuoteState, 'import_iso': Input}
 
 
@@ -88,7 +115,7 @@ def open_deal(state, prospect, actor):
     if not deal:
         deal = dict(id=uid(), companyId=prospect['companyId'], contactId=prospect['contactId'],
                     service=prospect['service'], origin=prospect['origin'], owner=prospect['owner'], stage='new',
-                    amount=0, createdAt=now(), updatedAt=now(), closedAt=None, lossReason='', prospectIds=[])
+                    amount=0, createdAt=now(), updatedAt=now(), closedAt=None, lossReason='', prospectIds=[], priority='normal', expectedClose=None)
         state['deals'].append(deal)
         log(state, deal['id'], 'created', 'Negocio abierto. Pendiente de primera atención.', actor)
         state['tasks'].append(dict(id=uid(), dealId=deal['id'], title='Realizar primera atención',
@@ -140,6 +167,17 @@ def apply_command(original, operation, payload, actor, request_id):
     state = deepcopy(original)
     if operation == 'intake':
         receive_intake(state, data, actor)
+    elif operation == 'contact':
+        deal = find(state['deals'], data.dealId)
+        # Un correo ya registrado en la empresa se reutiliza: no se duplica a la persona.
+        contact = next((c for c in state['contacts'] if c['companyId'] == deal['companyId'] and data.email
+                        and c['email'].casefold() == str(data.email).casefold()), None)
+        if not contact:
+            contact = dict(id=uid(), companyId=deal['companyId'], name=data.name, email=str(data.email), phone=data.phone)
+            state['contacts'].append(contact)
+            log(state, deal['id'], 'note', f'Contacto agregado: {contact["name"]}', actor)
+        if not deal.get('contactId'):
+            deal['contactId'] = contact['id']
     elif operation == 'convert':
         p = find(state['prospects'], data.prospectId)
         if p['dealId']:
@@ -156,6 +194,24 @@ def apply_command(original, operation, payload, actor, request_id):
             deal.update(stage=data.stage, updatedAt=now(), closedAt=now() if data.stage in ['won', 'lost'] else None,
                         lossReason=data.reason if data.stage == 'lost' else '')
             log(state, deal['id'], 'stage', f'Etapa: {LABELS[data.stage]}' + (f' · {data.reason}' if data.reason else ''), actor)
+    elif operation in ['contact_create', 'contact_edit']:
+        creating = operation == 'contact_create'
+        contact = None if creating else find(state['contacts'], data.contactId)
+        company = find(state['companies'], data.companyId if creating else contact['companyId'])
+        email = str(data.email)
+        if email and any(c['companyId'] == company['id'] and c is not contact and c['email'].casefold() == email.casefold() for c in state['contacts']):
+            raise ValueError('Ya existe un contacto con ese correo en esta empresa.')
+        if creating:
+            state['contacts'].append(dict(id=uid(), companyId=company['id'], name=data.name, email=email, phone=data.phone))
+        else:
+            contact.update(name=data.name, email=email, phone=data.phone)
+    elif operation == 'deal_details':
+        deal = find(state['deals'], data.dealId)
+        close = data.expectedClose.isoformat() if data.expectedClose else None
+        if (deal.get('priority', 'normal'), deal.get('expectedClose')) != (data.priority, close):
+            deal.update(priority=data.priority, expectedClose=close, updatedAt=now())
+            names = dict(low='Baja', normal='Normal', high='Alta')
+            log(state, deal['id'], 'note', f'Seguimiento actualizado: prioridad {names[data.priority]} · cierre esperado {close or "sin fecha"}', actor)
     elif operation == 'activity':
         find(state['deals'], data.dealId)
         log(state, data.dealId, data.kind, data.text, actor)

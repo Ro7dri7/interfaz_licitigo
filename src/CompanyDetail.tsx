@@ -25,7 +25,7 @@ export default function CompanyDetail() {
     </section>
     <div className="company-sections">
       <section className="panel" aria-label="Contactos de la empresa"><div className="section-head"><div><h2>Contactos</h2><p>Personas asociadas a esta organización.</p></div><Badge>{contacts.length}</Badge></div>
-        <div className="table-wrap"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Teléfono</th></tr></thead><tbody>{contacts.map(c => <tr key={c.id}><td><strong>{c.name}</strong></td><td>{c.email || 'Sin correo'}</td><td>{c.phone || 'Sin teléfono'}</td></tr>)}</tbody></table></div>
+        <div className="table-wrap"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Teléfono</th></tr></thead><tbody>{contacts.map(c => <tr key={c.id}><td><Link className="record-button" to={`/contactos/${c.id}`}><strong>{c.name}</strong></Link></td><td>{c.email || 'Sin correo'}</td><td>{c.phone || 'Sin teléfono'}</td></tr>)}</tbody></table></div>
         {!contacts.length && <Empty title="Sin contactos registrados">Esta empresa todavía no tiene personas asociadas.</Empty>}</section>
       <section className="panel" aria-label="Negocios de la empresa"><div className="section-head"><div><h2>Negocios</h2><p>Oportunidades abiertas y cerradas de esta empresa.</p></div><Badge>{deals.length}</Badge></div>
         <div className="table-wrap"><table><thead><tr><th>Servicio</th><th>Etapa</th><th>Asesor</th><th>Valor comercial</th></tr></thead><tbody>{deals.map(d => <tr key={d.id}>
