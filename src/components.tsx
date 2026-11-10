@@ -24,6 +24,7 @@ const paths: Record<string, ReactNode> = {
   filter: <path d="M4 5h16l-6 8v6l-4-2v-4z" />,
   upload: <path d="M12 15V3m-5 5 5-5 5 5M4 20h16" />,
   download: <path d="M12 3v12m-5-5 5 5 5-5M4 20h16" />,
+  chevron: <path d="m6 9 6 6 6-6" />,
   board: <><rect x="3" y="4" width="5" height="16" rx="1" /><rect x="10" y="4" width="5" height="12" rx="1" /><rect x="17" y="4" width="4" height="14" rx="1" /></>,
 }
 export function Icon({ name, size = 18 }: { name: string; size?: number }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name] ?? paths.file}</svg> }

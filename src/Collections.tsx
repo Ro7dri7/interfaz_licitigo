@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Badge, Empty, Icon, PageHead } from './components'
 import { DealForm } from './Forms'
+import DealContextMenu from './DealContextMenu'
+import DealPreview from './DealPreview'
 import ImportDeals from './ImportDeals'
 import { useCRM } from './crm-context'
 import { originLabel, dateLabel, dateTime, initials, money, origins, priorityLabels, stageProbability, stages } from './types'
@@ -41,7 +43,7 @@ export function Pipeline({ onCreate }: { onCreate: () => void }) {
   const { session, snapshot: { data }, now, command } = useCRM(), [params, setParams] = useSearchParams()
   const [dragId, setDragId] = useState<string | null>(null), [over, setOver] = useState<Stage | null>(null)
   const [moving, setMoving] = useState<Record<string, Stage>>({}), [moveError, setMoveError] = useState('')
-  const [lost, setLost] = useState<Deal | null>(null), [action, setAction] = useState<{ deal: Deal; type: string } | null>(null), [panel, setPanel] = useState(false), [importing, setImporting] = useState(false)
+  const [lost, setLost] = useState<Deal | null>(null), [action, setAction] = useState<{ deal: Deal; type: string } | null>(null), [panel, setPanel] = useState(false), [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null), [importing, setImporting] = useState(false)
   const view = params.get('vista') ?? 'board', search = (params.get('q') ?? '').toLocaleLowerCase()
   const mine = params.get('mios') === '1', order = orders.some(([id]) => id === params.get('orden')) ? params.get('orden')! : 'recientes'
   const setParam = (key: string, value: string) => setParams(p => { if (value) p.set(key, value); else p.delete(key); return p }, { replace: true })
@@ -101,6 +103,9 @@ export function Pipeline({ onCreate }: { onCreate: () => void }) {
   }
   const open = filtered.filter(isOpen), won = filtered.filter(d => d.stage === 'won'), closed = won.length + filtered.filter(d => d.stage === 'lost').length
   const attention = open.filter(needsAttention).length, activeAdvanced = advancedKeys.filter(key => params.get(key)).length
+  const preview = data.deals.find(d => d.id === params.get('ver')), select = (id: string) => setParam('ver', id), closePreview = () => setParam('ver', '')
+  const menuOf = (id: string) => (e: React.MouseEvent) => { e.preventDefault(); setMenu({ id, x: e.clientX, y: e.clientY }) }
+  const rowKey = (id: string) => (e: React.KeyboardEvent) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select(id) } }
   const metrics = [['Cartera abierta', money(open.reduce((s, d) => s + d.amount, 0)), `${open.length} negocios abiertos`], ['Ganado', money(won.reduce((s, d) => s + d.amount, 0)), `${won.length} negocios`],
     ['Pronóstico ponderado', weighted(open), 'Según la probabilidad de cada etapa'], ['Tasa de cierre', closed ? `${Math.round(won.length / closed * 100)}%` : '—', closed ? `${won.length} de ${closed} cerrados` : 'Aún sin cierres']]
   return <><PageHead title="Negocios" description={`${filtered.length} negocios · ${money(filtered.filter(d => !['won', 'lost'].includes(d.stage)).reduce((s, d) => s + d.amount, 0))} en cartera abierta`}>
@@ -112,7 +117,7 @@ export function Pipeline({ onCreate }: { onCreate: () => void }) {
       <button type="button" className={`attention ${attention ? 'alert' : ''}`} aria-pressed={params.get('atencion') === '1'} onClick={() => setParam('atencion', params.get('atencion') === '1' ? '' : '1')}><small>Requieren atención</small><strong>{attention}</strong><span>Sin atender, sin actividad o con acción vencida</span></button></div>
     <div className="tabs" role="group" aria-label="Alcance de los negocios">{[[false, 'Todos los negocios', scoped.length], [true, 'Mis negocios', scoped.filter(isMine).length]].map(([own, name, count]) =>
       <button key={String(own)} aria-pressed={mine === own} className={mine === own ? 'active' : ''} onClick={() => setParam('mios', own ? '1' : '')}>{name} <span>{count}</span></button>)}</div>
-    <Filters preserve={['vista', 'mios', 'orden']}><select aria-label="Filtrar por responsable" value={params.get('responsable') ?? ''} onChange={e => setParam('responsable', e.target.value)}><option value="">Todo el equipo</option>{[...new Set(data.deals.map(d => d.owner))].map(o => <option key={o}>{o}</option>)}</select>
+    <Filters preserve={['vista', 'mios', 'orden', 'ver']}><select aria-label="Filtrar por responsable" value={params.get('responsable') ?? ''} onChange={e => setParam('responsable', e.target.value)}><option value="">Todo el equipo</option>{[...new Set(data.deals.map(d => d.owner))].map(o => <option key={o}>{o}</option>)}</select>
       <select aria-label="Ordenar negocios" value={order} onChange={e => setParam('orden', e.target.value === 'recientes' ? '' : e.target.value)}>{orders.map(([id, text]) => <option key={id} value={id}>{text}</option>)}</select>
       <button type="button" aria-expanded={panel} onClick={() => setPanel(v => !v)}><Icon name="filter" size={15} /> Filtros{activeAdvanced > 0 && <span className="count-pill">{activeAdvanced}</span>}</button></Filters>
     {panel && <section className="panel filter-panel" aria-label="Filtros avanzados"><div className="form-grid">
@@ -125,7 +130,8 @@ export function Pipeline({ onCreate }: { onCreate: () => void }) {
       <div className="check-row"><label><input type="checkbox" checked={params.get('atencion') === '1'} onChange={e => setParam('atencion', e.target.checked ? '1' : '')} /> Requieren atención</label>
         <label><input type="checkbox" checked={params.get('sincontacto') === '1'} onChange={e => setParam('sincontacto', e.target.checked ? '1' : '')} /> Sin contacto</label></div></section>}
     {mine && !scoped.some(isMine) && <div className="info-strip"><Icon name="users" />No hay negocios asignados a «{session.user.name}». Los negocios se asignan por el nombre del responsable.</div>}
-    {view === 'board' && <p className="board-hint">Arrastra una tarjeta a otra columna para cambiar la etapa del negocio.</p>}
+    <div className={`deals-layout ${preview ? 'with-preview' : ''}`}><div className="deals-main">
+    {view === 'board' && <p className="board-hint">Haz clic en un negocio para ver su resumen. Arrastra una tarjeta a otra columna para cambiar la etapa.</p>}
     {moveError && <p className="error board-error" role="alert">{moveError}</p>}
     {view === 'board' ? <div className="board" aria-label="Tablero de negocios">{stages.filter(s => !params.get('etapa') || s.id === params.get('etapa')).map(s => {
       const deals = filtered.filter(d => stageOf(d) === s.id)
@@ -136,18 +142,20 @@ export function Pipeline({ onCreate }: { onCreate: () => void }) {
         <header><span className="status-dot" style={{ background: s.color }} /><h2>{s.name}</h2><span>{deals.length}</span></header>
         <div className="board-cards">{deals.map(d => {
           const c = data.companies.find(c => c.id === d.companyId), due = dueOf.get(d.id), person = contactOf(d), sla = slaOf(d)
-          return <Link to={`/negocios/${d.id}`} className={`deal-card ${dragId === d.id ? 'dragging' : ''} ${moving[d.id] ? 'saving' : ''} ${needsAttention(d) ? 'attention' : ''}`} key={d.id} draggable
-            onDragStart={e => { e.dataTransfer.setData('text/plain', d.id); e.dataTransfer.effectAllowed = 'move'; setDragId(d.id) }} onDragEnd={endDrag}>
+          return <article className={`deal-card ${dragId === d.id ? 'dragging' : ''} ${moving[d.id] ? 'saving' : ''} ${needsAttention(d) ? 'attention' : ''} ${preview?.id === d.id ? 'selected' : ''}`} key={d.id} draggable tabIndex={0} aria-label={`Ver resumen de ${c?.name}`} aria-current={preview?.id === d.id || undefined}
+            onClick={() => select(d.id)} onContextMenu={menuOf(d.id)} onKeyDown={rowKey(d.id)} onDragStart={e => { e.dataTransfer.setData('text/plain', d.id); e.dataTransfer.effectAllowed = 'move'; setDragId(d.id) }} onDragEnd={endDrag}>
             <div className="card-top"><span className="badge-row"><Badge tone={d.origin === 'Lici' ? 'blue' : ''}>{originLabel(d.origin)}</Badge>{d.priority && d.priority !== 'normal' && <Badge tone={d.priority === 'high' ? 'red' : ''}>Prioridad {priorityLabels[d.priority].toLowerCase()}</Badge>}</span><Icon name="arrow" size={15} /></div><h3>{c?.name}</h3><p>{d.service}</p><strong className="deal-amount">{d.amount ? money(d.amount) : 'Por cotizar'}</strong>
             <div className="card-contact">{person ? <><span className="avatar small">{initials(person.name)}</span><span>{person.name}</span></>
               : <button type="button" className="add-contact" onClick={e => { e.preventDefault(); e.stopPropagation(); setAction({ deal: d, type: 'contact' }) }}><Icon name="plus" size={13} /> Agregar contacto</button>}</div>
             <div className="card-owner"><span className="avatar small">{initials(d.owner)}</span>{d.owner}</div><small className="card-created">Creado {dateTime(d.createdAt)}</small>
             <div className={`next-action ${due !== undefined && due < now ? 'late' : ''}`}><Icon name="clock" size={14} />{due !== undefined ? `${due < now ? 'Vencida · ' : ''}${dateLabel(new Date(due).toISOString())}` : 'Sin próxima acción'}</div>
             {d.expectedClose && <div className={`close-date ${isOpen(d) && d.expectedClose < limaDay(now) ? 'late' : ''}`}><Icon name="calendar" size={12} />Cierre esperado {dateLabel(d.expectedClose)}</div>}
-            {sla && <div className="sla-chip" role="status"><Icon name="clock" size={12} />{sla}</div>}<QuickActions person={person} onForm={type => setAction({ deal: d, type })} /></Link>
+            {sla && <div className="sla-chip" role="status"><Icon name="clock" size={12} />{sla}</div>}<QuickActions person={person} onForm={type => setAction({ deal: d, type })} /></article>
         })}{!deals.length && <div className="column-empty">Sin negocios en esta etapa</div>}</div>
         <div className="column-foot"><span>Total: <strong>{money(deals.reduce((v, d) => v + d.amount, 0))}</strong></span>{!['won', 'lost'].includes(s.id) && <span title={`Probabilidad de cierre estimada: ${Math.round(stageProbability[s.id] * 100)}%`}>Ponderado: <strong>{weighted(deals)}</strong></span>}</div></section>
-    })}</div> : <section className="panel table-wrap"><table><thead><tr><th>Empresa / negocio</th><th>Etapa</th><th>Valor comercial</th><th>Contacto</th><th>Responsable</th><th>Origen</th><th>Creado</th><th>Seguimiento</th></tr></thead><tbody>{filtered.map(d => <tr key={d.id}><td><Link className="record-button" to={`/negocios/${d.id}`}>{data.companies.find(c => c.id === d.companyId)?.name}</Link><small>{d.service}</small></td><td><Badge>{stages.find(s => s.id === d.stage)?.name}</Badge></td><td>{money(d.amount)}</td><td>{contactOf(d)?.name ?? <Badge>Sin contacto</Badge>}</td><td>{d.owner}</td><td>{originLabel(d.origin)}</td><td>{dateTime(d.createdAt)}</td><td>{slaOf(d) || (overdue(d) ? 'Acción vencida' : '—')}</td></tr>)}</tbody></table>{!filtered.length && <Empty />}</section>}
+    })}</div> : <section className="panel table-wrap"><table><thead><tr><th>Empresa / negocio</th><th>Etapa</th><th>Valor comercial</th><th>Contacto</th><th>Responsable</th><th>Origen</th><th>Creado</th><th>Seguimiento</th></tr></thead><tbody>{filtered.map(d => <tr key={d.id} className={`clickable ${preview?.id === d.id ? 'selected' : ''}`} tabIndex={0} onClick={() => select(d.id)} onContextMenu={menuOf(d.id)} onKeyDown={rowKey(d.id)}><td><Link className="record-button" to={`/negocios/${d.id}`} onClick={e => e.stopPropagation()}>{data.companies.find(c => c.id === d.companyId)?.name}</Link><small>{d.service}</small></td><td><Badge>{stages.find(s => s.id === d.stage)?.name}</Badge></td><td>{money(d.amount)}</td><td>{contactOf(d)?.name ?? <Badge>Sin contacto</Badge>}</td><td>{d.owner}</td><td>{originLabel(d.origin)}</td><td>{dateTime(d.createdAt)}</td><td>{slaOf(d) || (overdue(d) ? 'Acción vencida' : '—')}</td></tr>)}</tbody></table>{!filtered.length && <Empty />}</section>}
+    </div>{preview && <DealPreview key={preview.id} deal={preview} sla={slaOf(preview)} onClose={closePreview} onForm={type => setAction({ deal: preview, type })} />}</div>
+    {menu && <DealContextMenu dealId={menu.id} x={menu.x} y={menu.y} onClose={() => setMenu(null)} onPreview={() => select(menu.id)} />}
     {lost && <DealForm deal={lost} type="lost" onClose={() => setLost(null)} />}{importing && <ImportDeals onClose={() => setImporting(false)} />}{action && <DealForm deal={action.deal} type={action.type} onClose={() => setAction(null)} />}
   </>
 }

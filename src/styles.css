@@ -434,3 +434,82 @@ tbody tr:hover { background: #fcfdff; }
 @media print { .no-print { display: none; } }
 .quick-actions .button-link { flex-direction: column; padding: 9px 3px; gap: 6px; font-size: 9px; }
 .detail-properties > p:last-child { margin-top: 18px; }
+
+/* Vista previa de negocio (panel lateral del tablero) */
+.deals-layout { display: block; }
+main:has(.deal-preview) { padding-right: 396px; }
+.deals-main { min-width: 0; }
+.deal-card { cursor: pointer; }
+.deal-card.selected { border-color: var(--color-primary); box-shadow: 0 0 0 2px var(--color-primary-line); }
+tr.clickable { cursor: pointer; }
+tr.clickable:hover, tr.selected { background: #f4f7ff; }
+.deal-preview { position: fixed; z-index: 30; top: 0; right: 0; bottom: 0; width: 380px; display: flex; flex-direction: column; min-height: 0; background: white; border-left: 1px solid var(--color-line); box-shadow: -8px 0 24px #0f172a14; overflow: hidden; }
+.pv-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--color-line); }
+.pv-head h2 { font: 600 14px var(--font-sans); }
+.pv-bar { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--color-line); position: relative; }
+.pv-link { color: var(--color-primary); font-size: 12px; font-weight: 600; }
+.pv-link:hover { text-decoration: underline; }
+.pv-menu { position: relative; }
+.pv-menu summary { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; list-style: none; font-size: 12px; color: #475569; padding: 4px 6px; border-radius: 6px; }
+.pv-menu summary::-webkit-details-marker { display: none; }
+.pv-menu summary:hover, .pv-menu[open] summary { background: #f1f4fa; }
+.pv-menu-list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 5; min-width: 210px; display: grid; background: white; border: 1px solid var(--color-line); border-radius: 8px; box-shadow: 0 8px 24px #0f172a22; padding: 4px; }
+.pv-menu-list button, .pv-menu-list a { display: block; width: 100%; min-height: 0; padding: 8px 10px; border: 0; background: transparent; border-radius: 6px; font-size: 12px; text-align: left; color: #334155; justify-content: flex-start; }
+.pv-menu-list button:hover, .pv-menu-list a:hover { background: #f1f4fa; color: var(--color-primary); }
+.pv-scroll { overflow-y: auto; min-height: 0; flex: 1 1 auto; }
+.pv-title { display: flex; gap: 12px; padding: 16px; }
+.pv-icon { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; flex-shrink: 0; border-radius: 10px; background: var(--color-primary-soft); color: var(--color-primary); }
+.pv-title h3 { font: 700 15px/1.35 var(--font-sans); overflow-wrap: anywhere; }
+.pv-title p { font-size: 12px; color: #475569; margin-top: 2px; overflow-wrap: anywhere; }
+.pv-title small { display: block; margin-top: 4px; font-size: 10px; color: var(--color-muted); }
+.pv-props, .pv-body dl { display: grid; margin: 0; }
+.pv-props { padding: 0 16px 14px; gap: 8px; }
+.pv-field { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; align-items: baseline; font-size: 12px; }
+.pv-field dt { color: var(--color-muted); font-size: 11px; }
+.pv-field dd { margin: 0; color: var(--color-ink); overflow-wrap: anywhere; }
+.pv-stage { display: inline-block; padding: 3px 9px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.pv-quick { display: flex; justify-content: space-between; gap: 4px; padding: 6px 16px 16px; border-bottom: 1px solid var(--color-line); }
+.pv-quick button { flex-direction: column; gap: 5px; min-height: 0; padding: 0; border: 0; background: transparent; font-size: 10px; color: #475569; }
+.pv-quick button > span { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border: 1px solid var(--color-line-strong); border-radius: 50%; background: white; color: #475569; }
+.pv-quick button:hover:not(:disabled) { background: transparent; color: var(--color-primary); }
+.pv-quick button:hover:not(:disabled) > span { background: var(--color-primary-soft); border-color: var(--color-primary-line); color: var(--color-primary); }
+.pv-section { border-bottom: 1px solid var(--color-line); }
+.pv-section > header { display: flex; align-items: center; justify-content: space-between; padding: 6px 16px 0; }
+.pv-toggle { min-height: 34px; padding: 4px 0; border: 0; background: transparent; gap: 6px; font-size: 13px; font-weight: 600; color: var(--color-ink); }
+.pv-toggle:hover { background: transparent; color: var(--color-primary); }
+.pv-toggle svg { transition: transform .15s; }
+.pv-toggle[aria-expanded="false"] svg { transform: rotate(-90deg); }
+.pv-toggle span { font-weight: 500; color: var(--color-muted); }
+.pv-add { min-height: 0; padding: 4px 6px; border: 0; background: transparent; color: var(--color-primary); font-size: 11px; font-weight: 600; }
+.pv-add:hover { background: #eaf0ff; }
+.pv-body { display: grid; gap: 12px; padding: 4px 16px 16px; }
+.pv-body dl { gap: 9px; }
+.pv-item + .pv-item { padding-top: 12px; border-top: 1px dashed var(--color-line); }
+.pv-more { display: inline-block; margin-top: 8px; color: var(--color-primary); font-size: 11px; font-weight: 600; }
+.pv-more:hover { text-decoration: underline; }
+.pv-owner { display: inline-flex; align-items: center; gap: 7px; }
+.pv-dot { width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; }
+.pv-dot.high { background: #dc2626; }
+.pv-dot.normal { background: #2f5bea; }
+.pv-quote { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
+.pv-quote strong span { color: var(--color-muted); font-weight: 500; }
+.pv-activity { padding: 10px 12px; border: 1px solid var(--color-line); border-radius: 8px; background: #fbfcfe; }
+.pv-activity > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.pv-activity time { font-size: 10px; color: var(--color-muted); }
+.pv-activity p { font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.pv-activity small { display: block; margin-top: 6px; font-size: 10px; color: var(--color-muted); }
+.pv-kind { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 6px; background: #fff4df; color: #9b601b; font-size: 10px; font-weight: 600; }
+.pv-kind.call { background: #e8f1ff; color: #2f5bea; }
+.pv-kind.task { background: #e6f5ec; color: #277747; }
+.pv-kind.stage { background: #f0f3f8; color: #5e6d85; }
+@media (max-width: 1100px) {
+  main:has(.deal-preview) { padding-right: 22px; }
+  .deal-preview { z-index: 40; width: min(420px, 100%); box-shadow: -12px 0 32px #0f172a30; }
+}
+@media (max-width: 700px) { main:has(.deal-preview) { padding-right: 16px; } }
+
+/* Menú del clic derecho sobre un negocio */
+.ctx-backdrop { position: fixed; inset: 0; z-index: 90; }
+.ctx-menu { position: fixed; z-index: 91; min-width: 220px; display: grid; padding: 5px; background: white; border: 1px solid var(--color-line); border-radius: 9px; box-shadow: 0 10px 30px #0f172a2e; }
+.ctx-menu button { justify-content: flex-start; gap: 10px; width: 100%; min-height: 0; padding: 9px 11px; border: 0; background: transparent; border-radius: 6px; font-size: 12px; font-weight: 500; color: #334155; text-align: left; }
+.ctx-menu button:hover, .ctx-menu button:focus-visible { background: var(--color-primary-soft); color: var(--color-primary); outline: 0; }

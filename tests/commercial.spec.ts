@@ -71,6 +71,7 @@ test('advisor records loss reason for an explicit request', async ({ page }) => 
   await page.getByRole('button', { name: 'Crear negocio' }).click()
   await page.getByRole('link', { name: 'Negocios', exact: true }).click()
   await page.locator('.deal-card').filter({ hasText: 'Empresa Pérdida E2E' }).getByRole('heading').click()
+  await page.getByRole('link', { name: 'Ver registro' }).click()
   await page.getByLabel('Etapa del negocio').selectOption('lost')
   await page.getByLabel('Motivo de pérdida').fill('El cliente ya tiene certificación vigente.')
   await page.getByRole('button', { name: 'Marcar como perdido' }).click()
