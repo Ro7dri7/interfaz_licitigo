@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 test('explicit request with tender context, quote, activity, task and closure persist together', async ({ page, request }) => {
   const errors: string[] = []
   page.on('pageerror', e => errors.push(e.message))
-  await page.goto('/')
+  await page.goto('/mi-dia')
   await expect(page.getByRole('heading', { name: 'Tu día, con foco.' })).toBeVisible()
   const before = await (await request.get('/api/crm/state')).json()
   await page.getByRole('button', { name: 'Nuevo negocio' }).click()

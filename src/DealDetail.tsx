@@ -6,6 +6,7 @@ import { useCRM } from './crm-context'
 import { originLabel, dateLabel, dateTime, evidenceLabels, initials, kindLabels, money, priorityLabels, stages, quoteStatusLabels } from './types'
 import type { Quote } from './types'
 import { QuotePreview } from './Operations'
+import CustomFields from './CustomFields'
 
 export default function DealDetail() {
   const { id } = useParams(), { snapshot, session, command, now } = useCRM()
@@ -53,6 +54,7 @@ export default function DealDetail() {
       }}>Marcar completada</button></div>)}{!tasks.some(t => !t.done) && <p className="hint">Sin acciones pendientes. Programa el siguiente contacto.</p>}</div></section>
       <section className="panel"><div className="section-head"><h2>Contactos <span>({contacts.length})</span></h2><button type="button" className="text-button" onClick={() => setForm('contact')}>Agregar contacto</button></div><div className="aside-content">{contacts.map(c => <div className="contact-block" key={c.id}><span className="avatar">{initials(c.name)}</span><Link className="text-link" to={`/contactos/${c.id}`}><strong>{c.name}</strong></Link><p>{c.email || 'Sin correo'}</p><p>{c.phone || 'Sin teléfono'}</p></div>)}{!contacts.length && <p className="hint">Contacto pendiente de completar.</p>}</div></section>
       <section className="panel"><div className="section-head"><h2>Cotizaciones <span>({quotes.length})</span></h2></div><div className="aside-content">{quotes.slice().reverse().map(q => <button className="quote-mini" key={q.id} onClick={() => setQuote(q)}><strong>{q.number} <span>v{q.version}</span></strong><p>{money(q.total)}</p><Badge tone={q.status === 'accepted' ? 'green' : ''}>{quoteStatusLabels[q.status]} · {q.items.length} partidas</Badge></button>)}{!quotes.length && <p className="hint">Prepara una propuesta usando el catálogo.</p>}</div></section>
+      <CustomFields entity="deal" recordId={deal.id} /><CustomFields entity="company" recordId={deal.companyId} />
     </aside></div>
     {form && <DealForm deal={deal} type={form} onClose={() => setForm('')} />}{quote && <QuotePreview quote={quote} onClose={() => setQuote(null)} />}
   </>

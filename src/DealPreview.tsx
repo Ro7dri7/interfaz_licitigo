@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge, Icon } from './components'
 import { useCRM } from './crm-context'
-import { dateLabel, dateTime, initials, money, originLabel, priorityLabels, stages } from './types'
+import { dateLabel, dateTime, initials, money, originLabel, priorityLabels, propertyEntityLabels, stages } from './types'
 import type { Deal } from './types'
 import { whatsappNumber } from './utils'
 
@@ -22,7 +22,7 @@ const Field = ({ label, children }: { label: string; children: ReactNode }) => <
 
 // Vista previa lateral de un negocio: resume lo importante sin salir del tablero.
 export default function DealPreview({ deal, sla, onClose, onForm }: { deal: Deal; sla: string; onClose: () => void; onForm: (type: string) => void }) {
-  const { snapshot: { data }, now } = useCRM()
+  const { snapshot: { data }, session, now } = useCRM()
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('dialog[open]')) onClose() }
     window.addEventListener('keydown', onKey)
@@ -36,6 +36,9 @@ export default function DealPreview({ deal, sla, onClose, onForm }: { deal: Deal
   const quote = data.quotes.filter(q => q.dealId === deal.id).at(-1)
   const activities = data.activities.filter(a => a.dealId === deal.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   const priority = deal.priority ?? 'normal'
+  // Propiedades personalizadas: solo administración las recibe, así que para el resto la lista queda vacía.
+  const records = { deal, company, contact: person }
+  const customValues = session.user.role === 'admin' ? data.properties.filter(p => p.active).flatMap(p => { const value = records[p.entity]?.props?.[p.id]; return value ? [{ id: p.id, entity: p.entity, name: p.name, value }] : [] }) : []
   const quick: [string, string, string, () => void, boolean, string][] = [
     ['Nota', 'file', 'Registrar una nota o actividad', () => onForm('activity'), true, ''],
     ['Tarea', 'calendar', 'Programar una tarea', () => onForm('task'), true, ''],
@@ -87,6 +90,10 @@ export default function DealPreview({ deal, sla, onClose, onForm }: { deal: Deal
             <Field label="Cantidad">{item.quantity}</Field><Field label="Monto">{money(item.unitPrice * item.quantity)}</Field></dl></div>)}
           <Link className="pv-more" to={`/negocios/${deal.id}`}>Ver cotizaciones →</Link></>
           : <div className="pv-item"><dl><Field label="Servicio de interés">{deal.service}</Field><Field label="Monto">Por cotizar</Field></dl><p className="hint">Aún no hay una cotización. Prepárala desde el registro del negocio.</p></div>}</Section>
+
+      {session.user.role === 'admin' && data.properties.some(p => p.active) && <Section title="Propiedades personalizadas" count={customValues.length}>
+        {customValues.length ? <dl>{customValues.map(v => <Field key={v.id} label={v.name}>{v.value}<small className="pv-source"> · {propertyEntityLabels[v.entity].toLocaleLowerCase()}</small></Field>)}</dl>
+          : <p className="hint">Este negocio aún no tiene valores. Edítalos desde «Ver registro».</p>}</Section>}
 
       <Section title="Actividades recientes">
         {activities.slice(0, 5).map(a => <article className="pv-activity" key={a.id}><div><span className={`pv-kind ${a.kind}`}><Icon name={activityIcons[a.kind] ?? 'file'} size={12} />{activityLabels[a.kind] ?? 'Actividad'}</span><time dateTime={a.createdAt}>{dateTime(a.createdAt)}</time></div>

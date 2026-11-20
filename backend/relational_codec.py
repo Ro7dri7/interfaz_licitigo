@@ -1,5 +1,6 @@
 """Translate the existing UI contract to typed relational rows, never a saved workspace blob."""
 from copy import deepcopy
+import json
 from uuid import NAMESPACE_URL, uuid5
 from .quotations import quote_lines
 
@@ -10,13 +11,13 @@ QUOTE_DOCUMENT_FIELDS = {
 }
 
 TABLE_FIELDS = {
-    'companies': {'id': 'id', 'name': 'name', 'ruc': 'ruc', 'origin': 'origin', 'createdAt': 'created_at'},
-    'contacts': {'id': 'id', 'companyId': 'company_id', 'name': 'name', 'email': 'email', 'phone': 'phone'},
+    'companies': {'id': 'id', 'name': 'name', 'ruc': 'ruc', 'origin': 'origin', 'createdAt': 'created_at', 'props': 'props'},
+    'contacts': {'id': 'id', 'companyId': 'company_id', 'name': 'name', 'email': 'email', 'phone': 'phone', 'props': 'props'},
     'products': {'id': 'id', 'name': 'name', 'price': 'price', 'currency': 'currency', 'active': 'active'},
     'deals': {'id': 'id', 'companyId': 'company_id', 'contactId': 'contact_id', 'service': 'service',
               'origin': 'origin', 'owner': 'owner_label', 'stage': 'stage', 'amount': 'amount',
               'createdAt': 'created_at', 'updatedAt': 'updated_at', 'closedAt': 'closed_at', 'lossReason': 'loss_reason',
-              'priority': 'priority', 'expectedClose': 'expected_close'},
+              'priority': 'priority', 'expectedClose': 'expected_close', 'props': 'props'},
     'prospects': {'id': 'id', 'companyId': 'company_id', 'contactId': 'contact_id', 'kind': 'kind',
                   'origin': 'origin', 'service': 'service', 'owner': 'owner_label', 'evidence': 'evidence',
                   'tender': 'tender', 'deadline': 'deadline', 'notes': 'notes', 'createdAt': 'created_at', 'dealId': 'deal_id'},
@@ -26,12 +27,14 @@ TABLE_FIELDS = {
                'discountPercent': 'discount_percent', 'discountAmount': 'discount_amount', 'taxPercent': 'tax_percent',
                'taxAmount': 'tax_amount', 'total': 'total', 'status': 'status', 'validUntil': 'valid_until',
                'terms': 'terms', 'createdAt': 'created_at'},
+    'properties': {'id': 'id', 'entity': 'entity', 'name': 'name', 'type': 'kind', 'options': 'options', 'active': 'active', 'createdAt': 'created_at'},
     'receipts': {'id': 'request_id', 'digest': 'digest'},
 }
+PROPS_TABLES = ['companies', 'contacts', 'deals']
 # Columnas de migraciones posteriores: si la base aún no las tiene, el negocio sigue funcionando con su valor predeterminado.
-OPTIONAL_COLUMNS = {'deals': {'priority': 'normal', 'expected_close': None}}
+OPTIONAL_COLUMNS = {'deals': {'priority': 'normal', 'expected_close': None, 'props': '{}'}, 'companies': {'props': '{}'}, 'contacts': {'props': '{}'}}
 # FK dependency order. A prospect may reference a deal, which references a contact.
-WRITE_ORDER = ['companies', 'contacts', 'products', 'deals', 'prospects', 'tasks', 'activities', 'quotes', 'quote_items', 'quote_events']
+WRITE_ORDER = ['properties', 'companies', 'contacts', 'products', 'deals', 'prospects', 'tasks', 'activities', 'quotes', 'quote_items', 'quote_events']
 
 
 def encode_state(data, workspace):
@@ -43,6 +46,10 @@ def encode_state(data, workspace):
             row.update(workspace_id=workspace, sort_order=index)
             if table == 'companies':
                 row['ruc'] = row['ruc'] or None
+            if table in PROPS_TABLES:
+                row['props'] = json.dumps(entity.get('props') or {}, sort_keys=True, ensure_ascii=False)
+            if table == 'properties':
+                row.update(options=json.dumps(entity.get('options') or [], ensure_ascii=False), active=bool(entity.get('active', True)))
             if table == 'deals':
                 row['priority'] = row['priority'] or 'normal'
             if table == 'quotes':
@@ -66,6 +73,15 @@ def decode_state(tables):
         optional = OPTIONAL_COLUMNS.get(table, {})
         data[table] = [{field: row.get(column, optional[column]) if column in optional else row[column] for field, column in mapping.items()}
                        for row in sorted(tables.get(table, []), key=lambda r: (r.get('sort_order', 0), str(r.get('id', ''))))]
+    for table in PROPS_TABLES:
+        for entity in data[table]:
+            value = entity['props']
+            entity['props'] = value if isinstance(value, dict) else json.loads(value or '{}')
+            if not entity['props']:
+                del entity['props']
+    for prop in data['properties']:
+        prop['options'] = prop['options'] if isinstance(prop['options'], list) else json.loads(prop['options'] or '[]')
+        prop['active'] = bool(prop['active'])
     for company in data['companies']:
         company['ruc'] = company['ruc'] or ''
     for product in data['products']:

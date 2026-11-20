@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Badge, Empty, Icon } from './components'
 import { ContactForm } from './Forms'
+import CustomFields from './CustomFields'
 import { useCRM } from './crm-context'
 import { dateLabel, dateTime, initials, kindLabels, money, originLabel, quoteStatusLabels, stages } from './types'
 import { whatsappNumber } from './utils'
@@ -39,7 +40,7 @@ export default function ContactDetail() {
         <section className="panel" aria-label="Actividad del contacto"><div className="section-head"><h2>Actividad reciente</h2></div>
           <div className="timeline">{activities.map(a => <article key={a.id}><span className="timeline-dot"><Icon name="file" size={13} /></span><div><p>{a.text}</p><small>{a.actor} · {dateTime(a.createdAt)}</small></div></article>)}
             {!activities.length && <Empty title="Sin actividad todavía">La actividad de sus negocios aparecerá aquí.</Empty>}</div></section></div>
-      <aside className="detail-aside"><section className="panel"><div className="section-head"><h2>Cotizaciones <span>({quotes.length})</span></h2></div><div className="aside-content">
+      <aside className="detail-aside"><CustomFields entity="contact" recordId={contact.id} /><section className="panel"><div className="section-head"><h2>Cotizaciones <span>({quotes.length})</span></h2></div><div className="aside-content">
         {quotes.slice().reverse().map(q => <Link className="quote-mini" key={q.id} to={`/negocios/${q.dealId}`}><strong>{q.number} <span>v{q.version}</span></strong><p>{money(q.total)}</p><Badge tone={q.status === 'accepted' ? 'green' : ''}>{quoteStatusLabels[q.status]}</Badge></Link>)}
         {!quotes.length && <p className="hint">Sin cotizaciones para este contacto.</p>}</div></section>
         <section className="panel"><div className="section-head"><h2>Solicitudes <span>({requests.length})</span></h2></div><div className="aside-content">

@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from 'react-router-dom'
 import { Badge, Empty, Icon, PageHead } from './components'
 import { useCRM } from './crm-context'
 import QuoteDocument from './QuoteDocument'
+import CustomFields from './CustomFields'
 import { dateLabel, money, openDeal, originLabel, quoteStatusLabels, stages } from './types'
 import type { Quote } from './types'
 
@@ -23,6 +24,7 @@ export default function CompanyDetail() {
       <div><small>Valor comercial abierto</small><strong>{money(active.reduce((sum, d) => sum + d.amount, 0))}</strong></div>
       <div><small>Versiones de cotización</small><strong>{quotes.length}</strong></div>
     </section>
+    <CustomFields entity="company" recordId={company.id} />
     <div className="company-sections">
       <section className="panel" aria-label="Contactos de la empresa"><div className="section-head"><div><h2>Contactos</h2><p>Personas asociadas a esta organización.</p></div><Badge>{contacts.length}</Badge></div>
         <div className="table-wrap"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Teléfono</th></tr></thead><tbody>{contacts.map(c => <tr key={c.id}><td><Link className="record-button" to={`/contactos/${c.id}`}><strong>{c.name}</strong></Link></td><td>{c.email || 'Sin correo'}</td><td>{c.phone || 'Sin teléfono'}</td></tr>)}</tbody></table></div>

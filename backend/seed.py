@@ -15,6 +15,8 @@ def demo_state():
     for name, price in [('Certificación ISO 9001', '2400'), ('Pack ISO 9001 + 14001 + 45001', '5600'),
                         ('Certificación ISO 37001', '2800'), ('Diagnóstico de certificación', '450')]:
         run('product', dict(name=name, price=price))
+    run('property_create', dict(entity='company', name='Sector', type='select',
+                                options=['Construcción', 'Minería', 'Servicios', 'Comercio', 'Manufactura', 'Educación', 'Otros']))
     companies = ['Andes Ingeniería', 'Grupo Horizonte', 'Suministros del Pacífico', 'Constructora Altura',
                  'Servicios Terranova', 'Logística Norte', 'Soluciones del Sur', 'Consultora Prisma']
     people = ['Valeria Torres', 'Diego Salazar', 'Camila Ríos', 'Martín Vega', 'Lucía Prado', 'Daniel Costa', 'Ana Molina', 'Pablo León']
@@ -27,6 +29,8 @@ def demo_state():
                            deadline=(date.today() + timedelta(days=7 + i)).isoformat() if i % 3 == 0 else None,
                            notes='Ejemplo ficticio para recorrer el flujo comercial.'))
         deal = state['deals'][-1]
+        run('property_set', dict(propertyId=state['properties'][0]['id'], recordId=state['companies'][-1]['id'],
+                                 value=['Construcción', 'Minería', 'Servicios', 'Comercio'][i % 4]))
         if i > 1:
             run('quote', dict(dealId=deal['id'], productId=state['products'][i % 2]['id'], quantity=1,
                               discount=0, tax=18, validUntil=(date.today() + timedelta(days=15)).isoformat(), terms='Pago único. Sujeto a evaluación del alcance.'))
