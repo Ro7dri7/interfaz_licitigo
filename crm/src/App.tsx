@@ -5,36 +5,44 @@ import { useCRM } from './crm-context'
 import { api } from './api'
 import { IntakeForm, ProductForm } from './Forms'
 import Overview from './Overview'
+import Admin from './Admin'
+import AdminProperties from './AdminProperties'
 import { Pipeline } from './Collections'
 import Directory from './Directory'
+import Contacts from './Contacts'
+import ContactDetail from './ContactDetail'
 import CompanyDetail from './CompanyDetail'
 import DealDetail from './DealDetail'
 import { Agenda, Catalog, Quotes, SettingsPage } from './Operations'
 import { initials } from './types'
 
-const navigation = [['/', 'home', 'Mi día'], ['/directorio', 'company', 'Directorio'],
+const navigation = [['/', 'home', 'Mi día'], ['/directorio', 'company', 'Directorio'], ['/contactos', 'users', 'Contactos'],
   ['/negocios', 'deals', 'Negocios'], ['/agenda', 'calendar', 'Agenda'],
   ['/cotizaciones', 'file', 'Cotizaciones'], ['/catalogo', 'box', 'Catálogo']]
 
-function LegacyDirectory({ contacts = false }: { contacts?: boolean }) {
+// Administración: su inicio es el panel con gráficos; «Mi día» sigue disponible en /mi-dia.
+const adminNavigation = [['/admin', 'chart', 'Panel admin'], ['/mi-dia', 'home', 'Mi día'], ...navigation.slice(1)]
+
+function LegacyDirectory() {
   const location = useLocation(), params = new URLSearchParams(location.search)
-  if (contacts) params.set('vista', 'contactos'); else params.delete('vista')
+  params.delete('vista')
   return <Navigate replace to={`/directorio${params.size ? '?' + params.toString() : ''}${location.hash}`} />
 }
 
 export default function App() {
   const { session, snapshot: { data } } = useCRM(), location = useLocation()
   const [modal, setModal] = useState(''), [menu, setMenu] = useState(false)
-  const create = () => setModal('intake')
-  const page = navigation.find(([url]) => url !== '/' && location.pathname.startsWith(url))?.[2] ?? (location.pathname === '/configuracion' ? 'Configuración' : 'Mi día')
+  const create = () => setModal('intake'), admin = session.user.role === 'admin', links = admin ? adminNavigation : navigation
+  const page = links.find(([url]) => url !== '/' && location.pathname.startsWith(url))?.[2] ?? (location.pathname === '/configuracion' ? 'Configuración' : 'Mi día')
   return <div className="app-shell"><a className="skip-link" href="#main">Saltar al contenido</a>
     <aside className={`sidebar ${menu ? 'open' : ''}`}><Link to="/" className="brand">LiciHub<span>.</span><small>CRM</small></Link><div className="workspace-label"><span className="workspace-icon">L</span><div><strong>Equipo comercial</strong><small>Certificaciones y servicios</small></div></div>
-      <p className="nav-section">TU ESPACIO</p><nav aria-label="Navegación principal">{navigation.map(([url, icon, label]) => <NavLink key={url} to={url} end={url === '/'} onClick={() => setMenu(false)}><Icon name={icon} /><span>{label}</span></NavLink>)}</nav>
+      <p className="nav-section">TU ESPACIO</p><nav aria-label="Navegación principal">{links.map(([url, icon, label]) => <NavLink key={url} to={url} end={url === '/'} onClick={() => setMenu(false)}><Icon name={icon} /><span>{label}</span></NavLink>)}</nav>
       <div className="sidebar-bottom"><div className="ecosystem"><Icon name="radar" /><strong>Conectado a tu proceso</strong><p>Del interés en una licitación a una relación comercial.</p></div><NavLink to="/configuracion" onClick={() => setMenu(false)}><Icon name="settings" />Espacio e integraciones</NavLink><div className="sidebar-foot">LiciHub CRM <span>v0.1</span></div></div></aside>
     <div className="workspace"><header className="topbar"><div className="topbar-context"><button className="icon-button mobile-menu" aria-label="Abrir navegación" aria-expanded={menu} onClick={() => setMenu(!menu)}><Icon name="list" /></button><span>Espacio comercial</span><span className="divider">/</span><strong>{page}</strong></div><div className="topbar-right"><span className={`environment ${session.mode === 'demo' ? 'demo' : ''}`}><span className="status-dot" />{session.mode === 'demo' ? 'Prueba local · datos ficticios' : 'Espacio compartido'}</span><span className="avatar">{initials(session.user.name)}</span>{session.mode === 'supabase' && <button onClick={async () => { await api('logout', {}); window.location.reload() }}>Salir</button>}</div></header>
-      <main id="main"><Routes><Route path="/" element={<Overview onCreate={create} />} /><Route path="/prospectos" element={<Navigate replace to="/negocios" />} />
+      <main id="main"><Routes><Route path="/" element={admin ? <Navigate replace to="/admin" /> : <Overview onCreate={create} />} /><Route path="/mi-dia" element={<Overview onCreate={create} />} />
+        <Route path="/admin" element={admin ? <Admin onCreate={create} /> : <Navigate replace to="/" />} /><Route path="/admin/propiedades" element={admin ? <AdminProperties /> : <Navigate replace to="/" />} /><Route path="/prospectos" element={<Navigate replace to="/negocios" />} />
         <Route path="/directorio" element={<Directory onCreate={create} />} /><Route path="/directorio/empresas/:id" element={<CompanyDetail />} />
-        <Route path="/empresas" element={<LegacyDirectory />} /><Route path="/contactos" element={<LegacyDirectory contacts />} />
+        <Route path="/empresas" element={<LegacyDirectory />} /><Route path="/contactos" element={<Contacts onCreate={create} />} /><Route path="/contactos/:id" element={<ContactDetail />} />
         <Route path="/negocios" element={<Pipeline onCreate={create} />} /><Route path="/negocios/:id" element={<DealDetail />} />
         <Route path="/agenda" element={<Agenda />} /><Route path="/cotizaciones" element={<Quotes />} /><Route path="/catalogo" element={<Catalog onCreate={() => setModal('product')} />} />
         <Route path="/configuracion" element={<SettingsPage />} /><Route path="*" element={<Navigate to="/" replace />} /></Routes>

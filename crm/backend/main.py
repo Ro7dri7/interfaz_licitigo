@@ -12,8 +12,8 @@ from pydantic import Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from .domain import Input, apply_command
-from .repository import AccessDenied, Conflict, StorageUnavailable, SupabaseRepository, TelegramSchemaMissing
+from .domain import Input, apply_command, hide_admin_data
+from .repository import AccessDenied, Conflict, StorageUnavailable, SupabaseRepository
 from .relational import RelationalRepository
 from .seed import demo_state
 from .iso_catalog import metadata, catalog
@@ -99,9 +99,11 @@ def create_app(settings=None, repository=None):
             raise HTTPException(403, 'Tu cuenta no tiene acceso a este espacio comercial.')
         return {'id': user['id'], 'name': member['display_name'], 'role': member['role']}
 
-    def public(snapshot):
-        # Idempotency hashes remain server-side.
+    def public(snapshot, actor):
+        # Idempotency hashes remain server-side. Las propiedades personalizadas son solo para administración.
         data = {k: v for k, v in snapshot['data'].items() if k != 'receipts'}
+        if actor['role'] != 'admin':
+            data = hide_admin_data(data)
         data['products'] = [p | ({key: m[key] for key in ['sku', 'category', 'isPackage', 'sourceRow']} if (m := metadata(p['id'])) else {})
                             for p in data['products']]
         return {'revision': snapshot['revision'], 'data': data, 'schemaVersion': snapshot.get('schemaVersion', 1)}
@@ -118,13 +120,7 @@ def create_app(settings=None, repository=None):
     @app.exception_handler(httpx.HTTPError)
     @app.exception_handler(OSError)
     async def storage_handler(_request, _error):
-        return JSONResponse({'detail': 'No se pudo acceder al almacenamiento. Tus cambios no se han confirmado.',
-                             'code': 'crm_storage_unavailable'}, status_code=503)
-
-    @app.exception_handler(TelegramSchemaMissing)
-    async def telegram_schema_handler(_request, _error):
-        return JSONResponse({'detail': 'La base rechaza el origen Telegram. Ejecuta 008_origen_telegram.sql en el proyecto Supabase de este CRM.',
-                             'code': 'crm_telegram_schema_missing'}, status_code=503)
+        return JSONResponse({'detail': 'No se pudo acceder al almacenamiento. Tus cambios no se han confirmado.'}, status_code=503)
 
     @app.exception_handler(RequestValidationError)
     @app.exception_handler(ValidationError)
@@ -165,37 +161,39 @@ def create_app(settings=None, repository=None):
 
     @app.get('/api/crm/state')
     async def state(request: Request):
-        await account(request)
-        return public(await repo.load())
+        actor = await account(request)
+        return public(await repo.load(), actor)
 
     @app.post('/api/crm/commands')
     async def command(data: Command, request: Request):
         actor = await account(request)
         if data.operation in ['product', 'import_iso'] and actor['role'] != 'admin':
             raise HTTPException(403, 'Solo administración puede agregar servicios al catálogo.')
+        if data.operation.startswith('property_') and actor['role'] != 'admin':
+            raise HTTPException(403, 'Solo administración puede crear y editar propiedades.')
         snapshot = await repo.load(request_id=data.requestId)
+        if data.operation.startswith('property_') and snapshot.get('schemaVersion', 1) < 3:
+            raise HTTPException(503, 'Falta ejecutar 010_propiedades.sql en Supabase para habilitar las propiedades personalizadas.')
         if data.operation in ['quote', 'quote_status'] and snapshot.get('schemaVersion', 1) < 2:
             raise HTTPException(503, 'Falta ejecutar 006_cotizaciones_multiples.sql en Supabase para habilitar las nuevas propuestas.')
         updated = apply_command(snapshot['data'], data.operation, data.payload, actor['name'], data.requestId)
         if updated is snapshot['data']:
-            return public(snapshot)
+            return public(snapshot, actor)
         if data.revision != snapshot['revision']:
             raise Conflict()
-        return public(await repo.save(updated, snapshot['revision'], before=snapshot, actor=actor))
+        return public(await repo.save(updated, snapshot['revision'], before=snapshot, actor=actor), actor)
 
     @app.post('/api/crm/events')
     async def event(data: Event, request: Request):
         if not config.ingest_key:
-            return JSONResponse({'detail': 'La recepción comercial está deshabilitada. Configura CRM_INGEST_KEY en backend/.env del CRM y reinicia su API.',
-                                 'code': 'crm_ingest_disabled'}, status_code=503)
+            raise HTTPException(503, 'La recepción de eventos de Lici no está habilitada.')
         supplied = request.headers.get('x-crm-ingest-key', '')
         if not secrets.compare_digest(supplied.encode(), config.ingest_key.encode()):
             raise HTTPException(401, 'Credencial de integración no válida.')
         if data.payload.get('origin') not in ['Lici', 'Telegram']:
             raise HTTPException(422, 'Este canal solo recibe solicitudes del portal o Telegram.')
         if data.payload.get('kind') not in ['advice', 'quote']:
-            return JSONResponse({'detail': 'Solo se registran solicitudes explícitas de asesoría o cotización.',
-                                 'code': 'crm_explicit_request_required'}, status_code=422)
+            raise HTTPException(422, 'Solo se registran solicitudes explícitas de asesoría o cotización.')
         for _ in range(3):
             snapshot = await repo.load(request_id=f'lici:{data.requestId}')
             updated = apply_command(snapshot['data'], 'intake', data.payload, f'Integración {data.payload["origin"]}', f'lici:{data.requestId}')

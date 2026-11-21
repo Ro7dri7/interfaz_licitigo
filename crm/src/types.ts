@@ -5,11 +5,15 @@ export const stages: { id: Stage; name: string; color: string }[] = [
   { id: 'followup', name: 'Seguimiento', color: '#7c3aed' }, { id: 'won', name: 'Ganado', color: '#15803d' },
   { id: 'lost', name: 'Perdido', color: '#dc2626' },
 ]
+export type Priority = 'low' | 'normal' | 'high'
+export const priorityLabels: Record<Priority, string> = { high: 'Alta', normal: 'Normal', low: 'Baja' }
+// Probabilidad de cierre estimada por etapa para el pronóstico ponderado. Son valores de partida: ajústalos con tu supervisor.
+export const stageProbability: Record<Stage, number> = { new: 0.1, contacted: 0.2, qualified: 0.4, quoted: 0.6, followup: 0.75, won: 1, lost: 0 }
 export const origins = ['Lici', 'Telegram', 'WhatsApp', 'Referido', 'Campaña', 'Manual', 'Partner']
 export const kindLabels = { signal: 'Señal LiciHub', advice: 'Asesoría solicitada', quote: 'Cotización solicitada', manual: 'Prospecto manual' }
 export const evidenceLabels = { required: 'Requisito ISO detectado', recommended: 'ISO recomendada', pending: 'Análisis pendiente', none: 'Sin análisis asociado' }
-export interface Company { id: string; name: string; ruc: string; origin: string; createdAt: string }
-export interface Contact { id: string; companyId: string; name: string; email: string; phone: string }
+export interface Company { id: string; name: string; ruc: string; origin: string; createdAt: string; props?: Record<string, string> }
+export interface Contact { id: string; companyId: string; name: string; email: string; phone: string; props?: Record<string, string> }
 export interface Prospect {
   id: string; companyId: string; contactId: string | null; kind: keyof typeof kindLabels; origin: string; service: string;
   owner: string; evidence: keyof typeof evidenceLabels; tender: string; deadline: string | null; notes: string;
@@ -18,6 +22,7 @@ export interface Prospect {
 export interface Deal {
   id: string; companyId: string; contactId: string | null; service: string; origin: string; owner: string;
   stage: Stage; amount: number; createdAt: string; updatedAt: string; closedAt: string | null; lossReason: string; prospectIds: string[];
+  priority?: Priority; expectedClose?: string | null; props?: Record<string, string>;
 }
 export interface Task { id: string; dealId: string; title: string; dueAt: string; done: boolean; completedAt: string | null }
 export interface Activity { id: string; dealId: string; kind: string; text: string; actor: string; createdAt: string }
@@ -33,7 +38,13 @@ export interface Quote {
 export interface QuoteItem { productId?: string; productName: string; unitPrice: number; quantity: number }
 export interface QuoteEvent { id: string; status: 'sent' | 'accepted' | 'rejected'; recipient: string; channel: string; note: string; actor: string; createdAt: string }
 export const quoteStatusLabels = { draft: 'Borrador', sent: 'Enviada', accepted: 'Aceptada', rejected: 'Rechazada' }
-export interface Data { companies: Company[]; contacts: Contact[]; prospects: Prospect[]; deals: Deal[]; tasks: Task[]; activities: Activity[]; products: Product[]; quotes: Quote[] }
+// Propiedades personalizadas: solo administración las crea, las edita y las ve.
+export type PropertyEntity = 'deal' | 'company' | 'contact'
+export type PropertyType = 'text' | 'number' | 'select' | 'date'
+export interface Property { id: string; entity: PropertyEntity; name: string; type: PropertyType; options: string[]; active: boolean; createdAt: string }
+export const propertyEntityLabels: Record<PropertyEntity, string> = { deal: 'Negocios', company: 'Empresas', contact: 'Contactos' }
+export const propertyTypeLabels: Record<PropertyType, string> = { text: 'Texto', number: 'Número', select: 'Lista de opciones', date: 'Fecha' }
+export interface Data { companies: Company[]; contacts: Contact[]; prospects: Prospect[]; deals: Deal[]; tasks: Task[]; activities: Activity[]; products: Product[]; quotes: Quote[]; properties: Property[] }
 export interface Snapshot { revision: number; data: Data; schemaVersion?: number }
 export interface Session { mode: 'demo' | 'supabase'; user: { name: string; role: 'admin' | 'commercial' }; advisors?: string[]; isoCatalogSize?: number; issuer?: { name: string; ruc: string; address: string }; intakeEnabled?: boolean }
 export const money = (cents: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 2 }).format(cents / 100)

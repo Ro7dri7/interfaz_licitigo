@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Session, Snapshot } from './types'
 import { ApiError, api, fetchWorkspace } from './api'
@@ -11,6 +11,9 @@ export function CRMProvider({ children }: { children: ReactNode }) {
   const [login, setLogin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [now, setNow] = useState(Date.now)
+  // La revisión más reciente, para que varios comandos seguidos (p. ej. una importación) no usen una copia vieja del estado.
+  const revision = useRef<number | undefined>(undefined)
+  useEffect(() => { revision.current = snapshot?.revision }, [snapshot])
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 60000); return () => window.clearInterval(timer) }, [])
   const refresh = useCallback(async () => {
     const next = await fetchWorkspace()
@@ -39,7 +42,8 @@ export function CRMProvider({ children }: { children: ReactNode }) {
   }, [session, login, load])
   async function command(operation: string, payload: unknown, requestId: string = crypto.randomUUID()) {
     try {
-      const next = await api<Snapshot>('commands', { operation, payload, requestId, revision: snapshot?.revision })
+      const next = await api<Snapshot>('commands', { operation, payload, requestId, revision: revision.current ?? snapshot?.revision })
+      revision.current = next.revision
       setSnapshot(current => !current || next.revision >= current.revision ? next : current)
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) await refresh()

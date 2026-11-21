@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Badge, Icon, Modal } from './components'
 import { useCRM } from './crm-context'
 import { dateTime, money, quoteStatusLabels } from './types'
@@ -12,6 +13,8 @@ export default function QuoteDocument({ quote, onClose }: { quote: Quote; onClos
   const { snapshot, session, command, now } = useCRM(), data = snapshot.data
   const q = data.quotes.find(item => item.id === quote.id) ?? quote
   const deal = data.deals.find(d => d.id === q.dealId), company = data.companies.find(c => c.id === deal?.companyId)
+  // La cotización guarda el nombre y el correo del contacto al emitirse; con eso se ubica su ficha actual.
+  const person = data.contacts.filter(c => c.companyId === deal?.companyId).find(c => q.contactEmail ? c.email.toLowerCase() === q.contactEmail.toLowerCase() : c.name === q.contactName)
   const [action, setAction] = useState<QuoteEvent['status'] | ''>(''), [busy, setBusy] = useState(false), [error, setError] = useState('')
   const [recipient, setRecipient] = useState(q.contactEmail || q.contactName || ''), [channel, setChannel] = useState('email'), [note, setNote] = useState('')
   const requestId = useRef(crypto.randomUUID())
@@ -25,7 +28,7 @@ export default function QuoteDocument({ quote, onClose }: { quote: Quote; onClos
         <div className="quote-reference"><strong>{q.number}</strong><span>Versión {q.version}</span><Badge tone={q.status === 'accepted' ? 'green' : q.status === 'sent' ? 'blue' : ''}>{quoteStatusLabels[q.status]}</Badge></div></div>
       <p className="issuer-address">{q.issuerAddress || session.issuer?.address}</p>
       <h2>Cotización comercial</h2><p className="quote-title">{q.title || deal?.service}</p>
-      <div className="quote-parties"><section><h3>Preparada para</h3><strong>{q.customerName || company?.name}</strong><p>RUC {q.customerRuc || company?.ruc || 'por completar'}</p>{q.contactName && <p>Atención: {q.contactName}</p>}{q.contactEmail && <p>{q.contactEmail}</p>}</section>
+      <div className="quote-parties"><section><h3>Preparada para</h3><strong>{q.customerName || company?.name}</strong><p>RUC {q.customerRuc || company?.ruc || 'por completar'}</p>{q.contactName && <p>Atención: {q.contactName}{person && <> · <Link className="text-link no-print" to={`/contactos/${person.id}`} onClick={onClose}>Ver ficha del contacto</Link></>}</p>}{q.contactEmail && <p>{q.contactEmail}</p>}</section>
         <section><h3>Datos de la propuesta</h3><p>Emitida: {documentDate(q.createdAt)}</p><p>Vigente hasta: {documentDate(q.validUntil)}</p><p>Asesor: {q.owner || deal?.owner}</p><p>Moneda: PEN · Sol peruano</p></section></div>
       <div className="table-wrap"><table className="quote-item-table"><thead><tr><th>N.º</th><th>Certificación / servicio</th><th>Cant.</th><th>Precio unitario</th><th>Importe</th></tr></thead><tbody>{q.items.map((item, index) => <tr key={index}>
         <td>{index + 1}</td><td>{item.productName}</td><td>{item.quantity}</td><td>{money(item.unitPrice)}</td><td>{money(item.unitPrice * item.quantity)}</td></tr>)}</tbody></table></div>
