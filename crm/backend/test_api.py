@@ -109,6 +109,18 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(second.json(), {'accepted': True, 'duplicate': True})
             self.assertEqual(len(client.get('/api/crm/state').json()['data']['deals']), 1)
 
+    def test_proxy_host_is_accepted_without_replacing_the_session_origin(self):
+        config = Settings(_env_file=None, mode='demo', origin='https://tu-app.vercel.app',
+                          allowed_hosts='3.21.35.95.sslip.io, ')
+        app = create_app(config, self.repo)
+        hosts = next(layer.kwargs['allowed_hosts'] for layer in app.user_middleware
+                     if layer.cls.__name__ == 'TrustedHostMiddleware')
+        self.assertIn('tu-app.vercel.app', hosts)
+        self.assertIn('3.21.35.95.sslip.io', hosts)
+        self.assertIn('127.0.0.1', hosts)
+        with TestClient(app, base_url='https://3.21.35.95.sslip.io') as client:
+            self.assertEqual(client.get('/api/crm/session').status_code, 200)
+
     def test_demo_refuses_remote_clients_and_oversized_writes(self):
         with TestClient(create_app(Settings(_env_file=None, mode='demo'), self.repo), client=('198.51.100.5', 4000)) as client:
             self.assertEqual(client.get('/api/crm/state').status_code, 403)

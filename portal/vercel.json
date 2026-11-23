@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/crm/:path*",
+      "destination": "https://3.21.35.95.sslip.io/api/crm/:path*"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "https://3.21.35.95.sslip.io/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

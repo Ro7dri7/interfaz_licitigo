@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     supabase_secret_key: str = ''
     workspace_id: str = ''
     ingest_key: str = ''
+    # Hosts del proxy (Nginx, Vercel, n8n). No sustituye a CRM_ORIGIN, que sigue siendo el origen de la sesión.
+    allowed_hosts: str = ''
 
 
 class Command(Input):
@@ -76,7 +78,9 @@ def create_app(settings=None, repository=None):
     repo = repository or (RelationalRepository(local_path, demo_state(), legacy_path=legacy) if config.mode == 'demo'
                           else SupabaseRepository(config.supabase_url, config.supabase_secret_key, config.workspace_id))
     app = FastAPI(title='LiciHub CRM API', version='0.2.0')
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost', 'testserver', urlparse(config.origin).hostname])
+    hosts = ['127.0.0.1', 'localhost', 'testserver', urlparse(config.origin).hostname]
+    hosts.extend(host.strip() for host in config.allowed_hosts.split(',') if host.strip())
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=[host for host in hosts if host])
 
     @app.middleware('http')
     async def boundaries(request: Request, call_next):
