@@ -64,11 +64,21 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          script_stop: true
           script: |
+            set -euo pipefail
             cd /home/ubuntu/licihub
             git pull origin main
             portal/backend/.venv/bin/pip install -r portal/backend/requirements.txt
             crm/backend/.venv/bin/pip install -r crm/backend/requirements.txt
             sudo systemctl restart licihub-portal licihub-crm
-            curl -sf https://3.21.35.95.sslip.io/api/health
+            sudo systemctl is-active --quiet licihub-portal
+            sudo systemctl is-active --quiet licihub-crm
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              if curl -sf --connect-timeout 5 --max-time 15 https://3.21.35.95.sslip.io/api/health; then
+                exit 0
+              fi
+              sleep 3
+            done
+            echo "Health check falló tras reiniciar los servicios" >&2
+            sudo systemctl --no-pager --full status licihub-portal licihub-crm || true
+            exit 1
