@@ -6,6 +6,7 @@ import { useCRM } from './crm-context'
 import { dateLabel, dateTime, initials, money, originLabel, priorityLabels, propertyEntityLabels, stages } from './types'
 import type { Deal } from './types'
 import { whatsappNumber } from './utils'
+import { crmPath } from './paths'
 
 const activityLabels: Record<string, string> = { note: 'Nota', call: 'Llamada', meeting: 'Reunión', task: 'Tarea', stage: 'Etapa', created: 'Creado', request: 'Solicitud', signal: 'Señal', qualification: 'Calificación', quote: 'Cotización' }
 const activityIcons: Record<string, string> = { note: 'file', call: 'phone', meeting: 'users', task: 'check', stage: 'arrow', created: 'plus', request: 'mail' }
@@ -50,13 +51,13 @@ export default function DealPreview({ deal, sla, onClose, onForm }: { deal: Deal
 
   return <aside className="deal-preview" aria-label="Vista previa del negocio">
     <header className="pv-head"><h2>Vista previa</h2><button type="button" className="icon-button" aria-label="Cerrar vista previa" onClick={onClose}><Icon name="close" /></button></header>
-    <div className="pv-bar"><Link className="pv-link" to={`/negocios/${deal.id}`}>Ver registro</Link>
+    <div className="pv-bar"><Link className="pv-link" to={crmPath(`/negocios/${deal.id}`)}>Ver registro</Link>
       <details className="pv-menu"><summary>Acciones <Icon name="chevron" size={13} /></summary><div className="pv-menu-list">
         <button type="button" onClick={e => { closeMenu(e); onForm('details') }}>Editar prioridad y cierre</button>
         <button type="button" onClick={e => { closeMenu(e); onForm('activity') }}>Registrar actividad</button>
         <button type="button" onClick={e => { closeMenu(e); onForm('task') }}>Programar tarea</button>
         <button type="button" onClick={e => { closeMenu(e); onForm('contact') }}>Agregar contacto</button>
-        <Link to={`/directorio/empresas/${deal.companyId}`}>Ir a la ficha de empresa</Link></div></details></div>
+        <Link to={crmPath(`/directorio/empresas/${deal.companyId}`)}>Ir a la ficha de empresa</Link></div></details></div>
     <div className="pv-scroll">
       <div className="pv-title"><span className="pv-icon"><Icon name="deals" size={22} /></span><div><h3>{company?.name}</h3><p>{deal.service}</p><small>{originLabel(deal.origin)} · Creado {dateTime(deal.createdAt)}</small></div></div>
       <dl className="pv-props">
@@ -76,11 +77,11 @@ export default function DealPreview({ deal, sla, onClose, onForm }: { deal: Deal
 
       <Section title="Empresa" count={company ? 1 : 0}>{company ? <><dl>
         <Field label="Razón social">{company.name}</Field><Field label="RUC"><span className="mono">{company.ruc || 'Por completar'}</span></Field><Field label="Origen">{originLabel(company.origin)}</Field></dl>
-        <Link className="pv-more" to={`/directorio/empresas/${company.id}`}>Ver ficha de empresa →</Link></> : <p className="hint">Sin empresa asociada.</p>}</Section>
+        <Link className="pv-more" to={crmPath(`/directorio/empresas/${company.id}`)}>Ver ficha de empresa →</Link></> : <p className="hint">Sin empresa asociada.</p>}</Section>
 
       <Section title="Contacto" count={people.length} action={<button type="button" className="pv-add" onClick={() => onForm('contact')}>+ Agregar</button>}>
         {people.map(c => <div className="pv-item" key={c.id}><dl><Field label="Nombre">{c.name}</Field><Field label="Email">{c.email || '—'}</Field><Field label="Teléfono">{c.phone || '—'}</Field></dl>
-          <Link className="pv-more" to={`/contactos/${c.id}`}>Ver ficha de contacto →</Link></div>)}
+          <Link className="pv-more" to={crmPath(`/contactos/${c.id}`)}>Ver ficha de contacto →</Link></div>)}
         {!people.length && <p className="hint">Este negocio aún no tiene contacto.</p>}</Section>
 
       <Section title="Productos" count={quote ? quote.items.length : 1}>
@@ -88,7 +89,7 @@ export default function DealPreview({ deal, sla, onClose, onForm }: { deal: Deal
           {quote.items.map((item, i) => <div className="pv-item" key={`${item.productName}-${i}`}><dl><Field label="Producto">{item.productName}</Field>
             {data.products.find(p => p.id === item.productId)?.sku && <Field label="SKU"><span className="mono">{data.products.find(p => p.id === item.productId)?.sku}</span></Field>}
             <Field label="Cantidad">{item.quantity}</Field><Field label="Monto">{money(item.unitPrice * item.quantity)}</Field></dl></div>)}
-          <Link className="pv-more" to={`/negocios/${deal.id}`}>Ver cotizaciones →</Link></>
+          <Link className="pv-more" to={crmPath(`/negocios/${deal.id}`)}>Ver cotizaciones →</Link></>
           : <div className="pv-item"><dl><Field label="Servicio de interés">{deal.service}</Field><Field label="Monto">Por cotizar</Field></dl><p className="hint">Aún no hay una cotización. Prepárala desde el registro del negocio.</p></div>}</Section>
 
       {session.user.role === 'admin' && data.properties.some(p => p.active) && <Section title="Propiedades personalizadas" count={customValues.length}>
@@ -99,7 +100,7 @@ export default function DealPreview({ deal, sla, onClose, onForm }: { deal: Deal
         {activities.slice(0, 5).map(a => <article className="pv-activity" key={a.id}><div><span className={`pv-kind ${a.kind}`}><Icon name={activityIcons[a.kind] ?? 'file'} size={12} />{activityLabels[a.kind] ?? 'Actividad'}</span><time dateTime={a.createdAt}>{dateTime(a.createdAt)}</time></div>
           <p>{a.text}</p><small>{a.actor}</small></article>)}
         {!activities.length && <p className="hint">Sin actividades todavía. Registra la primera nota o llamada.</p>}
-        {activities.length > 5 && <Link className="pv-more" to={`/negocios/${deal.id}`}>Ver las {activities.length} actividades →</Link>}</Section>
+        {activities.length > 5 && <Link className="pv-more" to={crmPath(`/negocios/${deal.id}`)}>Ver las {activities.length} actividades →</Link>}</Section>
     </div>
   </aside>
 }

@@ -6,11 +6,12 @@ import CustomFields from './CustomFields'
 import { useCRM } from './crm-context'
 import { dateLabel, dateTime, initials, kindLabels, money, originLabel, quoteStatusLabels, stages } from './types'
 import { whatsappNumber } from './utils'
+import { crmPath } from './paths'
 
 export default function ContactDetail() {
   const { id } = useParams(), { snapshot: { data } } = useCRM(), [editing, setEditing] = useState(false)
   const contact = data.contacts.find(c => c.id === id)
-  if (!contact) return <Empty title="Contacto no encontrado"><Link to="/contactos">Volver a contactos</Link></Empty>
+  if (!contact) return <Empty title="Contacto no encontrado"><Link to={crmPath("/contactos")}>Volver a contactos</Link></Empty>
   const company = data.companies.find(c => c.id === contact.companyId)
   const deals = data.deals.filter(d => d.companyId === contact.companyId)
   const own = deals.filter(d => d.contactId === contact.id), others = deals.filter(d => d.contactId !== contact.id)
@@ -20,12 +21,12 @@ export default function ContactDetail() {
   const colleagues = data.contacts.filter(c => c.companyId === contact.companyId && c.id !== contact.id)
   const advisors = [...new Set(deals.map(d => d.owner))].filter(owner => owner !== 'Sin asignar')
   const wa = contact.phone ? whatsappNumber(contact.phone) : ''
-  const dealRow = (d: typeof deals[number]) => <Link className="context-item deal-link" to={`/negocios/${d.id}`} key={d.id}>
+  const dealRow = (d: typeof deals[number]) => <Link className="context-item deal-link" to={crmPath(`/negocios/${d.id}`)} key={d.id}>
     <div className="badge-row"><Badge tone="blue">{stages.find(s => s.id === d.stage)?.name}</Badge><Badge>{originLabel(d.origin)}</Badge></div>
     <h3>{d.service}</h3><p>{d.amount ? money(d.amount) : 'Por cotizar'} · {d.owner} · Creado {dateLabel(d.createdAt)}</p></Link>
-  return <><div className="breadcrumb"><Link to="/contactos">Contactos</Link><span>/</span><span>{contact.name}</span></div>
+  return <><div className="breadcrumb"><Link to={crmPath("/contactos")}>Contactos</Link><span>/</span><span>{contact.name}</span></div>
     <div className="detail-grid"><aside className="panel detail-properties"><div className="detail-title"><div className="company-icon">{initials(contact.name)}</div><p className="eyebrow">CONTACTO</p><h1>{contact.name}</h1>
-      <p>{company ? <Link className="text-link" to={`/directorio/empresas/${company.id}`}>{company.name}</Link> : 'Sin empresa'}</p></div>
+      <p>{company ? <Link className="text-link" to={crmPath(`/directorio/empresas/${company.id}`)}>{company.name}</Link> : 'Sin empresa'}</p></div>
       <div className="quick-actions" role="group" aria-label="Contactar">
         {contact.phone ? <a className="button-link" href={`tel:${contact.phone}`}><Icon name="phone" />Llamar</a> : <button disabled><Icon name="phone" />Llamar</button>}
         {contact.email ? <a className="button-link" href={`mailto:${contact.email}`}><Icon name="mail" />Correo</a> : <button disabled><Icon name="mail" />Correo</button>}
@@ -41,13 +42,13 @@ export default function ContactDetail() {
           <div className="timeline">{activities.map(a => <article key={a.id}><span className="timeline-dot"><Icon name="file" size={13} /></span><div><p>{a.text}</p><small>{a.actor} · {dateTime(a.createdAt)}</small></div></article>)}
             {!activities.length && <Empty title="Sin actividad todavía">La actividad de sus negocios aparecerá aquí.</Empty>}</div></section></div>
       <aside className="detail-aside"><CustomFields entity="contact" recordId={contact.id} /><section className="panel"><div className="section-head"><h2>Cotizaciones <span>({quotes.length})</span></h2></div><div className="aside-content">
-        {quotes.slice().reverse().map(q => <Link className="quote-mini" key={q.id} to={`/negocios/${q.dealId}`}><strong>{q.number} <span>v{q.version}</span></strong><p>{money(q.total)}</p><Badge tone={q.status === 'accepted' ? 'green' : ''}>{quoteStatusLabels[q.status]}</Badge></Link>)}
+        {quotes.slice().reverse().map(q => <Link className="quote-mini" key={q.id} to={crmPath(`/negocios/${q.dealId}`)}><strong>{q.number} <span>v{q.version}</span></strong><p>{money(q.total)}</p><Badge tone={q.status === 'accepted' ? 'green' : ''}>{quoteStatusLabels[q.status]}</Badge></Link>)}
         {!quotes.length && <p className="hint">Sin cotizaciones para este contacto.</p>}</div></section>
         <section className="panel"><div className="section-head"><h2>Solicitudes <span>({requests.length})</span></h2></div><div className="aside-content">
           {requests.map(p => <div className="contact-block" key={p.id}><strong>{kindLabels[p.kind]}</strong><p>{p.service} · {originLabel(p.origin)}</p><small>{dateTime(p.createdAt)}</small></div>)}
           {!requests.length && <p className="hint">Sin solicitudes registradas.</p>}</div></section>
         <section className="panel" aria-label="Otros contactos de la empresa"><div className="section-head"><h2>Otros contactos de la empresa <span>({colleagues.length})</span></h2></div><div className="aside-content">
-          {colleagues.map(c => <Link className="contact-block" key={c.id} to={`/contactos/${c.id}`}><span className="avatar">{initials(c.name)}</span><strong>{c.name}</strong><p>{c.email || 'Sin correo'}</p></Link>)}
+          {colleagues.map(c => <Link className="contact-block" key={c.id} to={crmPath(`/contactos/${c.id}`)}><span className="avatar">{initials(c.name)}</span><strong>{c.name}</strong><p>{c.email || 'Sin correo'}</p></Link>)}
           {!colleagues.length && <p className="hint">Es la única persona registrada en esta empresa.</p>}</div></section></aside></div>
     {editing && <ContactForm contact={contact} onClose={() => setEditing(false)} />}</>
 }

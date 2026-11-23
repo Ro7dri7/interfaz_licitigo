@@ -4,6 +4,7 @@ import { Badge, CommandForm, Empty, Icon, Modal, PageHead } from './components'
 import { useCRM } from './crm-context'
 import { propertyEntityLabels, propertyTypeLabels } from './types'
 import type { PropertyEntity, PropertyType } from './types'
+import { crmPath } from './paths'
 
 function PropertyForm({ onClose }: { onClose: () => void }) {
   const [type, setType] = useState<PropertyType>('text')
@@ -26,7 +27,7 @@ export default function AdminProperties() {
     setBusy(id); setError('')
     try { await command('property_archive', { propertyId: id, active }) } catch (e) { setError((e as Error).message) } finally { setBusy('') }
   }
-  return <><Link className="association-link" to="/admin"><Icon name="arrow" size={14} />Volver al panel</Link>
+  return <><Link className="association-link" to={crmPath("/admin")}><Icon name="arrow" size={14} />Volver al panel</Link>
     <PageHead eyebrow="ADMINISTRACIÓN" title="Propiedades personalizadas" description="Campos propios para negocios, empresas y contactos. Solo administración puede crearlos, llenarlos y filtrar con ellos.">
       <button className="primary" disabled={!ready} onClick={() => setCreating(true)}><Icon name="plus" /> Nueva propiedad</button></PageHead>
     {!ready && <p className="hint">Actualización pendiente: ejecuta 010_propiedades.sql en Supabase para habilitar las propiedades.</p>}

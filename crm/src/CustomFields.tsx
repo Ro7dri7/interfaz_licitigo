@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useCRM } from './crm-context'
 import type { Property, PropertyEntity } from './types'
+import { crmPath } from './paths'
 
 const titles: Record<PropertyEntity, string> = { deal: 'del negocio', company: 'de la empresa', contact: 'del contacto' }
 
@@ -25,7 +26,7 @@ export default function CustomFields({ entity, recordId }: { entity: PropertyEnt
     try { await command('property_set', { propertyId: prop.id, recordId, value }) } catch (e) { setError((e as Error).message) } finally { setBusy('') }
   }
   return <section className="panel custom-fields" aria-label={`Propiedades personalizadas ${titles[entity]}`}>
-    <div className="section-head"><div><h2>Propiedades {titles[entity]}</h2><p>Solo visibles para administración.</p></div><Link className="text-link" to="/admin/propiedades">Administrar</Link></div>
+    <div className="section-head"><div><h2>Propiedades {titles[entity]}</h2><p>Solo visibles para administración.</p></div><Link className="text-link" to={crmPath("/admin/propiedades")}>Administrar</Link></div>
     <div className="aside-content custom-fields-body">{props.map(p => <label key={p.id}>{p.name}<FieldInput key={`${p.id}:${record.props?.[p.id] ?? ''}`} prop={p} value={record.props?.[p.id] ?? ''} busy={busy === p.id} onSave={value => void save(p, value)} /></label>)}
       {error && <p className="error" role="alert">{error}</p>}</div></section>
 }

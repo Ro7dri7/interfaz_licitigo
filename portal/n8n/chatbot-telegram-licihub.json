@@ -1,0 +1,532 @@
+{
+  "name": "LiciHub · Chatbot Telegram autónomo",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 30
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "telegram-trigger",
+      "name": "Telegram",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "notes": "Asigna una credencial de Telegram creada con TU_TELEGRAM_TOKEN. El mismo token se usa en Responder Telegram."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "supabase-url",
+              "name": "supabaseUrl",
+              "value": "https://TU_PROYECTO.supabase.co",
+              "type": "string"
+            },
+            {
+              "id": "supabase-key",
+              "name": "supabaseKey",
+              "value": "TU_SUPABASE_SECRET_KEY",
+              "type": "string"
+            },
+            {
+              "id": "crm-url",
+              "name": "crmApiUrl",
+              "value": "TU_CRM_API_URL",
+              "type": "string"
+            },
+            {
+              "id": "crm-key",
+              "name": "crmIngestKey",
+              "value": "TU_CRM_INGEST_KEY",
+              "type": "string"
+            },
+            {
+              "id": "telegram-token",
+              "name": "telegramToken",
+              "value": "TU_TELEGRAM_TOKEN",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "config",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        260,
+        0
+      ],
+      "notes": "TU_CRM_API_URL es el origen de la API del CRM, sin ruta. Ejemplo de forma: http://127.0.0.1:8001. telegramToken no se envía en las peticiones: va en la credencial de Telegram."
+    },
+    {
+      "parameters": {
+        "jsCode": "const DEPARTAMENTOS = ['AMAZONAS','ANCASH','APURIMAC','AREQUIPA','AYACUCHO','CAJAMARCA','CALLAO','CUSCO','HUANCAVELICA','HUANUCO','ICA','JUNIN','LA LIBERTAD','LAMBAYEQUE','LIMA','LORETO','MADRE DE DIOS','MOQUEGUA','PASCO','PIURA','PUNO','SAN MARTIN','TACNA','TUMBES','UCAYALI'];\nconst MENU = 'Hola, soy el asistente de LiciHub. Puedo buscar licitaciones abiertas o dejar tus datos para que te contacte un asesor.\\n\\nEscribe licitaciones o asesor. /cancelar vuelve a empezar.';\n\nfunction normalizar(valor) {\n  return String(valor || '').toLocaleLowerCase('es').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/\\s+/g, ' ').trim();\n}\nfunction departamento(texto) {\n  const n = normalizar(texto);\n  return DEPARTAMENTOS.find((d) => normalizar(d) === n) || null;\n}\nfunction correo(valor) {\n  const v = String(valor || '').trim();\n  return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(v) && v.length <= 254 ? v : '';\n}\nfunction telefono(valor) {\n  const v = String(valor || '').trim();\n  return /^[+\\d\\s()\\-]{6,30}$/.test(v) ? v : '';\n}\nfunction recortar(valor, max) {\n  return String(valor || '').trim().slice(0, max);\n}\n\nconst mensaje = $json.message || {};\nconst chat = mensaje.chat || {};\nif (chat.type !== 'private' || !Number.isSafeInteger(chat.id) || chat.id <= 0) return [];\nconst updateId = $json.update_id;\nif (!Number.isSafeInteger(updateId)) return [];\nlet texto = typeof mensaje.text === 'string' ? mensaje.text.trim() : '';\nif (!texto || texto.length > 500) {\n  return [{json:{accion:'responder', chatId:String(chat.id), texto:'Escríbeme un mensaje de texto de hasta 500 caracteres.'}}];\n}\n\nconst memoria = $getWorkflowStaticData('global');\nmemoria.vistos = memoria.vistos || {};\nif (memoria.vistos[updateId]) return [];\nmemoria.vistos[updateId] = Date.now();\nconst vistos = Object.entries(memoria.vistos).sort((a, b) => a[1] - b[1]);\nwhile (vistos.length > 400) {\n  delete memoria.vistos[vistos.shift()[0]];\n}\nmemoria.sesiones = memoria.sesiones || {};\nconst chatId = String(chat.id);\nconst ahora = Date.now();\nlet sesion = memoria.sesiones[chatId];\nif (!sesion || ahora - (sesion.actualizado || 0) > 12 * 60 * 60 * 1000) {\n  sesion = {estado:'menu'};\n}\nsesion.actualizado = ahora;\nconst n = normalizar(texto);\nconst comando = n.split(' ')[0].replace(/@\\w+$/, '');\nconst reinicio = ['/start','/cancelar','cancelar','menu','hola','buenas'].includes(comando) || n === 'hola';\nconst pideBusqueda = ['/licitaciones','licitaciones','licitacion','buscar'].includes(comando);\nconst pideAsesor = ['/asesor','asesor','asesoria','cotizar','cotizacion'].includes(comando);\n\nfunction guardar() {\n  memoria.sesiones[chatId] = sesion;\n  const ids = Object.entries(memoria.sesiones).sort((a, b) => (a[1].actualizado || 0) - (b[1].actualizado || 0));\n  while (ids.length > 200) delete memoria.sesiones[ids.shift()[0]];\n}\nfunction responder(salida) {\n  guardar();\n  return [{json:{accion:'responder', chatId, texto:salida}}];\n}\n\nif (reinicio) {\n  const licitacion = sesion.licitacion || '';\n  sesion = {estado:'menu', actualizado:ahora, licitacion};\n  return responder(MENU);\n}\nif (pideBusqueda) {\n  sesion.estado = 'busqueda';\n  return responder('Dime un departamento del Perú o palabras de lo que buscas. Ejemplo: Lima, o cemento portland.');\n}\nif (pideAsesor) {\n  sesion.estado = 'empresa';\n  return responder('Para que te contacte un asesor, escribe la razón social de tu empresa.');\n}\nif (comando === '/estado') {\n  return responder(sesion.solicitud ? 'Tu última solicitud quedó registrada como ' + sesion.solicitud + '.' : 'Todavía no envío una solicitud en esta conversación.');\n}\n\nif (sesion.estado === 'busqueda') {\n  const dep = departamento(texto);\n  const palabras = dep ? [] : normalizar(texto).split(' ').filter((p) => p.length >= 3).slice(0, 8);\n  const busqueda = {p_modo: palabras.length || sesion.ruc ? 'perfil' : 'todas', p_orden:'afinidad', p_limite:3, p_offset:0};\n  if (sesion.ruc) busqueda.p_ruc = sesion.ruc;\n  if (dep) busqueda.p_departamento = dep;\n  if (palabras.length) {\n    busqueda.p_keywords = palabras;\n    busqueda.p_q = palabras.join(' ');\n  }\n  sesion.estado = 'menu';\n  guardar();\n  return [{json:{accion:'buscar', chatId, busqueda}}];\n}\n\nif (sesion.estado === 'empresa') {\n  if (texto.length < 2) return responder('La razón social necesita al menos 2 caracteres.');\n  sesion.empresa = recortar(texto, 160);\n  sesion.estado = 'ruc';\n  return responder('Escribe el RUC de 11 dígitos, o omitir si aún no lo tienes.');\n}\nif (sesion.estado === 'ruc') {\n  if (n !== 'omitir' && !/^\\d{11}$/.test(texto)) return responder('El RUC debe tener 11 dígitos. Si no lo tienes, escribe omitir.');\n  sesion.ruc = n === 'omitir' ? '' : texto;\n  sesion.estado = 'contacto';\n  return responder('¿A nombre de quién pedimos el contacto?');\n}\nif (sesion.estado === 'contacto') {\n  if (texto.length < 2) return responder('Escribe el nombre de la persona de contacto.');\n  sesion.contacto = recortar(texto, 100);\n  sesion.estado = 'medio';\n  return responder('Déjame un correo o un teléfono.');\n}\nif (sesion.estado === 'medio') {\n  const email = correo(texto);\n  const phone = telefono(texto);\n  if (!email && !phone) return responder('No reconocí un correo ni un teléfono. Escríbelo de nuevo.');\n  sesion.email = email;\n  sesion.telefono = email ? '' : phone;\n  sesion.estado = 'servicio';\n  return responder('¿Qué servicio necesitas? Por ejemplo: Certificación ISO 9001.');\n}\nif (sesion.estado === 'servicio') {\n  if (texto.length < 2) return responder('Describe el servicio en una frase.');\n  sesion.servicio = recortar(texto, 160);\n  sesion.estado = 'tipo';\n  return responder('Responde 1 para asesoría o 2 para cotización.');\n}\nif (sesion.estado === 'tipo') {\n  if (!['1','2','asesoria','cotizacion'].includes(n)) return responder('Responde 1 para asesoría o 2 para cotización.');\n  sesion.tipo = (n === '2' || n === 'cotizacion') ? 'quote' : 'advice';\n  sesion.estado = 'confirmar';\n  const medio = sesion.email || sesion.telefono;\n  return responder('Voy a enviar esto al equipo comercial de LiciHub:\\nEmpresa: ' + sesion.empresa + '\\nRUC: ' + (sesion.ruc || 'sin RUC') + '\\nContacto: ' + sesion.contacto + '\\nMedio: ' + medio + '\\nServicio: ' + sesion.servicio + '\\nTipo: ' + (sesion.tipo === 'quote' ? 'cotización' : 'asesoría') + (sesion.licitacion ? '\\nLicitación: ' + sesion.licitacion : '') + '\\n\\nResponde SI para enviarlo. Otra respuesta lo cancela.');\n}\nif (sesion.estado === 'confirmar') {\n  if (!['si','s','ok','dale'].includes(n)) {\n    sesion.estado = 'menu';\n    return responder('Listo, no envié la solicitud. Escribe licitaciones o asesor cuando quieras.');\n  }\n  const usuario = mensaje.from && mensaje.from.username;\n  const notas = ['Solicitud del bot de Telegram en n8n, sin cuenta del portal.', 'La persona confirmó el envío de sus datos al equipo comercial.'];\n  if (/^[A-Za-z0-9_]{5,32}$/.test(usuario || '')) notas.push('Contacto Telegram: https://t.me/' + usuario);\n  const solicitud = 'n8n:' + chatId + ':' + updateId;\n  const crm = {requestId: solicitud, payload:{\n    company: sesion.empresa,\n    ruc: sesion.ruc || '',\n    contact: sesion.contacto,\n    email: sesion.email || '',\n    phone: sesion.telefono || '',\n    origin: 'Telegram',\n    kind: sesion.tipo,\n    service: sesion.servicio,\n    evidence: 'none',\n    tender: recortar(sesion.licitacion || '', 160),\n    notes: notas.join('\\n').slice(0, 3000)\n  }};\n  sesion.solicitud = solicitud;\n  sesion.estado = 'menu';\n  guardar();\n  return [{json:{accion:'enviar_crm', chatId, crm}}];\n}\n\nsesion.estado = 'menu';\nreturn responder(MENU);"
+      },
+      "id": "conversación",
+      "name": "Conversación",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "ruta-buscar",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "buscar",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "ruta-crm",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "enviar_crm",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "ruta",
+      "name": "Ruta",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.supabaseUrl.replace(/\\/$/, '') + '/rest/v1/rpc/buscar_licitaciones' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.busqueda }}"
+      },
+      "id": "buscar-licitaciones",
+      "name": "Buscar licitaciones",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        -180
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const previo = $('Conversación').first().json;\nconst chatId = String(previo.chatId);\nfunction filasDe(item) {\n  const cuerpo = item.json && item.json.body !== undefined ? item.json.body : item.json;\n  return Array.isArray(cuerpo) ? cuerpo : [];\n}\nconst filas = $input.all().flatMap(filasDe).filter((fila) => fila && (fila.convocatoria_id || fila.descripcion || fila.licitacion));\nif (!filas.length) {\n  return [{json:{chatId, consultar:false, texto:'No encontré licitaciones abiertas con ese criterio. Prueba otro departamento o palabras, o escribe asesor.'}}];\n}\nconst config = $('Config').first().json;\nconst ids = [...new Set(filas.map((fila) => fila.convocatoria_id).filter((id) => /^\\d+$/.test(String(id))))].slice(0, 3);\nconst base = String(config.supabaseUrl || '').replace(/\\/$/, '');\nconst memoria = $getWorkflowStaticData('global');\nconst sesion = (memoria.sesiones || {})[chatId] || {estado:'menu'};\nconst primera = filas[0];\nsesion.licitacion = String(primera.licitacion || primera.nomenclatura || primera.nomenclatura_norm || '').slice(0, 160);\nsesion.estado = 'menu';\nsesion.actualizado = Date.now();\nmemoria.sesiones[chatId] = sesion;\nreturn [{json:{chatId, consultar: ids.length > 0, filas, fichasUrl: base + '/rest/v1/convocatorias?select=id,ver_proceso_url,licitacion,nomenclatura_norm&id=in.(' + ids.join(',') + ')'}}];"
+      },
+      "id": "preparar-fichas",
+      "name": "Preparar fichas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "hay-fichas",
+              "leftValue": "={{ $json.consultar }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "hay-fichas",
+      "name": "Hay fichas",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1560,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.fichasUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config').first().json.supabaseKey }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "consultar-convocatorias",
+      "name": "Consultar convocatorias",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1820,
+        -300
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const previo = $('Preparar fichas').first().json;\nconst enlaces = {};\nfunction filasDe(item) {\n  const cuerpo = item.json && item.json.body !== undefined ? item.json.body : item.json;\n  return Array.isArray(cuerpo) ? cuerpo : (cuerpo && cuerpo.id != null ? [cuerpo] : []);\n}\nfor (const fila of $input.all().flatMap(filasDe)) {\n  if (fila.id != null) enlaces[String(fila.id)] = fila.ver_proceso_url || '';\n}\nconst lineas = (previo.filas || []).slice(0, 3).map((fila, indice) => {\n  const codigo = fila.licitacion || fila.nomenclatura || fila.nomenclatura_norm || fila.convocatoria_id;\n  const titulo = String(fila.descripcion || fila.objeto_descripcion || 'Sin título').slice(0, 180);\n  const entidad = fila.entidad || fila.entidad_convocante || '';\n  const monto = fila.monto_referencial != null ? fila.monto_referencial + ' ' + (fila.moneda || 'PEN') : '';\n  const cierre = fila.fecha_limite ? String(fila.fecha_limite).slice(0, 10) : '';\n  const url = enlaces[String(fila.convocatoria_id)] || '';\n  return (indice + 1) + '. ' + codigo + ' — ' + titulo + (entidad ? '\\n' + entidad : '') + (monto ? '\\n' + monto : '') + (cierre ? '\\nCierra: ' + cierre : '') + (url ? '\\n' + url : '');\n});\nreturn [{json:{chatId: previo.chatId, texto: 'Encontré estas licitaciones abiertas:\\n\\n' + lineas.join('\\n\\n') + '\\n\\nEscribe asesor si quieres que te contactemos por alguna, o licitaciones para otra búsqueda.'}}];"
+      },
+      "id": "redactar-licitaciones",
+      "name": "Redactar licitaciones",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.crmApiUrl.replace(/\\/$/, '') + '/api/crm/events' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-CRM-Ingest-Key",
+              "value": "={{ $('Config').first().json.crmIngestKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.crm }}"
+      },
+      "id": "enviar-lead",
+      "name": "Enviar lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        180
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const previo = $('Conversación').first().json;\nconst cuerpo = $json.body && typeof $json.body === 'object' ? $json.body : $json;\nconst aceptado = ($json.statusCode === undefined || $json.statusCode === 200) && cuerpo.accepted === true;\nconst texto = aceptado\n  ? 'Listo. El equipo comercial recibió tu solicitud ' + previo.crm.requestId + '.'\n  : 'No pude entregar la solicitud al CRM. Revisa TU_CRM_API_URL y TU_CRM_INGEST_KEY en el nodo Config y vuelve a confirmar.';\nreturn [{json:{chatId: previo.chatId, texto}}];"
+      },
+      "id": "confirmar-lead",
+      "name": "Confirmar lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.texto }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "responder-telegram",
+      "name": "Responder Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2340,
+        0
+      ],
+      "notes": "Usa la misma credencial que el nodo Telegram, creada con TU_TELEGRAM_TOKEN."
+    },
+    {
+      "parameters": {
+        "content": "Bot autónomo para la demo. No usa la API ni el SQLite del proyecto bot_licihub.\n\n1. Credencial Telegram con TU_TELEGRAM_TOKEN en Telegram y Responder Telegram.\n2. En Config, reemplaza TU_PROYECTO, TU_SUPABASE_SECRET_KEY, TU_CRM_API_URL y TU_CRM_INGEST_KEY.\n3. Supabase se llama solo con apikey.\n4. El estado de cada chat vive en la memoria del workflow de n8n (un solo proceso).\n5. Activa el flujo.\n\nRecorrido: licitaciones, o asesor y luego razón social, RUC, contacto, correo o teléfono, servicio, 1 asesoría o 2 cotización, SI.",
+        "height": 280,
+        "width": 420
+      },
+      "id": "nota",
+      "name": "Nota de puesta en marcha",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        280
+      ]
+    }
+  ],
+  "connections": {
+    "Telegram": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Conversación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversación": {
+      "main": [
+        [
+          {
+            "node": "Ruta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ruta": {
+      "main": [
+        [
+          {
+            "node": "Buscar licitaciones",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar licitaciones": {
+      "main": [
+        [
+          {
+            "node": "Preparar fichas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar fichas": {
+      "main": [
+        [
+          {
+            "node": "Hay fichas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hay fichas": {
+      "main": [
+        [
+          {
+            "node": "Consultar convocatorias",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar convocatorias": {
+      "main": [
+        [
+          {
+            "node": "Redactar licitaciones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redactar licitaciones": {
+      "main": [
+        [
+          {
+            "node": "Responder Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar lead": {
+      "main": [
+        [
+          {
+            "node": "Confirmar lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmar lead": {
+      "main": [
+        [
+          {
+            "node": "Responder Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

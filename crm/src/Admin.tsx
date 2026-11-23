@@ -8,6 +8,7 @@ import { countBy, presets, propField, rangeFor, rankProducts, soldQuotes, summar
 import type { Cond, FieldDef, Preset } from './analytics'
 import { dateLabel, money, originLabel, priorityLabels, propertyEntityLabels, quoteStatusLabels, stages } from './types'
 import { downloadCsv, limaDay } from './utils'
+import { crmPath } from './paths'
 
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0)
 const percent = (part: number, whole: number) => whole ? `${Math.round(part / whole * 100)}%` : '0%'
@@ -92,7 +93,8 @@ export default function Admin({ onCreate }: { onCreate: () => void }) {
   ]
 
   return <><PageHead eyebrow="ADMINISTRACIÓN" title="Panel de administración" description={`Todo lo que hay en el CRM, en gráficos · ${rangeText}`}>
-    <Link className="button" to="/admin/propiedades"><Icon name="tag" size={16} /> Propiedades</Link>
+    <Link className="button" to={crmPath("/admin/equipo")}><Icon name="users" size={16} /> Equipo</Link>
+    <Link className="button" to={crmPath("/admin/propiedades")}><Icon name="tag" size={16} /> Propiedades</Link>
     <button onClick={exportCsv} disabled={!s.deals.length}><Icon name="download" size={16} /> Exportar</button>
     <button className="primary" onClick={onCreate}><Icon name="plus" /> Nuevo negocio</button></PageHead>
 
@@ -118,7 +120,7 @@ export default function Admin({ onCreate }: { onCreate: () => void }) {
       <Card title={chosen ? `${chosen.name}: ventas y negocios` : 'Sector más vendido'} description={chosen ? `Agrupado por la propiedad «${chosen.name}».` : 'Necesitas una propiedad de lista para agrupar.'}
         controls={chosen && <div className="card-controls">{groupProps.length > 1 && <select aria-label="Agrupar por propiedad" value={chosen.id} onChange={e => setPropId(e.target.value)}>{groupProps.map(p => <option key={p.id} value={p.id}>{p.name} ({propertyEntityLabels[p.entity].toLocaleLowerCase()})</option>)}</select>}
           <Toggle label="Medida" value={metric} onChange={setMetric} options={[['monto', 'Vendido'], ['negocios', 'Negocios']]} /></div>}>
-        {!chosen ? <Empty title="Aún no hay propiedades de lista"><Link to="/admin/propiedades">Crea la propiedad «Sector»</Link> para ver qué sector vende más.</Empty>
+        {!chosen ? <Empty title="Aún no hay propiedades de lista"><Link to={crmPath("/admin/propiedades")}>Crea la propiedad «Sector»</Link> para ver qué sector vende más.</Empty>
           : groupRows.length ? <BarList label={`${chosen.name} más vendido`} rows={groupRows.slice(0, 8)} format={metric === 'monto' ? money : String} />
             : <Empty title="Sin datos en este periodo">{metric === 'monto' ? 'Aún no hay ventas en este periodo. Mira «Negocios».' : 'Ningún negocio coincide con los filtros.'}</Empty>}</Card>
       <Card title="Embudo comercial" description="Negocios del periodo por etapa."><BarList label="Negocios por etapa" rows={stageRows} /></Card>
@@ -127,7 +129,7 @@ export default function Admin({ onCreate }: { onCreate: () => void }) {
         <LineChart label="Evolución en el tiempo" labels={line.labels} series={[{ name: 'Negocios', color: '#2f5bea', values: line.values.Negocios }, { name: 'Cotizaciones', color: '#d97706', values: line.values.Cotizaciones }, { name: 'Ventas', color: '#15803d', values: line.values.Ventas }]} /></Card>
       <Card wide title="Empresas a la venta" description="Empresas con negocios abiertos, de mayor a menor monto.">
         {companiesOnSale.length ? <div className="table-wrap"><table><thead><tr><th>Empresa</th><th>Negocios abiertos</th><th>Monto en cartera</th></tr></thead><tbody>{companiesOnSale.slice(0, 8).map(c => <tr key={c.id}>
-          <td><Link className="record-button" to={`/directorio/empresas/${c.id}`}>{c.name}</Link></td><td>{c.count}</td><td>{c.amount ? money(c.amount) : 'Por cotizar'}</td></tr>)}</tbody></table></div>
+          <td><Link className="record-button" to={crmPath(`/directorio/empresas/${c.id}`)}>{c.name}</Link></td><td>{c.count}</td><td>{c.amount ? money(c.amount) : 'Por cotizar'}</td></tr>)}</tbody></table></div>
           : <Empty title="Ninguna empresa con negocios abiertos" />}</Card>
     </div></>
 }

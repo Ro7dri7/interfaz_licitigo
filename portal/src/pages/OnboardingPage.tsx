@@ -560,31 +560,15 @@ export function OnboardingPage() {
           </LiciMsg>
         )
       case 'alerts': {
-        const emailPrimario = block.selected === 'email' || !block.resolved
         return (
           <LiciMsg>
             <div className={bubbleRich}>
-              <ul className="mb-3.5 flex flex-col gap-2 text-[13.5px] text-muted [&>li]:relative [&>li]:pl-3.5 [&>li]:before:absolute [&>li]:before:left-0 [&>li]:before:text-primary [&>li]:before:content-['•']">
-                <li>
-                  <strong>WhatsApp / Telegram:</strong> ingresas tu número o usuario y confirmas con un código
-                </li>
-                <li>
-                  <strong>Email:</strong> te mandamos un resumen HTML con oportunidades
-                </li>
-              </ul>
+              <p className="mb-3.5 text-[13.5px] text-muted">
+                Te avisamos por Telegram cuando se publique una convocatoria que calce con tu rubro.
+              </p>
               <div className={actions}>
-                <button
-                  className={emailPrimario ? btnPrimary : btnSecondary}
-                  disabled={block.resolved}
-                  onClick={() => chooseAlertChannel(block, 'email')}
-                >
-                  ✉️ Email
-                </button>
-                <button className={btnSecondary} disabled={block.resolved} onClick={() => chooseAlertChannel(block, 'whatsapp')}>
-                  WhatsApp
-                </button>
-                <button className={btnSecondary} disabled={block.resolved} onClick={() => chooseAlertChannel(block, 'telegram')}>
-                  Telegram
+                <button className={btnPrimary} disabled={block.resolved} onClick={() => chooseAlertChannel(block, 'telegram')}>
+                  Activar Telegram
                 </button>
               </div>
             </div>

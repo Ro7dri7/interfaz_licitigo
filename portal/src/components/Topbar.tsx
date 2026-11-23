@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { logout, nombreCorto, useSesion } from '../lib/auth'
-import { dot, pillNeutral, pillPrimary } from '../lib/ui'
+import { dot, pillNeutral } from '../lib/ui'
 
 interface TopbarProps {
   /** Desbloqueos usados / límite, p. ej. "2/5". */
@@ -19,23 +19,6 @@ export function Topbar({ quota = '—' }: TopbarProps) {
 
   return (
     <header className="sticky top-0 z-20 flex items-center gap-7 border-b border-line bg-white px-8 py-3.5 max-[1180px]:gap-4 max-[900px]:flex-wrap max-[900px]:gap-3 max-[720px]:gap-x-3 max-[720px]:gap-y-2.5 max-[720px]:px-4 max-[720px]:py-2.5">
-      <div>
-        <button
-          className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-2.5 py-1.5 text-[13px] font-semibold text-ink max-[1180px]:hidden"
-          type="button"
-        >
-          <svg className="shrink-0 rounded-[2px]" width="18" height="13" viewBox="0 0 18 13">
-            <rect width="18" height="13" rx="2" fill="#D91023" />
-            <rect x="6" width="6" height="13" fill="#fff" />
-          </svg>
-          Perú
-          <span className={pillPrimary}>+4 pronto</span>
-          <svg className="text-faint" width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-      </div>
-
       <NavLink to="/app/descubrimiento" className="mr-auto font-serif text-[24px] font-semibold text-ink">
         LiciHub<span className="text-primary">.</span>
       </NavLink>
@@ -55,15 +38,11 @@ export function Topbar({ quota = '—' }: TopbarProps) {
           </svg>
           Mis desbloqueos
         </NavLink>
-        <NavLink to="/app/equipo" className={navClass}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <circle cx="5.5" cy="6" r="2" stroke="currentColor" strokeWidth="1.4" />
-            <circle cx="11" cy="6.5" r="1.6" stroke="currentColor" strokeWidth="1.4" />
-            <path d="M2 13c0-2 1.5-3.5 3.5-3.5S9 11 9 13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-            <path d="M9.5 13c0-1.7 1.2-3 3-3s2.8 1.3 2.8 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-          </svg>
-          Mi equipo
-        </NavLink>
+        {import.meta.env.VITE_CRM_BASE && (
+          <NavLink to="/comercial" className={navClass}>
+            Comercial
+          </NavLink>
+        )}
         <NavLink to="/app/perfil" className={navClass}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <circle cx="8" cy="5.5" r="2.5" stroke="currentColor" strokeWidth="1.4" />

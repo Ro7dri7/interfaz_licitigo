@@ -11,9 +11,11 @@ from typing import Annotated
 from uuid import UUID
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from urllib.parse import quote
+
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from . import asesorias, auth, desbloqueos, licitaciones, suscripciones
@@ -153,7 +155,7 @@ async def estadisticas() -> dict:
 
 
 @app.get("/api/empresas/{ruc}")
-async def empresa(ruc: str) -> dict:
+async def empresa(ruc: str, _: Annotated[Usuario, Depends(usuario_actual)]) -> dict:
     ruc = re.sub(r"\D", "", ruc)
     if not ruc_valido(ruc):
         raise HTTPException(422, "El RUC debe tener 11 dígitos y empezar con 10, 15, 17 o 20.")
@@ -209,19 +211,141 @@ class Refresh(BaseModel):
     refreshToken: str = Field(min_length=10, max_length=2000)
 
 
+class Correo(BaseModel):
+    email: EmailStr
+
+
+class CodigoOtp(BaseModel):
+    email: EmailStr
+    codigo: str = Field(min_length=6, max_length=12)
+
+
+class TicketAcceso(BaseModel):
+    ticket: str = Field(min_length=20, max_length=200)
+
+
+class Restablecer(BaseModel):
+    accessToken: str = Field(min_length=10, max_length=4000)
+    password: str = Field(min_length=8, max_length=72)
+
+
+async def _cerrar(response: Response, sesion: dict) -> dict:
+    """Agrega el rol y, si es admin o commercial, deja las cookies del CRM."""
+    user_id = (sesion.get("usuario") or {}).get("id") or ""
+    sesion = {**sesion, "rol": await auth.rol_comercial(user_id)}
+    auth.aplicar_cookies(response, sesion)
+    return sesion
+
+
+def _origen(request: Request) -> str:
+    return auth.origen_de_peticion(
+        request.headers.get("x-forwarded-proto", request.url.scheme),
+        request.headers.get("x-forwarded-host") or request.headers.get("host") or "",
+    )
+
+
 @app.post("/api/auth/registro")
-async def registro(body: Registro) -> dict:
-    return await auth.registrar(body.nombre, body.email, body.password)
+async def registro(body: Registro, response: Response) -> dict:
+    return await _cerrar(response, await auth.registrar(body.nombre, body.email, body.password))
 
 
 @app.post("/api/auth/login")
-async def login(body: Login) -> dict:
-    return await auth.iniciar_sesion(body.email, body.password)
+async def login(body: Login, response: Response) -> dict:
+    return await _cerrar(response, await auth.iniciar_sesion(body.email, body.password))
 
 
 @app.post("/api/auth/refresh")
-async def refresh(body: Refresh) -> dict:
-    return await auth.refrescar(body.refreshToken)
+async def refresh(body: Refresh, response: Response) -> dict:
+    return await _cerrar(response, await auth.refrescar(body.refreshToken))
+
+
+@app.post("/api/auth/logout")
+async def salir(response: Response) -> dict:
+    auth.borrar_cookies_crm(response)
+    return {"ok": True}
+
+
+@app.post("/api/auth/otp")
+async def pedir_otp(body: Correo) -> dict:
+    await auth.enviar_otp(body.email.strip().lower())
+    return {"ok": True, "mensaje": "Si el correo es válido, te enviamos un código de 6 dígitos."}
+
+
+@app.post("/api/auth/otp/verificar")
+async def verificar_otp(body: CodigoOtp, response: Response) -> dict:
+    datos = await auth.verificar_otp(body.email.strip().lower(), body.codigo.strip())
+    user = datos.get("user") or {}
+    if user.get("id"):
+        await auth.asegurar_perfil(user["id"], auth.nombre_de_usuario(user))
+    sesion = await auth.con_rol(datos)
+    auth.aplicar_cookies(response, sesion)
+    return sesion
+
+
+@app.post("/api/auth/recuperar")
+async def recuperar(body: Correo, request: Request) -> dict:
+    destino = f"{_origen(request)}/ingresar/restablecer"
+    await auth.recuperar_contrasena(body.email.strip().lower(), destino)
+    return {"ok": True, "mensaje": "Si el correo está registrado, te enviamos un enlace para restablecer la contraseña."}
+
+
+@app.post("/api/auth/restablecer")
+async def restablecer(body: Restablecer) -> dict:
+    await auth.cambiar_contrasena(body.accessToken, body.password)
+    return {"ok": True}
+
+
+@app.get("/api/auth/google")
+async def google(request: Request, volver: str | None = None) -> RedirectResponse:
+    verifier, challenge = auth.codigo_pkce()
+    destino = f"{_origen(request)}/api/auth/google/callback"
+    try:
+        ubicacion = await auth.url_google(destino, challenge)
+    except AuthError:
+        return RedirectResponse("/ingresar?error=google", status_code=302)
+    respuesta = RedirectResponse(ubicacion, status_code=302)
+    respuesta.set_cookie("lici_pkce", verifier, max_age=600, httponly=True, secure=True, samesite="lax",
+                         path="/api/auth/google")
+    ruta = auth.volver_seguro(volver)
+    if ruta:
+        respuesta.set_cookie("lici_volver", ruta, max_age=600, httponly=True, secure=True, samesite="lax",
+                             path="/api/auth/google")
+    return respuesta
+
+
+@app.get("/api/auth/google/callback")
+async def google_callback(request: Request, code: str | None = None) -> RedirectResponse:
+    verifier = request.cookies.get("lici_pkce")
+    volver = auth.volver_seguro(request.cookies.get("lici_volver"))
+    if not code or not verifier:
+        respuesta = RedirectResponse("/ingresar?error=google", status_code=302)
+    else:
+        try:
+            datos = await auth.intercambiar_codigo(code, verifier)
+            user = datos.get("user") or {}
+            if user.get("id"):
+                await auth.asegurar_perfil(user["id"], auth.nombre_de_usuario(user))
+            sesion = await auth.con_rol(datos)
+        except AuthError:
+            respuesta = RedirectResponse("/ingresar?error=google", status_code=302)
+        else:
+            ticket = auth.guardar_ticket(sesion)
+            destino = f"/ingresar?ticket={quote(ticket)}"
+            if volver:
+                destino += f"&volver={quote(volver)}"
+            respuesta = RedirectResponse(destino, status_code=302)
+            auth.aplicar_cookies(respuesta, sesion)
+    auth.borrar_cookie_pkce(respuesta)
+    return respuesta
+
+
+@app.post("/api/auth/ticket")
+async def canjear_ticket(body: TicketAcceso, response: Response) -> dict:
+    sesion = auth.leer_ticket(body.ticket)
+    if not sesion:
+        raise HTTPException(401, "El ingreso con Google venció. Vuelve a intentarlo.")
+    auth.aplicar_cookies(response, sesion)
+    return sesion
 
 
 UsuarioActual = Annotated[Usuario, Depends(usuario_actual)]

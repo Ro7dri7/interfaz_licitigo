@@ -18,7 +18,7 @@ from .supabase import SupabaseError, get_db
 
 log = logging.getLogger(__name__)
 
-_DOCS_BASES = ("bases_administrativas", "bases_integradas", "resumen_ejecutivo")
+_DOCS_BASES = ("bases_administrativas", "bases_integradas", "resumen_ejecutivo", "requerimiento")
 _tareas: set[asyncio.Task] = set()
 
 

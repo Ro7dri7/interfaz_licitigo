@@ -3,13 +3,14 @@ import { Badge, Empty, Icon, PageHead } from './components'
 import { Filters } from './Collections'
 import { useCRM } from './crm-context'
 import { money, openDeal, originLabel } from './types'
+import { crmPath } from './paths'
 
 export default function Directory({ onCreate }: { onCreate: () => void }) {
   const { snapshot: { data } } = useCRM(), [params] = useSearchParams(), location = useLocation()
   // Enlaces antiguos (?vista=contactos) ahora viven en la pantalla Contactos.
   if (params.get('vista') === 'contactos') {
     const next = new URLSearchParams(params); next.delete('vista')
-    return <Navigate replace to={`/contactos${next.size ? '?' + next.toString() : ''}`} />
+    return <Navigate replace to={crmPath(`/contactos${next.size ? '?' + next.toString() : ''}`)} />
   }
   const query = (params.get('q') ?? '').toLocaleLowerCase(), companyId = params.get('empresa')
   const companies = data.companies.filter(c => (!companyId || c.id === companyId) && (!params.get('origen') || c.origin === params.get('origen')))
@@ -27,8 +28,8 @@ export default function Directory({ onCreate }: { onCreate: () => void }) {
     <section className="panel table-wrap" aria-label="Lista de empresas">
       <table><thead><tr><th>Empresa / RUC</th><th>Contactos</th><th>Negocios abiertos</th><th>Asesores</th><th>Valor abierto</th></tr></thead><tbody>{rows.map(company => {
         const contacts = data.contacts.filter(p => p.companyId === company.id), deals = data.deals.filter(d => d.companyId === company.id && openDeal(d))
-        return <tr key={company.id}><td><Link className="record-button" state={from} to={`/directorio/empresas/${company.id}`}>{company.name}</Link><small>{company.ruc || 'RUC por completar'} · {originLabel(company.origin)}</small></td>
-          <td><strong>{contacts[0]?.name || 'Sin contactos registrados'}</strong>{contacts[0]?.email && <small>{contacts[0].email}</small>}<Link className="text-link" to={`/contactos?empresa=${company.id}`}>{contacts.length} {contacts.length === 1 ? 'contacto' : 'contactos'}<Icon name="arrow" size={14} /></Link></td>
+        return <tr key={company.id}><td><Link className="record-button" state={from} to={crmPath(`/directorio/empresas/${company.id}`)}>{company.name}</Link><small>{company.ruc || 'RUC por completar'} · {originLabel(company.origin)}</small></td>
+          <td><strong>{contacts[0]?.name || 'Sin contactos registrados'}</strong>{contacts[0]?.email && <small>{contacts[0].email}</small>}<Link className="text-link" to={crmPath(`/contactos?empresa=${company.id}`)}>{contacts.length} {contacts.length === 1 ? 'contacto' : 'contactos'}<Icon name="arrow" size={14} /></Link></td>
           <td>{deals.length ? <Badge tone="blue">{deals.length} {deals.length === 1 ? 'negocio abierto' : 'negocios abiertos'}</Badge> : <Badge>Sin negocios abiertos</Badge>}</td>
           <td>{owners(company.id).join(', ') || 'Sin asignar'}</td><td><strong>{money(deals.reduce((sum, d) => sum + d.amount, 0))}</strong></td></tr>
       })}</tbody></table>

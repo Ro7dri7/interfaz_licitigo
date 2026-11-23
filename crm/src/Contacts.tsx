@@ -6,6 +6,7 @@ import { ContactForm } from './Forms'
 import { useCRM } from './crm-context'
 import { initials, openDeal } from './types'
 import { downloadCsv, limaDay, whatsappNumber } from './utils'
+import { crmPath } from './paths'
 
 const orders = [['nombre', 'Nombre (A-Z)'], ['empresa', 'Empresa (A-Z)'], ['negocios', 'Más negocios abiertos']]
 const dataFilters = [['', 'Todos los datos'], ['sincorreo', 'Sin correo'], ['sintelefono', 'Sin teléfono'], ['conabiertos', 'Con negocios abiertos'], ['sinabiertos', 'Sin negocios abiertos']]
@@ -38,18 +39,18 @@ export default function Contacts({ onCreate }: { onCreate: () => void }) {
     <div className="info-strip"><Icon name="users" />Una empresa puede tener varios contactos: compras, gerencia o administración. Cada persona conserva sus propios datos.</div>
     <Filters preserve={['orden', 'empresa']}><select aria-label="Filtrar por datos" value={filter} onChange={e => setParam('datos', e.target.value)}>{dataFilters.map(([id, text]) => <option key={id} value={id}>{text}</option>)}</select>
       <select aria-label="Ordenar contactos" value={order} onChange={e => setParam('orden', e.target.value === 'nombre' ? '' : e.target.value)}>{orders.map(([id, text]) => <option key={id} value={id}>{text}</option>)}</select></Filters>
-    {companyId && <div className="info-strip"><Icon name="company" /><span>Contactos de {companyById.get(companyId)?.name ?? 'la empresa seleccionada'}. <Link className="text-link" to="/contactos">Ver todos</Link></span></div>}
+    {companyId && <div className="info-strip"><Icon name="company" /><span>Contactos de {companyById.get(companyId)?.name ?? 'la empresa seleccionada'}. <Link className="text-link" to={crmPath("/contactos")}>Ver todos</Link></span></div>}
     <section className="panel table-wrap" aria-label="Lista de contactos">
       <table><thead><tr><th>Persona de contacto</th><th>Empresa</th><th>Correo</th><th>Teléfono</th><th>Negocios abiertos</th><th>Asesores de la empresa</th><th>Acciones</th></tr></thead><tbody>{people.map(person => {
         const company = companyById.get(person.companyId)!, open = openCount(company.id), wa = person.phone ? whatsappNumber(person.phone) : ''
         return <tr key={person.id}>
-          <td><div className="person-cell"><span className="avatar small">{initials(person.name)}</span><Link className="record-button" to={`/contactos/${person.id}`}><strong>{person.name}</strong></Link></div></td>
-          <td><Link className="record-button" state={from} to={`/directorio/empresas/${company.id}`}>{company.name}</Link><small>{company.ruc || 'RUC por completar'}</small></td>
+          <td><div className="person-cell"><span className="avatar small">{initials(person.name)}</span><Link className="record-button" to={crmPath(`/contactos/${person.id}`)}><strong>{person.name}</strong></Link></div></td>
+          <td><Link className="record-button" state={from} to={crmPath(`/directorio/empresas/${company.id}`)}>{company.name}</Link><small>{company.ruc || 'RUC por completar'}</small></td>
           <td>{person.email ? <a href={`mailto:${person.email}`}>{person.email}</a> : 'Sin correo'}</td>
           <td>{person.phone ? <a href={`tel:${person.phone}`}>{person.phone}</a> : 'Sin teléfono'}</td>
           <td>{open ? <Badge tone="blue">{open} {open === 1 ? 'negocio abierto' : 'negocios abiertos'}</Badge> : <Badge>Sin negocios abiertos</Badge>}</td>
           <td>{owners(company.id).join(', ') || 'Sin asignar'}</td>
-          <td><div className="row-actions"><Link className="qa" aria-label={`Abrir ficha de ${person.name}`} title="Abrir ficha" to={`/contactos/${person.id}`}><Icon name="users" size={14} /></Link>
+          <td><div className="row-actions"><Link className="qa" aria-label={`Abrir ficha de ${person.name}`} title="Abrir ficha" to={crmPath(`/contactos/${person.id}`)}><Icon name="users" size={14} /></Link>
             {person.phone && <a className="qa" aria-label={`Llamar a ${person.name}`} title="Llamar" href={`tel:${person.phone}`}><Icon name="phone" size={14} /></a>}
             {person.email && <a className="qa" aria-label={`Escribir a ${person.name}`} title="Correo" href={`mailto:${person.email}`}><Icon name="mail" size={14} /></a>}
             {wa && <a className="qa" aria-label={`WhatsApp a ${person.name}`} title="WhatsApp" href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer"><Icon name="chat" size={14} /></a>}</div></td></tr>

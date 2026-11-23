@@ -17,8 +17,12 @@ export function comandos(target, directory = root, environment = process.env) {
     [join(portal, 'node_modules/vite/bin/vite.js'), '--host', 'localhost', '--port', '5173', '--strictPort', '--clearScreen', 'false'],
     { ...environment, API_URL: 'http://127.0.0.1:8000' })
   const comercial = () => node('CRM', crm, [join(crm, 'scripts/start.mjs')])
+  const crmApi = () => node('API del CRM', crm, [join(crm, 'scripts/api.mjs')])
+  const plataforma = () => node('Plataforma', portal,
+    [join(portal, 'node_modules/vite/bin/vite.js'), '--host', '127.0.0.1', '--port', '5174', '--strictPort', '--clearScreen', 'false'],
+    { ...environment, API_URL: 'http://127.0.0.1:8000', CRM_API_URL: 'http://127.0.0.1:8001', LICIHUB_UNIFIED: '1', VITE_CRM_BASE: '/comercial' })
   switch (target) {
-    case 'todo': return [api(), frontend(), comercial()]
+    case 'todo': return [api(), crmApi(), plataforma()]
     case 'portal': return [api(), frontend()]
     case 'crm': return [comercial()]
     case 'bot': return [py('Bot de Telegram', 'portal', ['-m', 'app.bot'])]
@@ -44,7 +48,8 @@ function iniciar() {
     throw new Error('Falta portal/backend/.env. Ejecuta npm run instalar y completa SUPABASE_URL, SUPABASE_SECRET_KEY y APIMIGO_TOKEN.')
   }
   if (target === 'bot') console.log('Telegram: mantener una sola instancia por token en todo el equipo.')
-  if (['todo', 'portal'].includes(target)) console.log('Portal: http://localhost:5173 · API: http://127.0.0.1:8000')
+  if (target === 'todo') console.log('Plataforma: https://127.0.0.1:5174 · CRM: https://127.0.0.1:5174/comercial · APIs: http://127.0.0.1:8000 y http://127.0.0.1:8001')
+  if (target === 'portal') console.log('Portal: http://localhost:5173 · API: http://127.0.0.1:8000')
   if (['todo', 'portal', 'crm', 'bot'].includes(target)) console.log('Ctrl+C detiene los servicios de este comando. El bot se inicia por separado con npm run bot.')
   supervisar(services)
 }

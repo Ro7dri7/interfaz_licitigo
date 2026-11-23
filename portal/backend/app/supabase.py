@@ -23,6 +23,14 @@ class SupabaseError(RuntimeError):
             return ""
 
 
+def cabeceras_servicio(clave: str) -> dict[str, str]:
+    """La clave va en apikey. Authorization solo si es el JWT antiguo (empieza por eyJ)."""
+    cabeceras = {"apikey": clave}
+    if clave.startswith("eyJ"):
+        cabeceras["Authorization"] = f"Bearer {clave}"
+    return cabeceras
+
+
 class Supabase:
     PAGE = 1000  # tope de filas por respuesta de PostgREST
 
@@ -30,7 +38,7 @@ class Supabase:
         s = get_settings()
         self._http = httpx.AsyncClient(
             base_url=f"{s.supabase_url.rstrip('/')}/rest/v1",
-            headers={"apikey": s.supabase_secret_key, "Authorization": f"Bearer {s.supabase_secret_key}"},
+            headers=cabeceras_servicio(s.supabase_secret_key),
             timeout=60,
         )
 

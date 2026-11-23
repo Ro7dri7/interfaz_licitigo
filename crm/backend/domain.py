@@ -73,6 +73,11 @@ class DealDetails(Input):
     expectedClose: date | None = None
 
 
+class AssignOwner(Input):
+    dealId: str
+    owner: str = Field(min_length=2, max_length=80)
+
+
 class Convert(Input):
     prospectId: str
 
@@ -143,7 +148,7 @@ class PropertyValue(Input):
 
 
 SCHEMAS = {'property_create': PropertyNew, 'property_archive': PropertyArchive, 'property_set': PropertyValue,
-           'intake': Intake, 'contact': AddContact, 'deal_details': DealDetails, 'contact_create': NewContact, 'contact_edit': EditContact, 'convert': Convert, 'stage': Move, 'activity': Activity,
+           'intake': Intake, 'contact': AddContact, 'deal_details': DealDetails, 'assign_owner': AssignOwner, 'contact_create': NewContact, 'contact_edit': EditContact, 'convert': Convert, 'stage': Move, 'activity': Activity,
            'task': Task, 'complete_task': Complete, 'product': Product, 'quote': Quote, 'quote_status': QuoteState, 'import_iso': Input}
 
 
@@ -181,6 +186,8 @@ def receive_intake(state, data, actor):
         contact = dict(id=uid(), companyId=company['id'], name=data.contact or 'Contacto por completar',
                        email=str(data.email), phone=data.phone)
         state['contacts'].append(contact)
+    elif contact and data.phone and not (contact.get('phone') or '').strip():
+        contact['phone'] = data.phone
     prospect = dict(id=uid(), companyId=company['id'], contactId=contact['id'] if contact else None,
                     kind=data.kind, origin=data.origin, service=data.service, owner=data.owner, evidence=data.evidence,
                     tender=data.tender, deadline=data.deadline.isoformat() if data.deadline else None,
@@ -284,6 +291,11 @@ def apply_command(original, operation, payload, actor, request_id):
             deal.update(priority=data.priority, expectedClose=close, updatedAt=now())
             names = dict(low='Baja', normal='Normal', high='Alta')
             log(state, deal['id'], 'note', f'Seguimiento actualizado: prioridad {names[data.priority]} · cierre esperado {close or "sin fecha"}', actor)
+    elif operation == 'assign_owner':
+        deal = find(state['deals'], data.dealId)
+        if deal['owner'] != data.owner:
+            deal.update(owner=data.owner, updatedAt=now())
+            log(state, deal['id'], 'note', f'Responsable: {data.owner}', actor)
     elif operation == 'activity':
         find(state['deals'], data.dealId)
         log(state, data.dealId, data.kind, data.text, actor)

@@ -45,6 +45,8 @@ def sqlite_schema():
 class RelationalRepository:
     def __init__(self, path: Path, initial, *, legacy_path: Path | None = None, workspace=DEMO_WORKSPACE):
         self.path, self.workspace = path, workspace
+        self.miembros = [{'usuarioId': 'demo-admin', 'nombre': 'Equipo de prueba', 'correo': 'demo@licihub.local',
+                          'rol': 'admin', 'activo': True}]
         path.parent.mkdir(parents=True, exist_ok=True)
         try:
             with self.connect() as db:
@@ -221,6 +223,16 @@ class RelationalRepository:
                 params.append(request_id)
             tables[table] = [dict(r) for r in db.execute(query, params)]
         return {'revision': workspace['revision'], 'data': decode_state(tables), 'schemaVersion': 3}
+
+    async def equipo(self):
+        return [dict(miembro) for miembro in self.miembros]
+
+    async def guardar_miembro(self, usuario_id, nombre, rol, activo):
+        for miembro in self.miembros:
+            if miembro['usuarioId'] == usuario_id:
+                miembro.update(nombre=nombre, rol=rol, activo=activo)
+                return
+        self.miembros.append({'usuarioId': usuario_id, 'nombre': nombre, 'correo': '', 'rol': rol, 'activo': activo})
 
     async def load(self, request_id=None):
         try:

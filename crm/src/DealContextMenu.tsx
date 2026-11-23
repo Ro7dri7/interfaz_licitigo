@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from './components'
+import { crmPath } from './paths'
 
-const dealUrl = (id: string) => new URL(`/negocios/${id}`, window.location.origin).href
+const dealUrl = (id: string) => new URL(crmPath(`/negocios/${id}`), window.location.origin).href
 
 // Menú del clic derecho sobre un negocio: abrirlo en otra pestaña o ventana, copiar el enlace o ver su resumen.
 export default function DealContextMenu({ dealId, x, y, onClose, onPreview }: { dealId: string; x: number; y: number; onClose: () => void; onPreview: () => void }) {
