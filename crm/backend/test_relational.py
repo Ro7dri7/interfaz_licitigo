@@ -154,3 +154,40 @@ class RelationalStorageTests(unittest.TestCase):
             self.assertEqual(saved.execute('select * from quotes').fetchall(), current.execute('select * from quotes').fetchall())
             with self.assertRaises(sqlite3.IntegrityError):
                 current.execute("update quotes set terms='No debe reescribir el historial'")
+
+
+class OptionalDealColumnsTests(unittest.TestCase):
+    """Una base sin la migración 009 debe seguir guardando mientras nadie use prioridad o cierre esperado."""
+    def deal_state(self):
+        return apply_command(empty_state(), 'intake', dict(company='Opcional SAC', kind='quote', service='ISO 9001'), 'Ana', 'opt-1')
+
+    def changed(self, **extra):
+        before = self.deal_state()
+        after = deepcopy(before)
+        after['deals'][0].update(extra)
+        return before, after
+
+    def test_unused_columns_are_not_sent_on_insert_or_update(self):
+        from backend.relational_codec import changes_between
+        before, after = self.changed(stage='contacted')
+        for old in (empty_state(), before):
+            rows = [c['row'] for c in changes_between(old, after, 'w') if c['table'] == 'deals']
+            self.assertEqual(len(rows), 1)
+            self.assertNotIn('priority', rows[0])
+            self.assertNotIn('expected_close', rows[0])
+
+    def test_changed_columns_are_sent_even_when_returning_to_default(self):
+        from backend.relational_codec import changes_between
+        high, normal = self.changed(priority='high', expectedClose='2026-12-30')[1], None
+        normal = deepcopy(high)
+        normal['deals'][0].update(priority='normal', expectedClose=None)
+        row = next(c['row'] for c in changes_between(high, normal, 'w') if c['table'] == 'deals')
+        self.assertEqual((row['priority'], row['expected_close']), ('normal', None))
+
+    def test_rows_without_the_columns_decode_with_defaults(self):
+        from backend.relational_codec import decode_state, encode_state
+        tables = encode_state(self.deal_state(), 'w')
+        for row in tables['deals']:
+            row.pop('priority'); row.pop('expected_close')
+        deal = decode_state(tables)['deals'][0]
+        self.assertEqual((deal['priority'], deal['expectedClose']), ('normal', None))

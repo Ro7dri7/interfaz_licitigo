@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 test('explicit request with tender context, quote, activity, task and closure persist together', async ({ page, request }) => {
   const errors: string[] = []
   page.on('pageerror', e => errors.push(e.message))
-  await page.goto('/')
+  await page.goto('/mi-dia')
   await expect(page.getByRole('heading', { name: 'Tu día, con foco.' })).toBeVisible()
   const before = await (await request.get('/api/crm/state')).json()
   await page.getByRole('button', { name: 'Nuevo negocio' }).click()
@@ -70,7 +70,8 @@ test('advisor records loss reason for an explicit request', async ({ page }) => 
   await page.getByLabel('Servicio de interés').fill('ISO 45001')
   await page.getByRole('button', { name: 'Crear negocio' }).click()
   await page.getByRole('link', { name: 'Negocios', exact: true }).click()
-  await page.locator('.deal-card').filter({ hasText: 'Empresa Pérdida E2E' }).click()
+  await page.locator('.deal-card').filter({ hasText: 'Empresa Pérdida E2E' }).getByRole('heading').click()
+  await page.getByRole('link', { name: 'Ver registro' }).click()
   await page.getByLabel('Etapa del negocio').selectOption('lost')
   await page.getByLabel('Motivo de pérdida').fill('El cliente ya tiene certificación vigente.')
   await page.getByRole('button', { name: 'Marcar como perdido' }).click()
@@ -108,6 +109,5 @@ test('empty filters and failed API have a recovery path', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'No pudimos cargar el CRM' })).toBeVisible()
   await page.unroute('**/api/crm/state')
   await page.getByRole('button', { name: 'Reintentar conexión' }).click()
-  await expect(page.getByRole('heading', { name: 'Directorio', exact: true })).toBeVisible()
-  await expect(page.getByRole('navigation', { name: 'Vistas del directorio' }).getByRole('link', { name: /Contactos/ })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('heading', { name: 'Contactos', exact: true })).toBeVisible()
 })

@@ -122,6 +122,30 @@ export async function registro(nombre: string, email: string, password: string):
   return s
 }
 
+export async function canjearTicket(ticket: string): Promise<Sesion> {
+  const s = await request<Sesion>('/api/auth/ticket', { method: 'POST', body: { ticket } })
+  guardarSesion(s)
+  return s
+}
+
+export function enviarCodigo(email: string): Promise<{ ok: boolean; mensaje: string }> {
+  return request('/api/auth/otp', { method: 'POST', body: { email } })
+}
+
+export async function verificarCodigo(email: string, codigo: string): Promise<Sesion> {
+  const s = await request<Sesion>('/api/auth/otp/verificar', { method: 'POST', body: { email, codigo } })
+  guardarSesion(s)
+  return s
+}
+
+export function recuperarContrasena(email: string): Promise<{ ok: boolean; mensaje: string }> {
+  return request('/api/auth/recuperar', { method: 'POST', body: { email } })
+}
+
+export function restablecerContrasena(accessToken: string, password: string): Promise<{ ok: boolean }> {
+  return request('/api/auth/restablecer', { method: 'POST', body: { accessToken, password } })
+}
+
 // ----------------------------------------------------------------------------- empresa y perfil
 
 export function empresa(ruc: string): Promise<Company> {

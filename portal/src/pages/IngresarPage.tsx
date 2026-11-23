@@ -2,11 +2,12 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import * as api from '../lib/api'
 import { mensajeError } from '../lib/api'
-import { logout, obtenerSesion, olvidarCierre } from '../lib/auth'
+import { logout, obtenerSesion, olvidarCierre, refrescar } from '../lib/auth'
+import type { Sesion } from '../types/models'
 import { btnPrimary, btnSecondary, card, container, dot, pillNeutral } from '../lib/ui'
 import type { Perfil } from '../types/models'
 
-type Modo = 'login' | 'registro'
+type Modo = 'login' | 'registro' | 'codigo' | 'recuperar'
 
 const label = 'mt-3 mb-1.5 text-[13px] font-semibold'
 const input =
@@ -18,30 +19,74 @@ const tab = (activo: boolean) =>
   }`
 const link = 'border-none bg-transparent p-0 font-semibold text-primary'
 
+/** Solo rutas internas. Rechaza protocolos, barras invertidas y dobles barras. */
+function rutaInterna(valor: string | null): string | null {
+  if (!valor || valor.length > 200 || !valor.startsWith('/') || valor.startsWith('//')) return null
+  if (valor.includes('\\') || valor.includes('://') || /[\r\n\0]/.test(valor)) return null
+  return valor
+}
+
 export function IngresarPage() {
   const navigate = useNavigate()
   // Query params: ?modo=registro&email=...&volver=/app/descubrimiento
   const [params] = useSearchParams()
-  const volver = params.get('volver')
+  const volver = rutaInterna(params.get('volver'))
 
   const [modo, setModo] = useState<Modo>(params.get('modo') === 'registro' ? 'registro' : 'login')
   const [nombre, setNombre] = useState('')
   const [email, setEmail] = useState(params.get('email') ?? '')
   const [password, setPassword] = useState('')
   const [verPassword, setVerPassword] = useState(false)
+  const [codigo, setCodigo] = useState('')
+  const [codigoEnviado, setCodigoEnviado] = useState(false)
+  const [aviso, setAviso] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(params.get('error') === 'google' ? 'No pudimos completar el ingreso con Google. Vuelve a intentarlo.' : null)
   /** Sesión que ya estaba guardada al abrir la página (no la que se crea al iniciar sesión aquí). */
   const [sesionPrevia, setSesionPrevia] = useState(() => obtenerSesion()?.usuario ?? null)
 
   useEffect(() => olvidarCierre(), [])
 
-  /** Con RUC y keywords va directo a Descubrimiento; si no, completa el onboarding. */
+  useEffect(() => {
+    const ticket = params.get('ticket')
+    if (!ticket) return
+    let activo = true
+    setEnviando(true)
+    api
+      .canjearTicket(ticket)
+      .then(() => api.perfil())
+      .then((p) => {
+        if (activo) irSegunPerfil(p)
+      })
+      .catch((err) => {
+        if (!activo) return
+        setEnviando(false)
+        setError(mensajeError(err, 'No pudimos completar el ingreso con Google.'))
+      })
+    return () => {
+      activo = false
+    }
+    // El ticket se canjea una sola vez al abrir el retorno de Google.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params])
+
+  /** Admin y comercial van al CRM. El cliente sigue a onboarding o a Descubrimiento. */
   const irSegunPerfil = (p: Perfil) => {
     setEnviando(false)
+    const rol = (obtenerSesion() as Sesion | null)?.rol
+    const destinoComercial = volver?.startsWith('/comercial') && !volver.startsWith('//') && !volver.startsWith('/comercial/admin')
+    const destinoAdmin = volver?.startsWith('/comercial') && !volver.startsWith('//')
+    if (rol === 'admin') {
+      navigate(destinoAdmin && volver ? volver : '/comercial/admin')
+      return
+    }
+    if (rol === 'commercial') {
+      navigate(destinoComercial && volver ? volver : '/comercial')
+      return
+    }
     if (!p.ruc || !p.keywords.length) {
       navigate('/onboarding')
-    } else if (volver && volver.startsWith('/') && !volver.startsWith('//')) {
+    } else if (volver && volver.startsWith('/') && !volver.startsWith('//') && !volver.startsWith('/comercial')) {
       navigate(volver)
     } else {
       navigate('/app/descubrimiento')
@@ -53,8 +98,8 @@ export function IngresarPage() {
     if (enviando) return
     setEnviando(true)
     setError(null)
-    api
-      .perfil()
+    refrescar()
+      .then(() => api.perfil())
       .then(irSegunPerfil)
       .catch((err) => {
         setEnviando(false)
@@ -75,6 +120,9 @@ export function IngresarPage() {
   const cambiarModo = (m: Modo) => {
     setModo(m)
     setError(null)
+    setAviso(null)
+    setCodigo('')
+    setCodigoEnviado(false)
   }
 
   const enviar = (e: FormEvent) => {
@@ -85,6 +133,51 @@ export function IngresarPage() {
 
     if (modo === 'registro' && nom.length < 2) return setError('Escribe tu nombre.')
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) return setError('Ingresa un correo válido.')
+    if (modo === 'recuperar') {
+      setEnviando(true)
+      setError(null)
+      api
+        .recuperarContrasena(correo)
+        .then((r) => {
+          setEnviando(false)
+          setAviso(r.mensaje)
+        })
+        .catch((err) => {
+          setEnviando(false)
+          setError(mensajeError(err, 'No pudimos enviar el correo. Inténtalo de nuevo.'))
+        })
+      return
+    }
+    if (modo === 'codigo') {
+      if (!codigoEnviado) {
+        setEnviando(true)
+        setError(null)
+        api
+          .enviarCodigo(correo)
+          .then((r) => {
+            setEnviando(false)
+            setCodigoEnviado(true)
+            setAviso(r.mensaje)
+          })
+          .catch((err) => {
+            setEnviando(false)
+            setError(mensajeError(err, 'No pudimos enviar el código.'))
+          })
+        return
+      }
+      if (!/^\d{6,10}$/.test(codigo.trim())) return setError('Ingresa el código que te enviamos.')
+      setEnviando(true)
+      setError(null)
+      api
+        .verificarCodigo(correo, codigo.trim())
+        .then(() => api.perfil())
+        .then(irSegunPerfil)
+        .catch((err) => {
+          setEnviando(false)
+          setError(mensajeError(err, 'No pudimos verificar el código.'))
+        })
+      return
+    }
     if (modo === 'registro' && password.length < 8) {
       return setError('La contraseña debe tener al menos 8 caracteres.')
     }
@@ -138,6 +231,7 @@ export function IngresarPage() {
           </div>
         ) : (
           <form className={cardClass} onSubmit={enviar} noValidate>
+            {modo === 'login' || modo === 'registro' ? (
             <div className="grid grid-cols-[1fr_1fr] rounded-md bg-canvas p-1" role="tablist">
               <button
                 type="button"
@@ -158,17 +252,35 @@ export function IngresarPage() {
                 Crear cuenta
               </button>
             </div>
+            ) : null}
 
-            <h1>{modo === 'login' ? 'Bienvenido de nuevo' : 'Crea tu cuenta gratis'}</h1>
+            <h1>
+              {modo === 'registro'
+                ? 'Crea tu cuenta gratis'
+                : modo === 'recuperar'
+                  ? 'Restablece tu contraseña'
+                  : modo === 'codigo'
+                    ? 'Entra con un código'
+                    : 'Bienvenido de nuevo'}
+            </h1>
             <p className="mt-2 mb-[18px] text-[14px] leading-normal text-muted">
               {modo === 'login' ? (
-                'Entra para ver las licitaciones abiertas que encajan con tu empresa.'
+                'Clientes, equipo comercial y administración entran por aquí.'
+              ) : modo === 'recuperar' ? (
+                'Te enviamos un enlace si el correo está registrado.'
+              ) : modo === 'codigo' ? (
+                'Te enviamos un código de un solo uso. No crea acceso al CRM.'
               ) : (
                 <>
                   Incluye <strong>5 desbloqueos</strong> de licitaciones con bases y análisis ISO con IA.
                 </>
               )}
             </p>
+            {modo === 'login' ? (
+              <a className={`${btnSecondary} w-full`} href={`/api/auth/google${volver ? `?volver=${encodeURIComponent(volver)}` : ''}`}>
+                Continuar con Google
+              </a>
+            ) : null}
 
             {modo === 'registro' ? (
               <>
@@ -204,31 +316,56 @@ export function IngresarPage() {
               onChange={(e) => setEmail(e.target.value)}
             />
 
-            <label className={label} htmlFor="password">
-              Contraseña
-            </label>
-            <div className="relative">
-              <input
-                id="password"
-                className={`${input} pr-[72px]`}
-                type={verPassword ? 'text' : 'password'}
-                maxLength={72}
-                autoComplete={modo === 'login' ? 'current-password' : 'new-password'}
-                name="password"
-                placeholder={modo === 'registro' ? 'Mínimo 8 caracteres' : ''}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <button
-                type="button"
-                className="absolute top-1/2 right-1.5 -translate-y-1/2 border-none bg-transparent px-2 py-1.5 text-[12.5px] font-semibold text-primary"
-                onClick={() => setVerPassword(!verPassword)}
-                aria-label={verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-              >
-                {verPassword ? 'Ocultar' : 'Ver'}
-              </button>
-            </div>
+            {modo === 'login' || modo === 'registro' ? (
+              <>
+                <label className={label} htmlFor="password">
+                  Contraseña
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    className={`${input} pr-[72px]`}
+                    type={verPassword ? 'text' : 'password'}
+                    maxLength={72}
+                    autoComplete={modo === 'login' ? 'current-password' : 'new-password'}
+                    name="password"
+                    placeholder={modo === 'registro' ? 'Mínimo 8 caracteres' : ''}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="absolute top-1/2 right-1.5 -translate-y-1/2 border-none bg-transparent px-2 py-1.5 text-[12.5px] font-semibold text-primary"
+                    onClick={() => setVerPassword(!verPassword)}
+                    aria-label={verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  >
+                    {verPassword ? 'Ocultar' : 'Ver'}
+                  </button>
+                </div>
+              </>
+            ) : null}
+            {modo === 'codigo' && codigoEnviado ? (
+              <>
+                <label className={label} htmlFor="codigo">
+                  Código
+                </label>
+                <input
+                  id="codigo"
+                  className={input}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={12}
+                  value={codigo}
+                  onChange={(e) => setCodigo(e.target.value)}
+                />
+              </>
+            ) : null}
 
+            {aviso ? (
+              <p className="mt-3.5 text-[13.5px] text-muted" role="status">
+                {aviso}
+              </p>
+            ) : null}
             {error ? (
               <p className={errorBox} role="alert">
                 {error}
@@ -236,12 +373,30 @@ export function IngresarPage() {
             ) : null}
 
             <button className={`${btnPrimary} mt-[18px] w-full`} type="submit" disabled={enviando}>
-              {enviando ? 'Un momento…' : modo === 'login' ? 'Entrar' : 'Crear cuenta y continuar'}
+              {enviando
+                ? 'Un momento…'
+                : modo === 'registro'
+                  ? 'Crear cuenta y continuar'
+                  : modo === 'recuperar'
+                    ? 'Enviar enlace'
+                    : modo === 'codigo'
+                      ? codigoEnviado
+                        ? 'Verificar código'
+                        : 'Enviar código'
+                      : 'Entrar'}
             </button>
 
             <p className="mt-4 text-center text-[13.5px] text-muted">
               {modo === 'login' ? (
                 <>
+                  <button type="button" className={link} onClick={() => cambiarModo('codigo')}>
+                    Entrar con un código
+                  </button>
+                  {' · '}
+                  <button type="button" className={link} onClick={() => cambiarModo('recuperar')}>
+                    He olvidado mi contraseña
+                  </button>
+                  <br />
                   ¿No tienes cuenta?{' '}
                   <button type="button" className={link} onClick={() => cambiarModo('registro')}>
                     Créala aquí
@@ -249,9 +404,8 @@ export function IngresarPage() {
                 </>
               ) : (
                 <>
-                  ¿Ya tienes cuenta?{' '}
                   <button type="button" className={link} onClick={() => cambiarModo('login')}>
-                    Inicia sesión
+                    Volver al inicio de sesión
                   </button>
                 </>
               )}

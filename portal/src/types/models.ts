@@ -97,6 +97,8 @@ export interface Sesion {
   /** Epoch en segundos. */
   expiresAt: number
   usuario: Usuario
+  /** Lo decide el backend según licihub_crm.miembros. Ausente en sesiones anteriores. */
+  rol?: 'admin' | 'commercial' | 'cliente'
 }
 
 export interface Cupo {

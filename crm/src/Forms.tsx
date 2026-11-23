@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { CommandForm, Modal } from './components'
 import { useCRM } from './crm-context'
-import { originLabel, evidenceLabels, kindLabels, money, origins } from './types'
-import type { Deal } from './types'
+import { originLabel, evidenceLabels, kindLabels, money, origins, priorityLabels } from './types'
+import type { Contact, Deal } from './types'
 import QuoteForm from './QuoteForm'
 
 export function IntakeForm({ onClose }: { onClose: () => void }) {
@@ -41,11 +41,35 @@ export function ProductForm({ onClose }: { onClose: () => void }) {
   </CommandForm></Modal>
 }
 
+export function ContactForm({ contact, companyId, onClose }: { contact?: Contact; companyId?: string; onClose: () => void }) {
+  const { snapshot: { data } } = useCRM(), editing = Boolean(contact)
+  const companies = data.companies.slice().sort((a, b) => a.name.localeCompare(b.name, 'es'))
+  return <Modal title={editing ? 'Editar contacto' : 'Nuevo contacto'} onClose={onClose}><CommandForm operation={editing ? 'contact_edit' : 'contact_create'} onClose={onClose} label="Guardar contacto"
+    prepare={f => ({ ...(contact ? { contactId: contact.id } : { companyId: f.get('companyId') }), name: f.get('name'), email: f.get('email') ?? '', phone: f.get('phone') ?? '' })}>
+    {!editing && <label>Empresa *<select name="companyId" required defaultValue={companyId ?? ''}><option value="" disabled>Selecciona la empresa</option>{companies.map(c => <option key={c.id} value={c.id}>{c.name}{c.ruc ? ` · ${c.ruc}` : ''}</option>)}</select></label>}
+    <label>Nombre y apellido *<input name="name" required minLength={2} maxLength={100} defaultValue={contact?.name} placeholder="Ej. Ana Torres" /></label>
+    <div className="form-grid"><label>Correo<input name="email" type="email" defaultValue={contact?.email} placeholder="nombre@empresa.com" /></label>
+      <label>Teléfono<input name="phone" type="tel" maxLength={30} defaultValue={contact?.phone} placeholder="+51" /></label></div>
+    <p className="hint">Una empresa puede tener varios contactos. El correo no puede repetirse dentro de la misma empresa.</p>
+  </CommandForm></Modal>
+}
+
 export function DealForm({ deal, type, onClose }: { deal: Deal; type: string; onClose: () => void }) {
   if (type === 'quote') return <QuoteForm deal={deal} onClose={onClose} />
   if (type === 'task') return <Modal title="Programar próxima acción" onClose={onClose}><CommandForm operation="task" onClose={onClose} prepare={f => ({ title: f.get('title'), dueAt: new Date(String(f.get('dueAt'))).toISOString(), dealId: deal.id })}>
     <label>Tarea *<input name="title" required minLength={2} maxLength={200} placeholder="Ej. Confirmar alcance de la certificación" /></label>
     <label>Fecha y hora *<input name="dueAt" type="datetime-local" required /></label><p className="hint">Ingresa la hora local de este equipo. La agenda muestra hora de Perú.</p>
+  </CommandForm></Modal>
+  if (type === 'contact') return <Modal title="Agregar contacto" onClose={onClose}><CommandForm operation="contact" onClose={onClose} label="Guardar contacto" prepare={f => ({ dealId: deal.id, name: f.get('name'), email: f.get('email') ?? '', phone: f.get('phone') ?? '' })}>
+    <p className="form-intro">Persona de la empresa con quien conversas por este negocio. Si el correo ya está registrado en la empresa, se reutiliza ese contacto.</p>
+    <label>Nombre y apellido *<input name="name" required minLength={2} maxLength={100} placeholder="Ej. Ana Torres" /></label>
+    <div className="form-grid"><label>Correo<input name="email" type="email" placeholder="nombre@empresa.com" /></label>
+      <label>Teléfono<input name="phone" type="tel" maxLength={30} placeholder="+51" /></label></div>
+  </CommandForm></Modal>
+  if (type === 'details') return <Modal title="Prioridad y cierre esperado" onClose={onClose}><CommandForm operation="deal_details" onClose={onClose} prepare={f => ({ dealId: deal.id, priority: f.get('priority'), expectedClose: f.get('expectedClose') || null })}>
+    <div className="form-grid"><label>Prioridad<select name="priority" defaultValue={deal.priority ?? 'normal'}>{Object.entries(priorityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+      <label>Cierre esperado<input name="expectedClose" type="date" defaultValue={deal.expectedClose ?? ''} /></label></div>
+    <p className="hint">La fecha es tu estimación de cuándo se cierra la venta; no es un plazo del cliente.</p>
   </CommandForm></Modal>
   if (type === 'lost') return <Modal title="Registrar pérdida" onClose={onClose}><CommandForm operation="stage" onClose={onClose} label="Marcar como perdido" prepare={f => ({ dealId: deal.id, stage: 'lost', reason: f.get('reason') })}>
     <label>Motivo de pérdida *<textarea name="reason" required minLength={2} maxLength={1000} rows={4} placeholder="Registra qué impidió cerrar la venta" /></label>

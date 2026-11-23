@@ -1,3 +1,4 @@
+import re
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlparse
@@ -36,6 +37,8 @@ class Settings(BaseSettings):
 
     crm_api_url: str = ""
     crm_ingest_key: str = ""
+    crm_workspace_id: str = ""
+    public_origin: str = ""
     crm_outbox_file: Path = BACKEND_DIR / 'data' / 'asesorias.sqlite3'
 
     @field_validator('crm_api_url')
@@ -48,6 +51,26 @@ class Settings(BaseSettings):
                 or url.path not in ('', '/') or not (url.scheme == 'https' or
                     (url.scheme == 'http' and url.hostname in ('127.0.0.1', 'localhost', '::1')))):
             raise ValueError('CRM_API_URL debe ser un origen HTTPS, o HTTP local, sin credenciales ni parámetros.')
+        return value.rstrip('/')
+
+    @field_validator('crm_workspace_id')
+    @classmethod
+    def espacio_crm(cls, value: str) -> str:
+        value = value.strip()
+        if value and not re.fullmatch(
+                r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}', value):
+            raise ValueError('CRM_WORKSPACE_ID debe ser el UUID del espacio comercial.')
+        return value
+
+    @field_validator('public_origin')
+    @classmethod
+    def origen_publico(cls, value: str) -> str:
+        if not value:
+            return value
+        url = urlparse(value)
+        if (not url.hostname or url.username or url.password or url.query or url.fragment
+                or url.path not in ('', '/') or url.scheme not in ('http', 'https')):
+            raise ValueError('PUBLIC_ORIGIN debe ser un origen http(s), sin ruta ni credenciales.')
         return value.rstrip('/')
 
 

@@ -16,7 +16,18 @@ LABELS = dict(zip(STAGES, ['Nuevo', 'Contactado', 'Necesidad validada', 'Cotizac
 
 
 def empty_state():
-    return {key: [] for key in ['companies', 'contacts', 'prospects', 'deals', 'tasks', 'activities', 'products', 'quotes', 'receipts']}
+    return {key: [] for key in ['companies', 'contacts', 'prospects', 'deals', 'tasks', 'activities', 'products', 'quotes', 'properties', 'receipts']}
+
+
+# Propiedades personalizadas: solo las crea y usa administración. El resto del equipo no las ve.
+PROPERTY_TABLES = {'deal': 'deals', 'company': 'companies', 'contact': 'contacts'}
+
+
+def hide_admin_data(data):
+    visible = {key: value for key, value in data.items() if key != 'properties'}
+    for table in PROPERTY_TABLES.values():
+        visible[table] = [{k: v for k, v in row.items() if k != 'props'} for row in data[table]]
+    return visible | {'properties': []}
 
 
 class Intake(Input):
@@ -33,6 +44,38 @@ class Intake(Input):
     tender: str = Field(default='', max_length=160)
     deadline: date | None = None
     notes: str = Field(default='', max_length=3000)
+
+
+class AddContact(Input):
+    dealId: str
+    name: str = Field(min_length=2, max_length=100)
+    email: EmailStr | Literal[''] = ''
+    phone: str = Field(default='', max_length=30, pattern=r'^[+\d\s()\-]*$')
+
+
+class NewContact(Input):
+    companyId: str
+    name: str = Field(min_length=2, max_length=100)
+    email: EmailStr | Literal[''] = ''
+    phone: str = Field(default='', max_length=30, pattern=r'^[+\d\s()\-]*$')
+
+
+class EditContact(Input):
+    contactId: str
+    name: str = Field(min_length=2, max_length=100)
+    email: EmailStr | Literal[''] = ''
+    phone: str = Field(default='', max_length=30, pattern=r'^[+\d\s()\-]*$')
+
+
+class DealDetails(Input):
+    dealId: str
+    priority: Literal['low', 'normal', 'high'] = 'normal'
+    expectedClose: date | None = None
+
+
+class AssignOwner(Input):
+    dealId: str
+    owner: str = Field(min_length=2, max_length=80)
 
 
 class Convert(Input):
@@ -74,7 +117,38 @@ class Product(Input):
     active: bool = True
 
 
-SCHEMAS = {'intake': Intake, 'convert': Convert, 'stage': Move, 'activity': Activity,
+class PropertyNew(Input):
+    entity: Literal['deal', 'company', 'contact']
+    name: str = Field(min_length=2, max_length=60)
+    type: Literal['text', 'number', 'select', 'date'] = 'text'
+    options: list[str] = Field(default_factory=list, max_length=30)
+
+    @field_validator('options')
+    @classmethod
+    def clean_options(cls, values):
+        cleaned = []
+        for value in values:
+            value = ' '.join(value.split())
+            if not 1 <= len(value) <= 40:
+                raise ValueError('Cada opción debe tener entre 1 y 40 caracteres.')
+            if value.casefold() not in [c.casefold() for c in cleaned]:
+                cleaned.append(value)
+        return cleaned
+
+
+class PropertyArchive(Input):
+    propertyId: str
+    active: bool
+
+
+class PropertyValue(Input):
+    propertyId: str
+    recordId: str
+    value: str = Field(default='', max_length=200)
+
+
+SCHEMAS = {'property_create': PropertyNew, 'property_archive': PropertyArchive, 'property_set': PropertyValue,
+           'intake': Intake, 'contact': AddContact, 'deal_details': DealDetails, 'assign_owner': AssignOwner, 'contact_create': NewContact, 'contact_edit': EditContact, 'convert': Convert, 'stage': Move, 'activity': Activity,
            'task': Task, 'complete_task': Complete, 'product': Product, 'quote': Quote, 'quote_status': QuoteState, 'import_iso': Input}
 
 
@@ -88,7 +162,7 @@ def open_deal(state, prospect, actor):
     if not deal:
         deal = dict(id=uid(), companyId=prospect['companyId'], contactId=prospect['contactId'],
                     service=prospect['service'], origin=prospect['origin'], owner=prospect['owner'], stage='new',
-                    amount=0, createdAt=now(), updatedAt=now(), closedAt=None, lossReason='', prospectIds=[])
+                    amount=0, createdAt=now(), updatedAt=now(), closedAt=None, lossReason='', prospectIds=[], priority='normal', expectedClose=None)
         state['deals'].append(deal)
         log(state, deal['id'], 'created', 'Negocio abierto. Pendiente de primera atención.', actor)
         state['tasks'].append(dict(id=uid(), dealId=deal['id'], title='Realizar primera atención',
@@ -112,7 +186,7 @@ def receive_intake(state, data, actor):
         contact = dict(id=uid(), companyId=company['id'], name=data.contact or 'Contacto por completar',
                        email=str(data.email), phone=data.phone)
         state['contacts'].append(contact)
-    elif contact and data.phone and not contact['phone']:
+    elif contact and data.phone and not (contact.get('phone') or '').strip():
         contact['phone'] = data.phone
     prospect = dict(id=uid(), companyId=company['id'], contactId=contact['id'] if contact else None,
                     kind=data.kind, origin=data.origin, service=data.service, owner=data.owner, evidence=data.evidence,
@@ -138,8 +212,51 @@ def apply_command(original, operation, payload, actor, request_id):
         return original
     data = SCHEMAS[operation].model_validate(payload)
     state = deepcopy(original)
-    if operation == 'intake':
+    state.setdefault('properties', [])
+    if operation == 'property_create':
+        if any(p['entity'] == data.entity and p['name'].casefold() == data.name.casefold() for p in state['properties']):
+            raise ValueError('Ya existe una propiedad con ese nombre para este tipo de registro.')
+        if data.type == 'select' and not data.options:
+            raise ValueError('Una propiedad de lista necesita al menos una opción.')
+        state['properties'].append(dict(id=uid(), entity=data.entity, name=data.name, type=data.type,
+                                        options=data.options if data.type == 'select' else [], active=True, createdAt=now()))
+    elif operation == 'property_archive':
+        find(state['properties'], data.propertyId)['active'] = data.active
+    elif operation == 'property_set':
+        prop = find(state['properties'], data.propertyId)
+        if not prop['active']:
+            raise ValueError('Esta propiedad está archivada. Actívala para editar sus valores.')
+        record = find(state[PROPERTY_TABLES[prop['entity']]], data.recordId)
+        value = ' '.join(data.value.split())
+        if value:
+            try:
+                if prop['type'] == 'number':
+                    value = format(Decimal(value.replace(',', '.')).normalize(), 'f')
+                elif prop['type'] == 'date':
+                    value = date.fromisoformat(value).isoformat()
+            except Exception as error:
+                raise ValueError('El valor no corresponde al tipo de la propiedad.') from error
+            if prop['type'] == 'select' and value not in prop['options']:
+                raise ValueError('Elige una de las opciones de la lista.')
+        props = dict(record.get('props') or {})
+        if value:
+            props[prop['id']] = value
+        else:
+            props.pop(prop['id'], None)
+        record['props'] = props
+    elif operation == 'intake':
         receive_intake(state, data, actor)
+    elif operation == 'contact':
+        deal = find(state['deals'], data.dealId)
+        # Un correo ya registrado en la empresa se reutiliza: no se duplica a la persona.
+        contact = next((c for c in state['contacts'] if c['companyId'] == deal['companyId'] and data.email
+                        and c['email'].casefold() == str(data.email).casefold()), None)
+        if not contact:
+            contact = dict(id=uid(), companyId=deal['companyId'], name=data.name, email=str(data.email), phone=data.phone)
+            state['contacts'].append(contact)
+            log(state, deal['id'], 'note', f'Contacto agregado: {contact["name"]}', actor)
+        if not deal.get('contactId'):
+            deal['contactId'] = contact['id']
     elif operation == 'convert':
         p = find(state['prospects'], data.prospectId)
         if p['dealId']:
@@ -156,6 +273,29 @@ def apply_command(original, operation, payload, actor, request_id):
             deal.update(stage=data.stage, updatedAt=now(), closedAt=now() if data.stage in ['won', 'lost'] else None,
                         lossReason=data.reason if data.stage == 'lost' else '')
             log(state, deal['id'], 'stage', f'Etapa: {LABELS[data.stage]}' + (f' · {data.reason}' if data.reason else ''), actor)
+    elif operation in ['contact_create', 'contact_edit']:
+        creating = operation == 'contact_create'
+        contact = None if creating else find(state['contacts'], data.contactId)
+        company = find(state['companies'], data.companyId if creating else contact['companyId'])
+        email = str(data.email)
+        if email and any(c['companyId'] == company['id'] and c is not contact and c['email'].casefold() == email.casefold() for c in state['contacts']):
+            raise ValueError('Ya existe un contacto con ese correo en esta empresa.')
+        if creating:
+            state['contacts'].append(dict(id=uid(), companyId=company['id'], name=data.name, email=email, phone=data.phone))
+        else:
+            contact.update(name=data.name, email=email, phone=data.phone)
+    elif operation == 'deal_details':
+        deal = find(state['deals'], data.dealId)
+        close = data.expectedClose.isoformat() if data.expectedClose else None
+        if (deal.get('priority', 'normal'), deal.get('expectedClose')) != (data.priority, close):
+            deal.update(priority=data.priority, expectedClose=close, updatedAt=now())
+            names = dict(low='Baja', normal='Normal', high='Alta')
+            log(state, deal['id'], 'note', f'Seguimiento actualizado: prioridad {names[data.priority]} · cierre esperado {close or "sin fecha"}', actor)
+    elif operation == 'assign_owner':
+        deal = find(state['deals'], data.dealId)
+        if deal['owner'] != data.owner:
+            deal.update(owner=data.owner, updatedAt=now())
+            log(state, deal['id'], 'note', f'Responsable: {data.owner}', actor)
     elif operation == 'activity':
         find(state['deals'], data.dealId)
         log(state, data.dealId, data.kind, data.text, actor)

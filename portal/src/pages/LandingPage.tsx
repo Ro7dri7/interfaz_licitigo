@@ -40,6 +40,11 @@ export function LandingPage() {
             <span className={dot} style={{ background: 'var(--color-success)' }} />
             Perú • SEACE 3.0
           </span>
+          {import.meta.env.VITE_CRM_BASE && (
+            <Link to="/comercial" className="font-semibold text-primary">
+              Espacio comercial
+            </Link>
+          )}
           <span>
             ¿Ya tienes cuenta?{' '}
             <Link to="/ingresar" className="font-semibold text-primary">

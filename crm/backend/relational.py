@@ -45,6 +45,8 @@ def sqlite_schema():
 class RelationalRepository:
     def __init__(self, path: Path, initial, *, legacy_path: Path | None = None, workspace=DEMO_WORKSPACE):
         self.path, self.workspace = path, workspace
+        self.miembros = [{'usuarioId': 'demo-admin', 'nombre': 'Equipo de prueba', 'correo': 'demo@licihub.local',
+                          'rol': 'admin', 'activo': True}]
         path.parent.mkdir(parents=True, exist_ok=True)
         try:
             with self.connect() as db:
@@ -54,6 +56,20 @@ class RelationalRepository:
                 for column in QUOTE_DOCUMENT_FIELDS.values():
                     if column not in existing:
                         db.execute(f'alter table quotes add column {column} {"boolean" if column == "tax_included" else "text"}')
+                deal_columns = {row['name'] for row in db.execute('pragma table_info(deals)')}
+                for column, definition in [('priority', "text not null default 'normal'"), ('expected_close', 'text')]:
+                    if column not in deal_columns:
+                        db.execute(f'alter table deals add column {column} {definition}')
+                for table in ['companies', 'contacts', 'deals']:
+                    if 'props' not in {row['name'] for row in db.execute(f'pragma table_info({table})')}:
+                        db.execute(f"alter table {table} add column props text not null default '{{}}'")
+                db.executescript('''create table if not exists properties (
+                    workspace_id text not null references workspaces(id), id text not null,
+                    entity text not null check(entity in ('deal','company','contact')),
+                    name text not null, kind text not null check(kind in ('text','number','select','date')),
+                    options text not null default '[]', active boolean not null default 1,
+                    created_at text not null, sort_order integer not null,
+                    primary key(workspace_id,id));''')
                 self.upgrade_quote_constraint(db)
                 self.upgrade_telegram_origin(db)
                 db.executescript('''create table if not exists quote_events (
@@ -163,6 +179,7 @@ class RelationalRepository:
     def validate_snapshot(snapshot):
         if not isinstance(snapshot['revision'], int) or snapshot['revision'] < 0:
             raise ValueError('Revisión inválida.')
+        snapshot['data'].setdefault('properties', [])
         if set(snapshot['data']) != set(TABLE_FIELDS) or not all(isinstance(v, list) for v in snapshot['data'].values()):
             raise ValueError('Formato de datos incompleto.')
 
@@ -205,7 +222,17 @@ class RelationalRepository:
                 query += ' and request_id=?'
                 params.append(request_id)
             tables[table] = [dict(r) for r in db.execute(query, params)]
-        return {'revision': workspace['revision'], 'data': decode_state(tables), 'schemaVersion': 2}
+        return {'revision': workspace['revision'], 'data': decode_state(tables), 'schemaVersion': 3}
+
+    async def equipo(self):
+        return [dict(miembro) for miembro in self.miembros]
+
+    async def guardar_miembro(self, usuario_id, nombre, rol, activo):
+        for miembro in self.miembros:
+            if miembro['usuarioId'] == usuario_id:
+                miembro.update(nombre=nombre, rol=rol, activo=activo)
+                return
+        self.miembros.append({'usuarioId': usuario_id, 'nombre': nombre, 'correo': '', 'rol': rol, 'activo': activo})
 
     async def load(self, request_id=None):
         try:

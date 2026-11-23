@@ -69,3 +69,13 @@ class SupabaseRepository:
     async def member(self, user_id):
         miembro = await self.rpc('licihub_crm_miembro', {'p_espacio_id': self.workspace, 'p_usuario_id': user_id})
         return {'display_name': miembro['nombre_visible'], 'role': miembro['rol']} if miembro else None
+
+    async def equipo(self):
+        filas = await self.rpc('licihub_crm_equipo', {'p_espacio_id': self.workspace})
+        return filas if isinstance(filas, list) else []
+
+    async def guardar_miembro(self, usuario_id, nombre, rol, activo):
+        await self.rpc('licihub_crm_guardar_miembro', {
+            'p_espacio_id': self.workspace, 'p_usuario_id': usuario_id,
+            'p_nombre': nombre, 'p_rol': rol, 'p_activo': activo,
+        })

@@ -12,7 +12,7 @@ from pydantic import Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from .domain import Input, apply_command
+from .domain import Input, apply_command, hide_admin_data
 from .repository import AccessDenied, Conflict, StorageUnavailable, SupabaseRepository, TelegramSchemaMissing
 from .relational import RelationalRepository
 from .seed import demo_state
@@ -43,6 +43,17 @@ class Command(Input):
 class Event(Input):
     requestId: str = Field(min_length=1, max_length=120)
     payload: dict
+
+
+class AltaMiembro(Input):
+    email: str = Field(min_length=3, max_length=254)
+    rol: Literal['admin', 'commercial']
+
+
+class AccesoMiembro(Input):
+    usuarioId: str = Field(min_length=8, max_length=80)
+    rol: Literal['admin', 'commercial']
+    activo: bool
 
 
 class Login(Input):
@@ -79,29 +90,64 @@ def create_app(settings=None, repository=None):
             if len(body) > 65536:
                 return JSONResponse({'detail': 'Solicitud demasiado grande.'}, status_code=413)
         response = await call_next(request)
+        renovacion = getattr(request.state, 'crm_renovacion', None)
+        if renovacion:
+            _poner_cookies(response, renovacion['access_token'], renovacion.get('refresh_token') or '',
+                           int(renovacion.get('expires_in') or 3600))
         response.headers.update({'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY'})
         return response
+
+    def _cabeceras():
+        headers = {'apikey': config.supabase_secret_key}
+        if config.supabase_secret_key.startswith('eyJ'):
+            headers['Authorization'] = f'Bearer {config.supabase_secret_key}'
+        return headers
+
+    def _poner_cookies(response, access, refresh, expires_in):
+        response.set_cookie('lici_crm_session', access, httponly=True, secure=True, samesite='strict',
+                            max_age=min(int(expires_in or 3600), 3600), path='/api/crm')
+        if refresh:
+            response.set_cookie('lici_crm_refresh', refresh, httponly=True, secure=True, samesite='strict',
+                                max_age=60 * 60 * 24 * 14, path='/api/crm')
+
+    def _borrar_cookies(response):
+        response.delete_cookie('lici_crm_session', path='/api/crm', secure=True, httponly=True, samesite='strict')
+        response.delete_cookie('lici_crm_refresh', path='/api/crm', secure=True, httponly=True, samesite='strict')
 
     async def account(request):
         if config.mode == 'demo':
             return {'name': 'Equipo de prueba', 'role': 'admin'}
         token = request.cookies.get('lici_crm_session')
-        if not token:
+        refresh = request.cookies.get('lici_crm_refresh')
+        if not token and not refresh:
             raise HTTPException(401, 'Inicia sesión con tu cuenta comercial.')
+        user = None
         async with httpx.AsyncClient(timeout=15) as client:
-            response = await client.get(config.supabase_url.rstrip('/') + '/auth/v1/user',
-                                         headers={'apikey': config.supabase_secret_key, 'Authorization': f'Bearer {token}'})
-        if response.status_code != 200:
+            if token:
+                response = await client.get(config.supabase_url.rstrip('/') + '/auth/v1/user',
+                                             headers={**_cabeceras(), 'Authorization': f'Bearer {token}'})
+                if response.status_code == 200:
+                    user = response.json()
+            if user is None and refresh:
+                renovada = await client.post(config.supabase_url.rstrip('/') + '/auth/v1/token',
+                                              params={'grant_type': 'refresh_token'}, headers=_cabeceras(),
+                                              json={'refresh_token': refresh})
+                if renovada.status_code == 200:
+                    datos = renovada.json()
+                    request.state.crm_renovacion = datos
+                    user = datos.get('user') or {}
+        if not user:
             raise HTTPException(401, 'Tu sesión venció. Vuelve a ingresar.')
-        user = response.json()
         member = await repo.member(user.get('id', ''))
         if not member or member['role'] not in ['admin', 'commercial']:
             raise HTTPException(403, 'Tu cuenta no tiene acceso a este espacio comercial.')
         return {'id': user['id'], 'name': member['display_name'], 'role': member['role']}
 
-    def public(snapshot):
-        # Idempotency hashes remain server-side.
+    def public(snapshot, actor):
+        # Idempotency hashes remain server-side. Las propiedades personalizadas son solo para administración.
         data = {k: v for k, v in snapshot['data'].items() if k != 'receipts'}
+        if actor['role'] != 'admin':
+            data = hide_admin_data(data)
         data['products'] = [p | ({key: m[key] for key in ['sku', 'category', 'isPackage', 'sourceRow']} if (m := metadata(p['id'])) else {})
                             for p in data['products']]
         return {'revision': snapshot['revision'], 'data': data, 'schemaVersion': snapshot.get('schemaVersion', 1)}
@@ -114,17 +160,18 @@ def create_app(settings=None, repository=None):
     async def access_handler(_request, _error):
         return JSONResponse({'detail': 'No tienes permiso para realizar esta operación en el espacio comercial.'}, status_code=403)
 
+    @app.exception_handler(TelegramSchemaMissing)
+    async def telegram_schema_handler(_request, _error):
+        return JSONResponse({'code': 'crm_telegram_schema_missing',
+                             'detail': 'Falta ejecutar 008_origen_telegram.sql en Supabase para aceptar el origen Telegram.'},
+                            status_code=503)
+
     @app.exception_handler(StorageUnavailable)
     @app.exception_handler(httpx.HTTPError)
     @app.exception_handler(OSError)
     async def storage_handler(_request, _error):
-        return JSONResponse({'detail': 'No se pudo acceder al almacenamiento. Tus cambios no se han confirmado.',
-                             'code': 'crm_storage_unavailable'}, status_code=503)
-
-    @app.exception_handler(TelegramSchemaMissing)
-    async def telegram_schema_handler(_request, _error):
-        return JSONResponse({'detail': 'La base rechaza el origen Telegram. Ejecuta 008_origen_telegram.sql en el proyecto Supabase de este CRM.',
-                             'code': 'crm_telegram_schema_missing'}, status_code=503)
+        return JSONResponse({'code': 'crm_storage_unavailable',
+                             'detail': 'No se pudo acceder al almacenamiento. Tus cambios no se han confirmado.'}, status_code=503)
 
     @app.exception_handler(RequestValidationError)
     @app.exception_handler(ValidationError)
@@ -136,10 +183,77 @@ def create_app(settings=None, repository=None):
     async def value_handler(_request, error):
         return JSONResponse({'detail': str(error) if len(str(error)) < 300 else 'No se pudo procesar el registro.'}, status_code=422)
 
+    async def _asesores():
+        if config.mode == 'demo':
+            return TEST_ADVISORS
+        try:
+            miembros = await repo.equipo()
+        except StorageUnavailable:
+            return []
+        return [m['nombre'] for m in miembros if m.get('activo') and m.get('nombre')]
+
+    def _exige_admin(actor):
+        if actor.get('role') != 'admin':
+            raise HTTPException(403, 'Solo administración puede gestionar el equipo.')
+
+    def _sin_admin_restante(miembros, usuario_id, rol, activo):
+        sigue = rol == 'admin' and activo
+        otros = [m for m in miembros if m.get('activo') and m.get('rol') == 'admin' and m.get('usuarioId') != usuario_id]
+        return not sigue and not otros
+
+    async def _usuario_por_correo(email):
+        correo = email.strip().lower()
+        async with httpx.AsyncClient(timeout=15) as client:
+            respuesta = await client.get(config.supabase_url.rstrip('/') + '/auth/v1/admin/users',
+                                         headers=_cabeceras(), params={'filter': correo, 'page': 1, 'per_page': 50})
+        if respuesta.status_code >= 400:
+            raise HTTPException(503, 'No pudimos consultar las cuentas. Inténtalo de nuevo.')
+        cuerpo = respuesta.json()
+        usuarios = cuerpo.get('users') if isinstance(cuerpo, dict) else cuerpo
+        for usuario in usuarios or []:
+            if str(usuario.get('email') or '').lower() == correo:
+                return usuario
+        raise HTTPException(404, 'No hay una cuenta con ese correo. La persona debe registrarse antes.')
+
     @app.get('/api/crm/session')
     async def session(request: Request):
-        return {'mode': config.mode, 'user': await account(request), 'advisors': TEST_ADVISORS,
+        actor = await account(request)
+        return {'mode': config.mode, 'user': actor, 'advisors': await _asesores(),
                 'isoCatalogSize': len(catalog()), 'issuer': ISSUER, 'intakeEnabled': bool(config.ingest_key)}
+
+    @app.get('/api/crm/team')
+    async def team(request: Request):
+        actor = await account(request)
+        _exige_admin(actor)
+        return {'members': await repo.equipo()}
+
+    @app.post('/api/crm/team')
+    async def team_add(data: AltaMiembro, request: Request):
+        actor = await account(request)
+        _exige_admin(actor)
+        if config.mode == 'demo':
+            raise HTTPException(400, 'El espacio de prueba no administra cuentas reales.')
+        usuario = await _usuario_por_correo(data.email)
+        meta = usuario.get('user_metadata') or {}
+        nombre = str(meta.get('nombre') or meta.get('full_name') or meta.get('name') or data.email.split('@')[0] or 'Asesor')
+        nombre = ' '.join(nombre.split())[:100]
+        if len(nombre) < 2:
+            nombre = 'Asesor'
+        await repo.guardar_miembro(usuario['id'], nombre, data.rol, True)
+        return {'members': await repo.equipo()}
+
+    @app.post('/api/crm/team/acceso')
+    async def team_access(data: AccesoMiembro, request: Request):
+        actor = await account(request)
+        _exige_admin(actor)
+        miembros = await repo.equipo()
+        actual = next((m for m in miembros if m.get('usuarioId') == data.usuarioId), None)
+        if not actual:
+            raise HTTPException(404, 'Esa persona no está en el equipo.')
+        if _sin_admin_restante(miembros, data.usuarioId, data.rol, data.activo):
+            raise HTTPException(409, 'Debe quedar al menos un administrador activo. No puedes quitarte el acceso si eres el único.')
+        await repo.guardar_miembro(data.usuarioId, actual['nombre'], data.rol, data.activo)
+        return {'members': await repo.equipo()}
 
     @app.post('/api/crm/login')
     async def login(data: Login, response: Response):
@@ -154,48 +268,52 @@ def create_app(settings=None, repository=None):
         member = await repo.member(result['user']['id'])
         if not member or member['role'] not in ['admin', 'commercial']:
             raise HTTPException(403, 'Esta cuenta no tiene acceso comercial.')
-        response.set_cookie('lici_crm_session', result['access_token'], httponly=True, secure=True,
-                            samesite='strict', max_age=min(result.get('expires_in', 3600), 3600), path='/api/crm')
+        _poner_cookies(response, result['access_token'], result.get('refresh_token') or '',
+                       int(result.get('expires_in') or 3600))
         return {'ok': True}
 
     @app.post('/api/crm/logout')
     async def logout(response: Response):
-        response.delete_cookie('lici_crm_session', path='/api/crm')
+        _borrar_cookies(response)
         return {'ok': True}
 
     @app.get('/api/crm/state')
     async def state(request: Request):
-        await account(request)
-        return public(await repo.load())
+        actor = await account(request)
+        return public(await repo.load(), actor)
 
     @app.post('/api/crm/commands')
     async def command(data: Command, request: Request):
         actor = await account(request)
         if data.operation in ['product', 'import_iso'] and actor['role'] != 'admin':
             raise HTTPException(403, 'Solo administración puede agregar servicios al catálogo.')
+        if data.operation.startswith('property_') and actor['role'] != 'admin':
+            raise HTTPException(403, 'Solo administración puede crear y editar propiedades.')
         snapshot = await repo.load(request_id=data.requestId)
+        if data.operation.startswith('property_') and snapshot.get('schemaVersion', 1) < 3:
+            raise HTTPException(503, 'Falta ejecutar 010_propiedades.sql en Supabase para habilitar las propiedades personalizadas.')
         if data.operation in ['quote', 'quote_status'] and snapshot.get('schemaVersion', 1) < 2:
             raise HTTPException(503, 'Falta ejecutar 006_cotizaciones_multiples.sql en Supabase para habilitar las nuevas propuestas.')
         updated = apply_command(snapshot['data'], data.operation, data.payload, actor['name'], data.requestId)
         if updated is snapshot['data']:
-            return public(snapshot)
+            return public(snapshot, actor)
         if data.revision != snapshot['revision']:
             raise Conflict()
-        return public(await repo.save(updated, snapshot['revision'], before=snapshot, actor=actor))
+        return public(await repo.save(updated, snapshot['revision'], before=snapshot, actor=actor), actor)
 
     @app.post('/api/crm/events')
     async def event(data: Event, request: Request):
         if not config.ingest_key:
-            return JSONResponse({'detail': 'La recepción comercial está deshabilitada. Configura CRM_INGEST_KEY en backend/.env del CRM y reinicia su API.',
-                                 'code': 'crm_ingest_disabled'}, status_code=503)
+            return JSONResponse({'code': 'crm_ingest_disabled',
+                                 'detail': 'La recepción de eventos de Lici no está habilitada. Configura CRM_INGEST_KEY.'},
+                                status_code=503)
         supplied = request.headers.get('x-crm-ingest-key', '')
         if not secrets.compare_digest(supplied.encode(), config.ingest_key.encode()):
             raise HTTPException(401, 'Credencial de integración no válida.')
         if data.payload.get('origin') not in ['Lici', 'Telegram']:
             raise HTTPException(422, 'Este canal solo recibe solicitudes del portal o Telegram.')
         if data.payload.get('kind') not in ['advice', 'quote']:
-            return JSONResponse({'detail': 'Solo se registran solicitudes explícitas de asesoría o cotización.',
-                                 'code': 'crm_explicit_request_required'}, status_code=422)
+            raise HTTPException(422, 'Solo se registran solicitudes explícitas de asesoría o cotización.')
         for _ in range(3):
             snapshot = await repo.load(request_id=f'lici:{data.requestId}')
             updated = apply_command(snapshot['data'], 'intake', data.payload, f'Integración {data.payload["origin"]}', f'lici:{data.requestId}')

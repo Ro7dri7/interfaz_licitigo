@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Session, Snapshot } from './types'
 import { ApiError, api, fetchWorkspace } from './api'
 import { Context } from './crm-context'
+import { CRM_BASE } from './paths'
 
 export function CRMProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
@@ -11,7 +12,15 @@ export function CRMProvider({ children }: { children: ReactNode }) {
   const [login, setLogin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [now, setNow] = useState(Date.now)
+  // La revisión más reciente, para que varios comandos seguidos (p. ej. una importación) no usen una copia vieja del estado.
+  const revision = useRef<number | undefined>(undefined)
+  useEffect(() => { revision.current = snapshot?.revision }, [snapshot])
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 60000); return () => window.clearInterval(timer) }, [])
+  useEffect(() => {
+    if (!login || !CRM_BASE) return
+    const volver = window.location.pathname + window.location.search
+    window.location.replace(`/ingresar?volver=${encodeURIComponent(volver)}`)
+  }, [login])
   const refresh = useCallback(async () => {
     const next = await fetchWorkspace()
     setSession(next.session); setSnapshot(current => !current || next.snapshot.revision >= current.revision ? next.snapshot : current); setError(''); setLogin(false)
@@ -39,7 +48,8 @@ export function CRMProvider({ children }: { children: ReactNode }) {
   }, [session, login, load])
   async function command(operation: string, payload: unknown, requestId: string = crypto.randomUUID()) {
     try {
-      const next = await api<Snapshot>('commands', { operation, payload, requestId, revision: snapshot?.revision })
+      const next = await api<Snapshot>('commands', { operation, payload, requestId, revision: revision.current ?? snapshot?.revision })
+      revision.current = next.revision
       setSnapshot(current => !current || next.revision >= current.revision ? next : current)
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) await refresh()
@@ -47,6 +57,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
       throw e
     }
   }
+  if (login && CRM_BASE) return <div className="access-page"><div className="panel access-card"><h1>Te llevamos a iniciar sesión…</h1></div></div>
   if (login) return <div className="access-page"><form className="panel access-card" onSubmit={async e => {
     e.preventDefault(); const fields = new FormData(e.currentTarget); setLoading(true); setError('')
     try { await api('login', Object.fromEntries(fields)); await refresh() } catch (err) { setError((err as Error).message) } finally { setLoading(false) }
