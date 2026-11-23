@@ -87,7 +87,8 @@ def create_app(settings=None, repository=None):
         if config.mode == 'demo' and request.client and request.client.host not in ['127.0.0.1', '::1', 'testclient']:
             return JSONResponse({'detail': 'El espacio de prueba solo admite acceso local.'}, status_code=403)
         if request.method not in ['GET', 'HEAD', 'OPTIONS']:
-            if request.url.path != '/api/crm/events' and request.headers.get('origin') != config.origin:
+            # logout: SameSite=strict ya limita CSRF; permite salir aunque CRM_ORIGIN aún no apunte a Vercel.
+            if request.url.path not in ('/api/crm/events', '/api/crm/logout') and request.headers.get('origin') != config.origin:
                 return JSONResponse({'detail': f'Origen de solicitud no permitido. Abre el CRM en {config.origin}. '
                                      'Si cambiaste CRM_ORIGIN en backend/.env, reinicia la API.'}, status_code=403)
             body = await request.body()

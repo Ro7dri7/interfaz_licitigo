@@ -23,7 +23,6 @@ export default function App() {
   return (
     <Routes>
       {import.meta.env.VITE_CRM_BASE && <Route path="/comercial/*" element={<CrmShell />} />}
-      {import.meta.env.VITE_CRM_BASE && <Route path="/comercial" element={<CrmShell />} />}
       <Route path="/" element={<LandingPage />} />
       <Route path="/ingresar" element={<IngresarPage />} />
       <Route path="/ingresar/restablecer" element={<RestablecerPage />} />

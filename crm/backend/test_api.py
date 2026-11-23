@@ -38,6 +38,12 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertIn('http://127.0.0.1:5174', response.json()['detail'])
 
+    def test_logout_is_allowed_from_any_origin(self):
+        # Con Vercel el Origin es la app pública; CRM_ORIGIN puede quedar desfasado en EC2.
+        self.client.headers['Origin'] = 'https://licihub.vercel.app'
+        response = self.client.post('/api/crm/logout', json={})
+        self.assertEqual(response.status_code, 200)
+
     def test_login_with_wrong_origin_is_rejected_before_checking_credentials(self):
         config = Settings(_env_file=None, mode='supabase', origin='https://127.0.0.1:5174',
                           supabase_url='https://project.example.com', supabase_secret_key='test-only', workspace_id='test')
