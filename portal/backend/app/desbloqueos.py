@@ -23,10 +23,11 @@ _tareas: set[asyncio.Task] = set()
 
 
 class DesbloqueoError(Exception):
-    def __init__(self, status: int, mensaje: str):
+    def __init__(self, status: int, mensaje: str, error: str | None = None):
         super().__init__(mensaje)
         self.status = status
         self.mensaje = mensaje
+        self.error = error
 
 
 def _ahora() -> datetime:
@@ -54,8 +55,14 @@ def _vencido(d: dict) -> bool:
 
 async def cupo(perfil: dict) -> dict:
     usados = await get_db().count("desbloqueos", {"perfil_id": f"eq.{perfil['id']}"})
-    limite = int(perfil.get("limite_desbloqueos") or 0)
-    return {"usados": usados, "limite": limite, "disponibles": max(0, limite - usados)}
+    if perfil.get("creditos_desbloqueo") is None:
+        limite = int(perfil.get("limite_desbloqueos") or 0)
+        disponibles = max(0, limite - usados)
+        return {"usados": usados, "limite": limite, "disponibles": disponibles,
+                "creditos": disponibles, "plan": perfil.get("plan_actual") or "free"}
+    creditos = max(0, int(perfil.get("creditos_desbloqueo") or 0))
+    return {"usados": usados, "limite": usados + creditos, "disponibles": creditos,
+            "creditos": creditos, "plan": perfil.get("plan_actual") or "free"}
 
 
 async def enlaces_desbloqueados(perfil_id: str, convocatoria_ids: list[int]) -> dict[int, dict]:
@@ -75,20 +82,26 @@ async def desbloquear(perfil: dict, convocatoria_id: int) -> dict:
     if not perfil.get("ruc_empresa"):
         raise DesbloqueoError(409, "Registra el RUC de tu empresa antes de desbloquear licitaciones.")
     try:
-        filas = await get_db().rpc("desbloquear_licitacion",
-                                   {"p_perfil": perfil["id"], "p_convocatoria": convocatoria_id})
+        resultado = await get_db().rpc("consumir_credito_desbloqueo",
+                                       {"p_perfil": perfil["id"], "p_convocatoria": convocatoria_id})
     except SupabaseError as e:
-        if "LIMITE_DESBLOQUEOS" in e.mensaje:
-            limite = int(perfil.get("limite_desbloqueos") or 0)
-            raise DesbloqueoError(403, f"Ya usaste tus {limite} desbloqueos disponibles.") from e
         if "LICITACION_NO_DISPONIBLE" in e.mensaje:
             raise DesbloqueoError(409, "Esta licitación ya no está abierta, no se puede desbloquear.") from e
         if "PERFIL_NO_ENCONTRADO" in e.mensaje:
             raise DesbloqueoError(404, "No encontramos tu perfil.") from e
+        if e.status == 404 or "PGRST202" in e.detalle:
+            raise DesbloqueoError(503, "Falta ejecutar 012_creditos_stripe.sql en Supabase.") from e
         raise
-    if filas and filas[0].get("nuevo"):
-        log.info("Perfil %s desbloqueó la convocatoria %s (%s/%s)", perfil["id"], convocatoria_id,
-                 filas[0].get("usados"), filas[0].get("limite"))
+    if isinstance(resultado, list):
+        resultado = resultado[0] if resultado else {}
+    if not isinstance(resultado, dict):
+        raise DesbloqueoError(503, "La base no confirmó el desbloqueo.")
+    perfil = {**perfil, "creditos_desbloqueo": int(resultado.get("creditos") or 0)}
+    if resultado.get("estado") == "sin_creditos":
+        raise DesbloqueoError(402, "No te quedan créditos de desbloqueo.", error="sin_creditos")
+    if resultado.get("estado") == "descontado":
+        log.info("Perfil %s usó 1 crédito en la convocatoria %s (quedan %s)", perfil["id"], convocatoria_id,
+                 perfil["creditos_desbloqueo"])
     await iniciar_analisis(perfil, convocatoria_id)
     return await detalle(perfil, convocatoria_id)
 

@@ -15,7 +15,11 @@ interface Miembro {
 export default function AdminTeam() {
   const [members, setMembers] = useState<Miembro[]>([])
   const [email, setEmail] = useState('')
+  const [nombre, setNombre] = useState('')
+  const [password, setPassword] = useState('')
   const [rol, setRol] = useState<'admin' | 'commercial'>('commercial')
+  const [claveDe, setClaveDe] = useState('')
+  const [nuevaClave, setNuevaClave] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState('')
 
@@ -27,8 +31,8 @@ export default function AdminTeam() {
     event.preventDefault()
     setBusy('alta'); setError('')
     try {
-      const r = await api<{ members: Miembro[] }>('team', { email: email.trim(), rol })
-      setMembers(r.members); setEmail('')
+      const r = await api<{ members: Miembro[] }>('team', { email: email.trim(), nombre: nombre.trim(), password, rol })
+      setMembers(r.members); setEmail(''); setNombre(''); setPassword('')
     } catch (e) { setError((e as Error).message) } finally { setBusy('') }
   }
 
@@ -43,10 +47,12 @@ export default function AdminTeam() {
   }
 
   return <><Link className="association-link" to={crmPath('/admin')}><Icon name="arrow" size={14} />Volver al panel</Link>
-    <PageHead eyebrow="ADMINISTRACIÓN" title="Equipo" description="Quién entra al CRM y con qué rol. La cuenta tiene que existir antes de agregarla." />
+    <PageHead eyebrow="ADMINISTRACIÓN" title="Equipo" description="Crea comerciales con correo y contraseña, o agrega una cuenta que ya existe. Pueden entrar enseguida en el CRM." />
     {error && <p className="error" role="alert">{error}</p>}
     <form className="panel filters" onSubmit={agregar}>
+      <label className="search-field">Nombre<input type="text" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ana Pérez" aria-label="Nombre del nuevo miembro" maxLength={100} /></label>
       <label className="search-field">Correo<input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="ana@empresa.pe" aria-label="Correo del nuevo miembro" /></label>
+      <label className="search-field">Contraseña<input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Si la cuenta es nueva" aria-label="Contraseña del nuevo miembro" autoComplete="new-password" maxLength={72} /></label>
       <select aria-label="Rol del nuevo miembro" value={rol} onChange={e => setRol(e.target.value as 'admin' | 'commercial')}>
         <option value="commercial">Comercial</option><option value="admin">Administración</option>
       </select>
@@ -61,7 +67,15 @@ export default function AdminTeam() {
           <option value="commercial">Comercial</option><option value="admin">Administración</option>
         </select></td>
         <td><Badge tone={m.activo ? 'green' : ''}>{m.activo ? 'Activo' : 'Revocado'}</Badge>{' '}
-          <button type="button" disabled={busy === m.usuarioId} onClick={() => guardar(m, { activo: !m.activo })}>{m.activo ? 'Revocar' : 'Reactivar'}</button></td>
+          <button type="button" disabled={busy === m.usuarioId} onClick={() => guardar(m, { activo: !m.activo })}>{m.activo ? 'Revocar' : 'Reactivar'}</button>{' '}
+          <button type="button" onClick={() => { setClaveDe(claveDe === m.usuarioId ? '' : m.usuarioId); setNuevaClave('') }}>Nueva clave</button>
+          {claveDe === m.usuarioId && <form className="inline-form" onSubmit={async event => {
+            event.preventDefault(); setBusy(m.usuarioId); setError('')
+            try {
+              await api('team/clave', { usuarioId: m.usuarioId, password: nuevaClave })
+              setClaveDe(''); setNuevaClave('')
+            } catch (e) { setError((e as Error).message) } finally { setBusy('') }
+          }}><input type="password" required minLength={8} maxLength={72} aria-label={`Nueva clave de ${m.nombre}`} value={nuevaClave} onChange={e => setNuevaClave(e.target.value)} autoComplete="new-password" /><button type="submit" disabled={busy === m.usuarioId}>Guardar clave</button></form>}</td>
       </tr>)}
     </tbody></table>{!members.length && <p className="hint">Todavía no hay miembros en este espacio.</p>}</section></>
 }

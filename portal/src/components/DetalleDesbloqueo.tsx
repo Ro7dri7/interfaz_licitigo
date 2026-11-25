@@ -182,7 +182,7 @@ export function DetalleDesbloqueo({ lic, inicial = null, onCerrar, onActualizado
             </section>
             {data.desbloqueada && <SolicitarAsesor key={lic.id} licitacionId={lic.id} />}
             <p className={`${muted} mt-[22px]`}>
-              Te quedan {data.disponibles} de {data.limite} desbloqueos.
+              Te quedan {data.creditos ?? data.disponibles} créditos.
             </p>
           </>
         ) : (

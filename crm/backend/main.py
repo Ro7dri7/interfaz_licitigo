@@ -1,5 +1,6 @@
 """Run locally: python -m uvicorn backend.main:app --host 127.0.0.1 --port 8001."""
 from pathlib import Path
+import re
 import secrets
 from typing import Literal
 from urllib.parse import urlparse
@@ -50,12 +51,19 @@ class Event(Input):
 class AltaMiembro(Input):
     email: str = Field(min_length=3, max_length=254)
     rol: Literal['admin', 'commercial']
+    nombre: str = Field(default='', max_length=100)
+    password: str = Field(default='', max_length=72)
 
 
 class AccesoMiembro(Input):
     usuarioId: str = Field(min_length=8, max_length=80)
     rol: Literal['admin', 'commercial']
     activo: bool
+
+
+class ClaveMiembro(Input):
+    usuarioId: str = Field(min_length=8, max_length=80)
+    password: str = Field(min_length=8, max_length=72)
 
 
 class Login(Input):
@@ -206,6 +214,16 @@ def create_app(settings=None, repository=None):
         otros = [m for m in miembros if m.get('activo') and m.get('rol') == 'admin' and m.get('usuarioId') != usuario_id]
         return not sigue and not otros
 
+    def _clave_fuerte(valor):
+        if (len(valor) < 8 or not re.search(r'[A-Z]', valor) or not re.search(r'[a-z]', valor)
+                or not re.search(r'\d', valor) or not re.search(r'[!@#$%^&*]', valor)):
+            raise HTTPException(422, 'La contraseña necesita 8 caracteres, una mayúscula, una minúscula, un número y un símbolo de !@#$%^&*.')
+
+    async def _auth_admin(method, path, json):
+        async with httpx.AsyncClient(timeout=15) as client:
+            return await client.request(method, config.supabase_url.rstrip('/') + '/auth/v1' + path,
+                                        headers=_cabeceras(), json=json)
+
     async def _usuario_por_correo(email):
         correo = email.strip().lower()
         async with httpx.AsyncClient(timeout=15) as client:
@@ -238,14 +256,49 @@ def create_app(settings=None, repository=None):
         _exige_admin(actor)
         if config.mode == 'demo':
             raise HTTPException(400, 'El espacio de prueba no administra cuentas reales.')
-        usuario = await _usuario_por_correo(data.email)
+        if data.password:
+            _clave_fuerte(data.password)
+        try:
+            usuario = await _usuario_por_correo(data.email)
+        except HTTPException as error:
+            if error.status_code != 404:
+                raise
+            if not data.password:
+                raise HTTPException(404, 'No hay una cuenta con ese correo. Indica nombre y contraseña para crearla.') from error
+            creado = await _auth_admin('POST', '/admin/users', {
+                'email': data.email.strip().lower(), 'password': data.password, 'email_confirm': True,
+                'user_metadata': {'nombre': (data.nombre or data.email.split('@')[0])[:100]},
+            })
+            if creado.status_code >= 400:
+                raise HTTPException(422, 'No se pudo crear la cuenta. Revisa el correo y la contraseña.')
+            usuario = creado.json()
+        else:
+            if data.password:
+                cambio = await _auth_admin('PUT', f"/admin/users/{usuario['id']}", {'password': data.password})
+                if cambio.status_code >= 400:
+                    raise HTTPException(422, 'La cuenta existe, pero no se pudo actualizar la contraseña.')
         meta = usuario.get('user_metadata') or {}
-        nombre = str(meta.get('nombre') or meta.get('full_name') or meta.get('name') or data.email.split('@')[0] or 'Asesor')
-        nombre = ' '.join(nombre.split())[:100]
+        nombre = ' '.join((data.nombre or str(meta.get('nombre') or meta.get('full_name') or meta.get('name')
+                                              or data.email.split('@')[0] or 'Asesor')).split())[:100]
         if len(nombre) < 2:
             nombre = 'Asesor'
         await repo.guardar_miembro(usuario['id'], nombre, data.rol, True)
         return {'members': await repo.equipo()}
+
+    @app.post('/api/crm/team/clave')
+    async def team_password(data: ClaveMiembro, request: Request):
+        actor = await account(request)
+        _exige_admin(actor)
+        if config.mode == 'demo':
+            raise HTTPException(400, 'El espacio de prueba no administra cuentas reales.')
+        _clave_fuerte(data.password)
+        miembros = await repo.equipo()
+        if not any(m.get('usuarioId') == data.usuarioId for m in miembros):
+            raise HTTPException(404, 'Esa persona no está en el equipo.')
+        cambio = await _auth_admin('PUT', f'/admin/users/{data.usuarioId}', {'password': data.password})
+        if cambio.status_code >= 400:
+            raise HTTPException(422, 'No se pudo restablecer la contraseña.')
+        return {'ok': True}
 
     @app.post('/api/crm/team/acceso')
     async def team_access(data: AccesoMiembro, request: Request):

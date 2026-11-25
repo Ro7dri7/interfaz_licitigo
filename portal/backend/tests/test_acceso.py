@@ -6,8 +6,10 @@ from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
-from app.auth import codigo_pkce, volver_seguro
-from app.main import app
+from pydantic import ValidationError
+
+from app.auth import codigo_pkce, validar_contrasena, volver_seguro
+from app.main import Registro, app
 
 
 class RutasInternas(unittest.TestCase):
@@ -22,6 +24,15 @@ class RutasInternas(unittest.TestCase):
         esperado = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
         self.assertEqual(challenge, esperado)
         self.assertNotIn("=", challenge)
+
+    def test_el_registro_solo_acepta_clave_fuerte_y_sin_rol(self):
+        with self.assertRaises(ValidationError):
+            Registro(nombre="Ana Perez", email="ana@empresa.pe", password="secreta123")
+        with self.assertRaises(ValidationError):
+            Registro(nombre="Ana Perez", email="ana@empresa.pe", password="Secreta1!", rol="admin")
+        self.assertEqual(validar_contrasena("Secreta1!"), "Secreta1!")
+        cuenta = Registro(nombre="Ana Perez", email="ana@empresa.pe", password="Secreta1!")
+        self.assertEqual(cuenta.model_dump(), {"nombre": "Ana Perez", "email": "ana@empresa.pe", "password": "Secreta1!"})
 
 
 def _sesion():

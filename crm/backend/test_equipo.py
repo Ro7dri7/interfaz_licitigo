@@ -63,6 +63,13 @@ class EquipoAdminTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.repo.guardar_miembro.assert_awaited_with('comercial-1', 'Luis Ventas', 'admin', True)
 
+    def test_alta_rechaza_una_clave_debil(self):
+        self._sesion('admin')
+        response = self.client.post('/api/crm/team', json={
+            'email': 'nuevo@empresa.pe', 'rol': 'commercial', 'nombre': 'Luis Ventas', 'password': 'secreta123',
+        })
+        self.assertEqual(response.status_code, 422)
+
 
 class ResponsableTests(unittest.TestCase):
     def test_reasigna_el_responsable_del_negocio(self):

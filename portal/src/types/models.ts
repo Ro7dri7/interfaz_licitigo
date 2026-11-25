@@ -105,6 +105,8 @@ export interface Cupo {
   usados: number
   limite: number
   disponibles: number
+  creditos?: number
+  plan?: string
 }
 
 export interface Perfil {

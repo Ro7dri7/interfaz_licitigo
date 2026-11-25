@@ -46,7 +46,8 @@ export default function App() {
     <div className="workspace"><header className="topbar"><div className="topbar-context"><button className="icon-button mobile-menu" aria-label="Abrir navegación" aria-expanded={menu} onClick={() => setMenu(!menu)}><Icon name="list" /></button><span>Espacio comercial</span><span className="divider">/</span><strong>{page}</strong></div><div className="topbar-right"><span className={`environment ${session.mode === 'demo' ? 'demo' : ''}`}><span className="status-dot" />{session.mode === 'demo' ? 'Prueba local · datos ficticios' : 'Espacio compartido'}</span><span className="avatar">{initials(session.user.name)}</span>{session.mode === 'supabase' && <button onClick={async () => {
           try { await api('logout', {}) } catch { /* si CRM_ORIGIN no coincide, igual limpiamos el cliente */ }
           if (CRM_BASE) {
-            await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
+            await fetch('/api/crm/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {})
+            await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {})
             localStorage.removeItem('lici.sesion')
             localStorage.removeItem('lici.onboarding')
             window.location.assign('/ingresar')

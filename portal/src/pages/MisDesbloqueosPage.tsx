@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { DetalleDesbloqueo, type LicitacionResumen } from '../components/DetalleDesbloqueo'
+import { PlanesModal } from '../components/PlanesModal'
 import { KpiCard } from '../components/KpiCard'
 import { Topbar } from '../components/Topbar'
 import * as api from '../lib/api'
@@ -84,13 +85,13 @@ export function MisDesbloqueosPage() {
   const [texto, setTexto] = useState('')
   const [fuente, setFuente] = useState('')
   const [detalle, setDetalle] = useState<LicitacionResumen | null>(null)
+  const [planes, setPlanes] = useState(false)
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const refrescos = useRef(0)
   /** Vigencia del montaje actual: las respuestas de un montaje anterior (StrictMode, cierre) se descartan. */
   const montaje = useRef({ vigente: false })
 
-  const quota = cupo ? `${cupo.usados}/${cupo.limite}` : '—'
   const abiertas = items.filter((i) => i.abierta).length
   const montoTotal = items.reduce((s, i) => s + i.valorReferencial, 0)
   const paraPostular = items.filter((i) => esPostular(i.veredicto)).length
@@ -161,7 +162,7 @@ export function MisDesbloqueosPage() {
 
   return (
     <div className="min-h-full bg-canvas">
-      <Topbar quota={quota} />
+      <Topbar creditos={cupo?.creditos ?? cupo?.disponibles ?? null} onMejorar={() => setPlanes(true)} />
 
       <main className={`${container} flex flex-col gap-[22px] pt-6 pb-12 max-[720px]:pt-4`}>
         <header className="flex flex-wrap items-end justify-between gap-4">
@@ -354,6 +355,7 @@ export function MisDesbloqueosPage() {
       </main>
 
       {detalle ? <DetalleDesbloqueo lic={detalle} onCerrar={() => setDetalle(null)} onActualizado={alActualizar} /> : null}
+      <PlanesModal abierto={planes} planActual={cupo?.plan} onCerrar={() => setPlanes(false)} />
     </div>
   )
 }

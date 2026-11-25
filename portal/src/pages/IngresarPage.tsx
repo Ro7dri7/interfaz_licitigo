@@ -4,6 +4,7 @@ import * as api from '../lib/api'
 import { mensajeError } from '../lib/api'
 import { logout, obtenerSesion, olvidarCierre, refrescar } from '../lib/auth'
 import type { Sesion } from '../types/models'
+import { ClaveChecklist, claveValida } from '../components/ClaveChecklist'
 import { btnPrimary, btnSecondary, card, container, dot, pillNeutral } from '../lib/ui'
 import type { Perfil } from '../types/models'
 
@@ -19,6 +20,8 @@ const tab = (activo: boolean) =>
   }`
 const link = 'border-none bg-transparent p-0 font-semibold text-primary'
 
+const PLANES_PAGO = new Set(['explorador', 'comercial', 'empresarial'])
+
 /** Solo rutas internas. Rechaza protocolos, barras invertidas y dobles barras. */
 function rutaInterna(valor: string | null): string | null {
   if (!valor || valor.length > 200 || !valor.startsWith('/') || valor.startsWith('//')) return null
@@ -30,7 +33,8 @@ export function IngresarPage() {
   const navigate = useNavigate()
   // Query params: ?modo=registro&email=...&volver=/app/descubrimiento
   const [params] = useSearchParams()
-  const volver = rutaInterna(params.get('volver'))
+  const volverPedido = rutaInterna(params.get('volver'))
+  const volver = volverPedido?.startsWith('/comercial') ? null : volverPedido
 
   const [modo, setModo] = useState<Modo>(params.get('modo') === 'registro' ? 'registro' : 'login')
   const [nombre, setNombre] = useState('')
@@ -43,9 +47,33 @@ export function IngresarPage() {
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(params.get('error') === 'google' ? 'No pudimos completar el ingreso con Google. Vuelve a intentarlo.' : null)
   /** Sesión que ya estaba guardada al abrir la página (no la que se crea al iniciar sesión aquí). */
-  const [sesionPrevia, setSesionPrevia] = useState(() => obtenerSesion()?.usuario ?? null)
+  const [sesionPrevia, setSesionPrevia] = useState(() => {
+    const previa = obtenerSesion()
+    if (previa?.rol === 'admin' || previa?.rol === 'commercial') return null
+    return previa?.usuario ?? null
+  })
 
-  useEffect(() => olvidarCierre(), [])
+  useEffect(() => {
+    olvidarCierre()
+    const previa = obtenerSesion()
+    if (previa?.rol === 'admin' || previa?.rol === 'commercial') {
+      logout(false)
+      setSesionPrevia(null)
+    }
+    if (volverPedido?.startsWith('/comercial')) {
+      const limpia = new URLSearchParams(params)
+      limpia.delete('volver')
+      const search = limpia.toString()
+      navigate({ pathname: '/ingresar', search: search ? `?${search}` : '' }, { replace: true })
+    }
+    // Solo al abrir el login: no reanudar una sesión comercial ni conservar volver=/comercial.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    const plan = params.get('plan')
+    if (plan && PLANES_PAGO.has(plan)) sessionStorage.setItem('lici.plan', plan)
+  }, [params])
 
   useEffect(() => {
     const ticket = params.get('ticket')
@@ -74,14 +102,23 @@ export function IngresarPage() {
   const irSegunPerfil = (p: Perfil) => {
     setEnviando(false)
     const rol = (obtenerSesion() as Sesion | null)?.rol
-    const destinoComercial = volver?.startsWith('/comercial') && !volver.startsWith('//') && !volver.startsWith('/comercial/admin')
-    const destinoAdmin = volver?.startsWith('/comercial') && !volver.startsWith('//')
     if (rol === 'admin') {
-      navigate(destinoAdmin && volver ? volver : '/comercial/admin')
+      navigate('/comercial/admin')
       return
     }
     if (rol === 'commercial') {
-      navigate(destinoComercial && volver ? volver : '/comercial')
+      navigate('/comercial')
+      return
+    }
+    const plan = params.get('plan') || sessionStorage.getItem('lici.plan')
+    if (plan && PLANES_PAGO.has(plan)) {
+      sessionStorage.removeItem('lici.plan')
+      api
+        .checkout(plan)
+        .then(({ checkout_url }) => {
+          window.location.assign(checkout_url)
+        })
+        .catch(() => navigate(!p.ruc || !p.keywords.length ? '/onboarding' : '/app/descubrimiento'))
       return
     }
     if (!p.ruc || !p.keywords.length) {
@@ -178,8 +215,8 @@ export function IngresarPage() {
         })
       return
     }
-    if (modo === 'registro' && password.length < 8) {
-      return setError('La contraseña debe tener al menos 8 caracteres.')
+    if (modo === 'registro' && !claveValida(password)) {
+      return setError('La contraseña todavía no cumple las 5 reglas.')
     }
     if (!password) return setError('Ingresa tu contraseña.')
 
@@ -329,7 +366,7 @@ export function IngresarPage() {
                     maxLength={72}
                     autoComplete={modo === 'login' ? 'current-password' : 'new-password'}
                     name="password"
-                    placeholder={modo === 'registro' ? 'Mínimo 8 caracteres' : ''}
+                    placeholder={modo === 'registro' ? 'Mayúscula, número y símbolo' : ''}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
@@ -342,6 +379,7 @@ export function IngresarPage() {
                     {verPassword ? 'Ocultar' : 'Ver'}
                   </button>
                 </div>
+                {modo === 'registro' ? <ClaveChecklist valor={password} /> : null}
               </>
             ) : null}
             {modo === 'codigo' && codigoEnviado ? (
@@ -372,7 +410,7 @@ export function IngresarPage() {
               </p>
             ) : null}
 
-            <button className={`${btnPrimary} mt-[18px] w-full`} type="submit" disabled={enviando}>
+            <button className={`${btnPrimary} mt-[18px] w-full`} type="submit" disabled={enviando || (modo === 'registro' && !claveValida(password))}>
               {enviando
                 ? 'Un momento…'
                 : modo === 'registro'

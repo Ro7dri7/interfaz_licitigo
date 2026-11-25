@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { EnlaceTelegram } from '../components/EnlaceTelegram'
+import { PlanesModal } from '../components/PlanesModal'
 import { Topbar } from '../components/Topbar'
 import * as api from '../lib/api'
 import { mensajeError } from '../lib/api'
@@ -83,6 +84,7 @@ export function PerfilPage() {
   const [nuevaKeyword, setNuevaKeyword] = useState('')
   const [avisoKeyword, setAvisoKeyword] = useState<string | null>(null)
   const [guardandoKeywords, setGuardandoKeywords] = useState(false)
+  const [planes, setPlanes] = useState(false)
 
   const perfilRef = useRef(perfil)
   useEffect(() => {
@@ -93,7 +95,6 @@ export function PerfilPage() {
 
   const empresa = perfil?.empresa ?? null
   const cupo = perfil?.desbloqueos ?? null
-  const quota = cupo ? `${cupo.usados}/${cupo.limite}` : '—'
   const porcentajeCupo = cupo && cupo.limite ? Math.min(100, Math.round((cupo.usados / cupo.limite) * 100)) : 0
   const ciiusOficiales = (empresa?.ciius ?? []).filter((c) => c.origen === 'oficial')
   const ciiusInferidos = (empresa?.ciius ?? []).filter((c) => c.origen !== 'oficial')
@@ -282,7 +283,7 @@ export function PerfilPage() {
 
   return (
     <div className="min-h-full bg-canvas">
-      <Topbar quota={quota} />
+      <Topbar creditos={cupo?.creditos ?? cupo?.disponibles ?? null} onMejorar={() => setPlanes(true)} />
 
       <main className={`${container} flex flex-col gap-[22px] pt-6 pb-12 max-[720px]:pt-4`}>
         <header>
@@ -694,6 +695,7 @@ export function PerfilPage() {
           </div>
         ) : null}
       </main>
+      <PlanesModal abierto={planes} planActual={cupo?.plan} onCerrar={() => setPlanes(false)} />
     </div>
   )
 }

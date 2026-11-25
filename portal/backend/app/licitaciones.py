@@ -6,7 +6,9 @@ Licitaciones desde Supabase. El filtrado y la afinidad se calculan en la base (f
 - sugerir_keywords: ítems CUBSO de los procesos del rubro del RUC y de los procesos a los que ya postuló.
 """
 
+import re
 import time
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
@@ -249,3 +251,67 @@ async def terminos_mas_licitados(ciius: list[str], limite: int = 10, ruc: str | 
 
 async def estadisticas() -> dict:
     return await get_db().rpc("estadisticas_lici") or {}
+
+
+_CACHE_RESUMEN_SEG = 300
+_cache_resumen: tuple[float, dict] | None = None
+
+
+def invalidar_resumen_departamentos() -> None:
+    global _cache_resumen
+    _cache_resumen = None
+
+
+def normalizar_departamento(valor: str | None) -> str | None:
+    """Nombre de la base → uno de los 25 departamentos, OTROS, o None si viene vacío."""
+    if valor is None:
+        return None
+    texto = unicodedata.normalize("NFKD", str(valor)).encode("ascii", "ignore").decode()
+    texto = re.sub(r"[^A-Za-z ]", " ", texto).upper()
+    texto = " ".join(texto.split())
+    if not texto or texto in {"NO ESPECIFICADO", "NO REGISTRA", "NULL", "NONE", "S N", "SN"}:
+        return None
+    if texto in {"CUZCO", "QOSQO"}:
+        return "CUSCO"
+    if texto in DEPARTAMENTOS:
+        return texto
+    if "CALLAO" in texto:
+        return "CALLAO"
+    for dep in sorted(DEPARTAMENTOS, key=len, reverse=True):
+        if dep in texto:
+            return dep
+    return "OTROS"
+
+
+async def resumen_departamentos() -> dict:
+    """Totales de convocatorias abiertas por departamento. Caché de 5 minutos."""
+    global _cache_resumen
+    ahora = time.monotonic()
+    if _cache_resumen and ahora - _cache_resumen[0] < _CACHE_RESUMEN_SEG:
+        return _cache_resumen[1]
+    filas = await get_db().select(
+        "convocatorias", {"select": "departamento,monto_referencial", "abierta": "eq.true"}
+    )
+    grupos: dict[str, dict] = {}
+    total = 0
+    inversion = 0.0
+    for fila in filas:
+        monto = float(fila.get("monto_referencial") or 0)
+        total += 1
+        inversion += monto
+        dep = normalizar_departamento(fila.get("departamento"))
+        if not dep:
+            continue
+        grupo = grupos.setdefault(dep, {"departamento": dep, "cantidad": 0, "monto_total": 0.0})
+        grupo["cantidad"] += 1
+        grupo["monto_total"] += monto
+    departamentos = sorted(grupos.values(), key=lambda g: (g["cantidad"], g["monto_total"]), reverse=True)
+    for grupo in departamentos:
+        grupo["monto_total"] = round(grupo["monto_total"], 2)
+    resultado = {
+        "total_licitaciones": total,
+        "inversion_total": round(inversion, 2),
+        "departamentos": departamentos,
+    }
+    _cache_resumen = (ahora, resultado)
+    return resultado

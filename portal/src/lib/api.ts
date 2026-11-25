@@ -19,12 +19,14 @@ import type {
 export class ApiError extends Error {
   readonly status: number
   readonly detail: unknown
+  readonly codigo?: string
 
-  constructor(status: number, detail: unknown) {
+  constructor(status: number, detail: unknown, codigo?: string) {
     super(typeof detail === 'string' ? detail : `HTTP ${status}`)
     this.name = 'ApiError'
     this.status = status
     this.detail = detail
+    this.codigo = codigo
   }
 }
 
@@ -56,12 +58,15 @@ async function enviar(path: string, o: Opciones, token: string | null): Promise<
 async function leer<T>(r: Response): Promise<T> {
   if (!r.ok) {
     let detail: unknown = null
+    let codigo: string | undefined
     try {
-      detail = ((await r.json()) as { detail?: unknown }).detail ?? null
+      const cuerpo = (await r.json()) as { detail?: unknown; error?: unknown }
+      detail = cuerpo.detail ?? null
+      if (typeof cuerpo.error === 'string') codigo = cuerpo.error
     } catch {
       detail = null
     }
-    throw new ApiError(r.status, detail)
+    throw new ApiError(r.status, detail, codigo)
   }
   return (await r.json()) as T
 }
@@ -186,6 +191,22 @@ export function misDesbloqueos(): Promise<Cupo & { items: DesbloqueoItem[] }> {
   return request('/api/desbloqueos')
 }
 
+export interface ResumenDepartamento {
+  departamento: string
+  cantidad: number
+  monto_total: number
+}
+
+export interface ResumenDepartamentos {
+  total_licitaciones: number
+  inversion_total: number
+  departamentos: ResumenDepartamento[]
+}
+
+export function resumenDepartamentos(): Promise<ResumenDepartamentos> {
+  return request('/api/licitaciones/resumen-departamentos')
+}
+
 export function licitaciones(f: FiltrosLicitaciones, porPagina = 10, signal?: AbortSignal): Promise<PaginaLicitaciones> {
   const params = new URLSearchParams({
     pagina: String(f.pagina),
@@ -200,6 +221,18 @@ export function licitaciones(f: FiltrosLicitaciones, porPagina = 10, signal?: Ab
   if (f.fuente) params.set('fuente', f.fuente)
   if (f.keyword) params.set('keyword', f.keyword)
   return request<PaginaLicitaciones>('/api/licitaciones', { params, signal })
+}
+
+export function checkout(planId: string): Promise<{ checkout_url: string }> {
+  return request('/api/billing/checkout', { method: 'POST', body: { plan_id: planId } })
+}
+
+export function verificarPago(sessionId: string): Promise<{ creditos: number; plan: string }> {
+  return request('/api/billing/verify-session', { method: 'POST', body: { session_id: sessionId } })
+}
+
+export function esSinCreditos(err: unknown): boolean {
+  return err instanceof ApiError && (err.status === 402 || err.codigo === 'sin_creditos')
 }
 
 export function desbloquear(id: number): Promise<Desbloqueo> {

@@ -9,6 +9,7 @@ verificación), inicia sesión y valida el access token en cada petición. Cada 
 import base64
 import hashlib
 import logging
+import re
 import secrets
 import time
 from dataclasses import dataclass
@@ -48,6 +49,16 @@ def _http() -> httpx.AsyncClient:
         headers=cabeceras_servicio(s.supabase_secret_key),
         timeout=20,
     )
+
+
+def validar_contrasena(valor: str) -> str:
+    """Registro y restablecimiento. El login acepta claves antiguas."""
+    if (len(valor) < 8 or len(valor) > 72 or not re.search(r"[A-Z]", valor) or not re.search(r"[a-z]", valor)
+            or not re.search(r"\d", valor) or not re.search(r"[!@#$%^&*]", valor)):
+        raise ValueError(
+            "La contraseña necesita 8 caracteres, una mayúscula, una minúscula, un número y un símbolo de !@#$%^&*."
+        )
+    return valor
 
 
 def _msg(resp: httpx.Response) -> str:
@@ -114,8 +125,16 @@ async def registrar(nombre: str, email: str, password: str) -> dict:
 
 
 async def asegurar_perfil(user_id: str, nombre: str) -> None:
-    await get_db().insert("perfiles", {"id": user_id, "nombre_completo": nombre[:120]},
-                          on_conflict="id", ignore_duplicates=True)
+    """Crea el perfil de cliente si no existe. No cambia el rol comercial ni pisa un perfil ya creado."""
+    fila = {"id": user_id, "nombre_completo": nombre[:120], "creditos_desbloqueo": 5, "plan_actual": "free"}
+    try:
+        await get_db().insert("perfiles", fila, on_conflict="id", ignore_duplicates=True)
+    except SupabaseError as e:
+        if e.status == 400 and ("creditos_desbloqueo" in e.detalle or "plan_actual" in e.detalle):
+            await get_db().insert("perfiles", {"id": user_id, "nombre_completo": nombre[:120]},
+                                  on_conflict="id", ignore_duplicates=True)
+            return
+        raise
 
 
 async def _usuario_de_token(token: str) -> dict:
@@ -269,8 +288,17 @@ def origen_de_peticion(proto: str, host: str) -> str:
 
 
 async def url_google(redirect_to: str, challenge: str) -> str:
-    """Pide a Supabase la redirección a Google. La clave de servidor no sale del backend."""
-    async with _http() as http:
+    """Pide a Supabase la redirección a Google. La clave de servidor no sale del backend.
+
+    /authorize es un endpoint público: la clave publicable (sb_publishable_ o anon JWT) es la que
+    GoTrue acepta. La clave secreta suele responder HTTP 400.
+    """
+    s = get_settings()
+    clave = (s.supabase_publishable_key or "").strip() or s.supabase_secret_key
+    headers = {"apikey": clave}
+    if clave.startswith("eyJ"):
+        headers["Authorization"] = f"Bearer {clave}"
+    async with httpx.AsyncClient(base_url=f"{s.supabase_url.rstrip('/')}/auth/v1", headers=headers, timeout=20) as http:
         resp = await http.get("/authorize", params={
             "provider": "google", "redirect_to": redirect_to,
             "code_challenge": challenge, "code_challenge_method": "s256",
@@ -278,7 +306,8 @@ async def url_google(redirect_to: str, challenge: str) -> str:
     location = resp.headers.get("location") or ""
     host = (urlparse(location).hostname or "").lower()
     if resp.status_code not in (301, 302, 303, 307, 308) or host != "accounts.google.com":
-        log.warning("Supabase authorize HTTP %s", resp.status_code)
+        log.warning("Supabase authorize HTTP %s redirect_to=%s detalle=%s",
+                    resp.status_code, redirect_to, _msg(resp)[:180])
         raise AuthError(503, "Google todavía no está disponible. Actívalo en Supabase Auth y vuelve a intentarlo.")
     return location
 

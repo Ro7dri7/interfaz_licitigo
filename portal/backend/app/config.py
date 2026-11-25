@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     # Supabase (service role: el backend es el único que escribe; el navegador nunca ve esta clave)
     supabase_url: str
     supabase_secret_key: str
+    # Clave publicable para GET /auth/v1/authorize. La secreta suele recibir HTTP 400 en ese endpoint.
+    supabase_publishable_key: str = ""
 
     # API MIGO (https://api.migo.pe) — ficha SUNAT en tiempo real por RUC
     apimigo_token: str
@@ -34,6 +36,12 @@ class Settings(BaseSettings):
     cache_ttl_sec: int = 300
 
     cors_origins: str = "http://localhost:5173"
+
+    # Stripe Checkout (test). Vacío = los endpoints de pago responden 503.
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    # Origen público del frontend (success/cancel de Checkout). Ej. https://licihub.vercel.app
+    portal_origin: str = ""
 
     crm_api_url: str = ""
     crm_ingest_key: str = ""
@@ -62,7 +70,7 @@ class Settings(BaseSettings):
             raise ValueError('CRM_WORKSPACE_ID debe ser el UUID del espacio comercial.')
         return value
 
-    @field_validator('public_origin')
+    @field_validator('portal_origin', 'public_origin')
     @classmethod
     def origen_publico(cls, value: str) -> str:
         if not value:
@@ -70,7 +78,7 @@ class Settings(BaseSettings):
         url = urlparse(value)
         if (not url.hostname or url.username or url.password or url.query or url.fragment
                 or url.path not in ('', '/') or url.scheme not in ('http', 'https')):
-            raise ValueError('PUBLIC_ORIGIN debe ser un origen http(s), sin ruta ni credenciales.')
+            raise ValueError('El origen debe ser http(s), sin ruta ni credenciales.')
         return value.rstrip('/')
 
 

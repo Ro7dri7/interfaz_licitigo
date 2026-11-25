@@ -18,9 +18,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from . import asesorias, auth, desbloqueos, licitaciones, suscripciones
+from . import asesorias, auth, billing, desbloqueos, licitaciones, suscripciones
 from .auth import AuthError, Usuario, usuario_actual
 from .config import get_settings
+from .billing import BillingError
 from .desbloqueos import DesbloqueoError
 from .empresa import EmpresaNoEncontrada, ciius_guardados, empresa_guardada, obtener_empresa, ruc_valido
 from .supabase import SupabaseError, get_db
@@ -97,6 +98,14 @@ async def _error_auth(_: Request, e: AuthError) -> JSONResponse:
 
 @app.exception_handler(DesbloqueoError)
 async def _error_desbloqueo(_: Request, e: DesbloqueoError) -> JSONResponse:
+    cuerpo: dict = {"detail": e.mensaje}
+    if e.error:
+        cuerpo["error"] = e.error
+    return JSONResponse(cuerpo, e.status)
+
+
+@app.exception_handler(BillingError)
+async def _error_billing(_: Request, e: BillingError) -> JSONResponse:
     return JSONResponse({"detail": e.mensaje}, e.status)
 
 
@@ -192,6 +201,7 @@ async def conteo_keyword(keyword: Annotated[str, Query(min_length=3, max_length=
 # ----------------------------------------------------------------------------- cuentas
 
 class Registro(BaseModel):
+    model_config = {"extra": "forbid"}
     nombre: str = Field(min_length=2, max_length=120)
     email: EmailStr
     password: str = Field(min_length=8, max_length=72)
@@ -200,6 +210,11 @@ class Registro(BaseModel):
     @classmethod
     def _nombre(cls, v: str) -> str:
         return re.sub(r"\s+", " ", v).strip()
+
+    @field_validator("password")
+    @classmethod
+    def _clave(cls, v: str) -> str:
+        return auth.validar_contrasena(v)
 
 
 class Login(BaseModel):
@@ -225,8 +240,14 @@ class TicketAcceso(BaseModel):
 
 
 class Restablecer(BaseModel):
+    model_config = {"extra": "forbid"}
     accessToken: str = Field(min_length=10, max_length=4000)
     password: str = Field(min_length=8, max_length=72)
+
+    @field_validator("password")
+    @classmethod
+    def _clave(cls, v: str) -> str:
+        return auth.validar_contrasena(v)
 
 
 async def _cerrar(response: Response, sesion: dict) -> dict:
@@ -284,7 +305,7 @@ async def verificar_otp(body: CodigoOtp, response: Response) -> dict:
 
 @app.post("/api/auth/recuperar")
 async def recuperar(body: Correo, request: Request) -> dict:
-    destino = f"{_origen(request)}/ingresar/restablecer"
+    destino = f"{_origen_publico(request)}/ingresar/restablecer"
     await auth.recuperar_contrasena(body.email.strip().lower(), destino)
     return {"ok": True, "mensaje": "Si el correo está registrado, te enviamos un enlace para restablecer la contraseña."}
 
@@ -295,10 +316,18 @@ async def restablecer(body: Restablecer) -> dict:
     return {"ok": True}
 
 
+def _origen_publico(request: Request) -> str:
+    """Google y el correo de restablecer deben volver al frontend, no al Host interno de Nginx."""
+    configurado = get_settings().public_origin or get_settings().portal_origin
+    if configurado:
+        return configurado
+    return _origen(request)
+
+
 @app.get("/api/auth/google")
 async def google(request: Request, volver: str | None = None) -> RedirectResponse:
     verifier, challenge = auth.codigo_pkce()
-    destino = f"{_origen(request)}/api/auth/google/callback"
+    destino = f"{_origen_publico(request)}/api/auth/google/callback"
     try:
         ubicacion = await auth.url_google(destino, challenge)
     except AuthError:
@@ -307,6 +336,9 @@ async def google(request: Request, volver: str | None = None) -> RedirectRespons
     respuesta.set_cookie("lici_pkce", verifier, max_age=600, httponly=True, secure=True, samesite="lax",
                          path="/api/auth/google")
     ruta = auth.volver_seguro(volver)
+    # El retorno de Google no arrastra /comercial: el rol se decide después del canje.
+    if ruta and ruta.startswith("/comercial"):
+        ruta = None
     if ruta:
         respuesta.set_cookie("lici_volver", ruta, max_age=600, httponly=True, secure=True, samesite="lax",
                              path="/api/auth/google")
@@ -317,6 +349,8 @@ async def google(request: Request, volver: str | None = None) -> RedirectRespons
 async def google_callback(request: Request, code: str | None = None) -> RedirectResponse:
     verifier = request.cookies.get("lici_pkce")
     volver = auth.volver_seguro(request.cookies.get("lici_volver"))
+    if volver and volver.startswith("/comercial"):
+        volver = None
     if not code or not verifier:
         respuesta = RedirectResponse("/ingresar?error=google", status_code=302)
     else:
@@ -435,6 +469,12 @@ async def historial_empresa(usuario: UsuarioActual) -> dict:
 
 # ----------------------------------------------------------------------------- licitaciones
 
+@app.get("/api/licitaciones/resumen-departamentos")
+async def resumen_departamentos() -> dict:
+    """Totales públicos de convocatorias abiertas por departamento. No requiere sesión."""
+    return await licitaciones.resumen_departamentos()
+
+
 @app.get("/api/licitaciones")
 async def listar_licitaciones(
     usuario: UsuarioActual,
@@ -492,6 +532,47 @@ async def listar_licitaciones(
         "keywords": kws,
         "desbloqueos": cupo,
     }
+
+
+class CheckoutBody(BaseModel):
+    model_config = {"extra": "forbid"}
+    plan_id: str = Field(min_length=1, max_length=40)
+
+
+class VerificarPago(BaseModel):
+    model_config = {"extra": "forbid"}
+    session_id: str = Field(min_length=8, max_length=255)
+
+
+@app.post("/api/billing/checkout")
+async def billing_checkout(body: CheckoutBody, usuario: UsuarioActual) -> dict:
+    url = billing.crear_checkout(usuario.id, body.plan_id)
+    return {"checkout_url": url}
+
+
+@app.post("/api/billing/webhook")
+async def billing_webhook(request: Request) -> dict:
+    # Stripe llama sin Origin. El cuerpo se lee crudo para validar la firma.
+    payload = await request.body()
+    evento = billing.evento_firmado(payload, request.headers.get("stripe-signature", ""))
+    if evento["type"] == "checkout.session.completed":
+        sesion = evento["data"]["object"]
+        if sesion.get("payment_status") == "paid":
+            await billing.acreditar_pago_stripe(sesion)
+    return {"received": True}
+
+
+@app.post("/api/billing/verify-session")
+async def billing_verificar(body: VerificarPago, usuario: UsuarioActual) -> dict:
+    sesion = billing.recuperar_sesion(body.session_id)
+    if sesion.get("payment_status") != "paid":
+        raise HTTPException(409, "El pago todavía no está confirmado.")
+    perfil_id = str((sesion.get("metadata") or {}).get("perfil_id") or "")
+    if perfil_id != usuario.id:
+        raise HTTPException(403, "Esta sesión de pago no corresponde a tu cuenta.")
+    creditos = await billing.acreditar_pago_stripe(sesion)
+    plan = str((sesion.get("metadata") or {}).get("plan_id") or "free")
+    return {"creditos": creditos, "plan": plan}
 
 
 @app.post("/api/licitaciones/{convocatoria_id}/desbloquear")

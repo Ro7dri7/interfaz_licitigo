@@ -3,8 +3,9 @@ import { logout, nombreCorto, useSesion } from '../lib/auth'
 import { dot, pillNeutral } from '../lib/ui'
 
 interface TopbarProps {
-  /** Desbloqueos usados / límite, p. ej. "2/5". */
-  quota?: string
+  /** Saldo de créditos de desbloqueo. */
+  creditos?: number | null
+  onMejorar?: () => void
 }
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -12,7 +13,7 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? 'bg-primary-soft text-primary' : 'text-muted hover:bg-canvas hover:text-ink'
   }`
 
-export function Topbar({ quota = '—' }: TopbarProps) {
+export function Topbar({ creditos = null, onMejorar }: TopbarProps) {
   const sesion = useSesion()
   const userInitial = (nombreCorto(sesion) || '?').charAt(0).toUpperCase()
   const userLabel = sesion?.usuario.email ?? ''
@@ -53,11 +54,13 @@ export function Topbar({ quota = '—' }: TopbarProps) {
       </nav>
 
       <div className="flex items-center gap-3">
-        <span className={pillNeutral} title="Licitaciones desbloqueadas / disponibles en tu cuenta">
+        <span className={pillNeutral} title="Créditos disponibles para desbloquear análisis con IA">
           <span className={dot} style={{ background: 'var(--color-success)' }} />
-          🔓 {quota}{' '}
-          <span className="text-[10px] tracking-[0.04em] text-faint uppercase max-[1180px]:hidden">desbloqueos</span>
+          {creditos === null ? '—' : creditos} créditos
         </span>
+        <button className="rounded-md border border-primary-line bg-primary-soft px-3 py-1.5 text-[13px] font-semibold text-primary" type="button" onClick={onMejorar}>
+          Mejorar plan
+        </button>
         <button
           className="inline-flex size-[34px] items-center justify-center rounded-full border border-line bg-white text-muted hover:border-primary-line hover:text-primary"
           type="button"

@@ -48,7 +48,8 @@ export function registrarNavegador(fn: ((ruta: string) => void) | null): void {
 export function logout(redirigir = true): void {
   sesion = null
   cierreExplicito = redirigir
-  void fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
+  void fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {})
+  void fetch('/api/crm/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {})
   try {
     localStorage.removeItem(STORAGE_KEY)
     localStorage.removeItem('lici.onboarding')

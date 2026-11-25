@@ -18,8 +18,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 60000); return () => window.clearInterval(timer) }, [])
   useEffect(() => {
     if (!login || !CRM_BASE) return
-    const volver = window.location.pathname + window.location.search
-    window.location.replace(`/ingresar?volver=${encodeURIComponent(volver)}`)
+    window.location.replace('/ingresar')
   }, [login])
   const refresh = useCallback(async () => {
     const next = await fetchWorkspace()

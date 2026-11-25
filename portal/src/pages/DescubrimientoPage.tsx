@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { DetalleDesbloqueo } from '../components/DetalleDesbloqueo'
+import { PeruMap } from '../components/PeruMap'
+import { PlanesModal } from '../components/PlanesModal'
 import { KpiCard } from '../components/KpiCard'
 import { Topbar } from '../components/Topbar'
 import * as api from '../lib/api'
-import { esCancelacion, mensajeError } from '../lib/api'
+import { esCancelacion, esSinCreditos, mensajeError, type ResumenDepartamentos } from '../lib/api'
 import { soles, solesCompacto } from '../lib/formato'
 import { FUENTES, descripcionFuente, etiquetaFuente } from '../lib/fuentes'
 import {
@@ -103,10 +105,22 @@ const tableBtn = 'px-3! py-2! text-[12.5px]!'
 const rowGrid =
   'grid grid-cols-[1.25fr_0.75fr_0.8fr_0.8fr_2.6fr_0.9fr] items-start gap-4 border-b border-line px-5 py-4 text-[13.5px] last:border-b-0 max-[1200px]:grid-cols-[1fr] max-[1200px]:gap-1.5'
 
+function departamentoDeUrl(valor: string | null): string {
+  const dep = decodeURIComponent(valor || '').replace(/\+/g, ' ').toUpperCase()
+  return DEPARTAMENTOS.includes(dep) ? dep : ''
+}
+
 export function DescubrimientoPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  const [filtros, setFiltros] = useState<FiltrosLicitaciones>(FILTROS_INICIALES)
+  const [filtros, setFiltros] = useState<FiltrosLicitaciones>({
+    ...FILTROS_INICIALES,
+    departamento: departamentoDeUrl(searchParams.get('departamento')),
+  })
+  const [mapaAbierto, setMapaAbierto] = useState(Boolean(searchParams.get('departamento')))
+  const [resumenMapa, setResumenMapa] = useState<ResumenDepartamentos | null>(null)
   const [pagina, setPagina] = useState<PaginaLicitaciones | null>(null)
   const [cupo, setCupo] = useState<Cupo | null>(null)
   const [loading, setLoading] = useState(true)
@@ -122,6 +136,8 @@ export function DescubrimientoPage() {
   const [errorDesbloqueo, setErrorDesbloqueo] = useState<string | null>(null)
   /** Panel de detalle de una licitación desbloqueada. */
   const [detalle, setDetalle] = useState<{ lic: Licitacion; inicial: Desbloqueo | null } | null>(null)
+  const [planes, setPlanes] = useState(false)
+  const [avisoPago, setAvisoPago] = useState<string | null>(null)
 
   const filtrosRef = useRef(filtros)
   const paginaRef = useRef(pagina)
@@ -131,8 +147,22 @@ export function DescubrimientoPage() {
   const peticion = useRef<AbortController | null>(null)
   const busquedaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  useEffect(() => {
+    const state = location.state as { pago?: string; creditos?: number; mensaje?: string } | null
+    if (!state?.pago && !state?.mensaje) return
+    if (typeof state.creditos === 'number') {
+      const creditosPago = state.creditos
+      setCupo((c) => (c
+        ? { ...c, creditos: creditosPago, disponibles: creditosPago }
+        : { usados: 0, limite: creditosPago, disponibles: creditosPago, creditos: creditosPago, plan: 'free' }))
+    }
+    setAvisoPago(state.mensaje || null)
+    if (state.pago === 'cancelado' || state.pago === 'error') setPlanes(true)
+    navigate(location.pathname, { replace: true, state: null })
+  }, [location.pathname, location.state, navigate])
+
   const items = pagina?.items ?? []
-  const quota = cupo ? `${cupo.usados}/${cupo.limite}` : '—'
+  const creditos = cupo?.creditos ?? cupo?.disponibles ?? null
   const paginas = paginasVisibles(filtros.pagina, pagina?.totalPaginas ?? 1)
   const hayFiltros = !!(filtros.q || filtros.departamento || filtros.objeto || filtros.fuente || filtros.keyword || !filtros.soloPerfil)
 
@@ -212,10 +242,32 @@ export function DescubrimientoPage() {
     actualizar({ q: textoBusqueda.trim().slice(0, 120) })
   }
 
+  const fijarDepartamento = (departamento: string) => {
+    actualizar({ departamento })
+    const next = new URLSearchParams(searchParams)
+    if (departamento) next.set('departamento', departamento)
+    else next.delete('departamento')
+    setSearchParams(next, { replace: true })
+  }
+
   const limpiarFiltros = () => {
     setTextoBusqueda('')
     actualizar({ q: '', departamento: '', objeto: '', fuente: '', keyword: null, soloPerfil: true, orden: 'afinidad' })
+    const next = new URLSearchParams(searchParams)
+    next.delete('departamento')
+    setSearchParams(next, { replace: true })
   }
+
+  useEffect(() => {
+    if (!mapaAbierto || resumenMapa) return
+    let activo = true
+    api.resumenDepartamentos().then((data) => {
+      if (activo) setResumenMapa(data)
+    }).catch(() => {})
+    return () => {
+      activo = false
+    }
+  }, [mapaAbierto, resumenMapa])
 
   const irAPagina = (n: number) => {
     const total = paginaRef.current?.totalPaginas ?? 1
@@ -296,22 +348,34 @@ export function DescubrimientoPage() {
       .then((d) => {
         setDesbloqueando(false)
         setConfirmar(null)
-        setCupo({ usados: d.usados, limite: d.limite, disponibles: d.disponibles })
+        setCupo({
+          usados: d.usados,
+          limite: d.limite,
+          disponibles: d.disponibles,
+          creditos: d.creditos ?? d.disponibles,
+          plan: d.plan,
+        })
         const actualizada: Licitacion = { ...l, desbloqueada: true, basesUrl: d.basesUrl ?? null, fichaUrl: d.fichaUrl ?? null }
         setPagina((p) => (p ? { ...p, items: p.items.map((x) => (x.id === l.id ? actualizada : x)) } : p))
         setDetalle({ lic: actualizada, inicial: d })
       })
       .catch((err) => {
         setDesbloqueando(false)
+        if (esSinCreditos(err)) {
+          setConfirmar(null)
+          setPlanes(true)
+          return
+        }
         setErrorDesbloqueo(mensajeError(err, 'No se pudo desbloquear la licitación.'))
       })
   }
 
   return (
     <div className="min-h-full bg-canvas">
-      <Topbar quota={quota} />
+      <Topbar creditos={creditos} onMejorar={() => setPlanes(true)} />
 
       <main className={`${container} flex flex-col gap-[22px] pt-6 pb-12 max-[720px]:pt-4`}>
+        {avisoPago ? <p className="rounded-md border border-line bg-white px-4 py-3 text-[14px]" role="status">{avisoPago}</p> : null}
         <section className={`${card} px-[22px] py-5 max-[720px]:p-4`}>
           <div className="mb-[18px] flex flex-wrap items-center gap-4 border-b border-line pb-[18px]">
             <label
@@ -404,7 +468,7 @@ export function DescubrimientoPage() {
             <span className={filtersLabel}>FILTROS</span>
             <label className={filterSelect}>
               Departamento
-              <select value={filtros.departamento} onChange={(e) => actualizar({ departamento: e.target.value })}>
+              <select value={filtros.departamento} onChange={(e) => fijarDepartamento(e.target.value)}>
                 <option value="">Todos</option>
                 {DEPARTAMENTOS.map((d) => (
                   <option key={d} value={d}>
@@ -450,7 +514,31 @@ export function DescubrimientoPage() {
                 Limpiar filtros
               </button>
             ) : null}
+            <button className={`${btnSecondary} px-3! py-1.5! text-[13px]!`} type="button" aria-expanded={mapaAbierto} onClick={() => setMapaAbierto((v) => !v)}>
+              {mapaAbierto ? 'Ocultar mapa' : 'Mapa del Perú'}
+            </button>
           </div>
+          {mapaAbierto ? (
+            <div className="mt-4 grid gap-4 border-t border-line pt-4 md:grid-cols-[280px_1fr]">
+              <PeruMap
+                datos={resumenMapa?.departamentos ?? []}
+                seleccionado={filtros.departamento}
+                onSelectDepartamento={(dep) => fijarDepartamento(filtros.departamento === dep ? '' : dep)}
+              />
+              <div className="flex flex-col justify-center gap-2 text-[13.5px] text-muted">
+                <p>
+                  {filtros.departamento
+                    ? `Mostrando licitaciones de ${filtros.departamento}.`
+                    : 'Elige un departamento en el mapa para filtrar las licitaciones abiertas.'}
+                </p>
+                {filtros.departamento ? (
+                  <button className={`${btnGhost} self-start px-2.5! py-1.5! text-[13px]!`} type="button" onClick={() => fijarDepartamento('')}>
+                    Ver todo el país
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <section className="grid grid-cols-4 gap-4 max-[1200px]:grid-cols-2 max-[720px]:gap-2.5">
@@ -599,16 +687,21 @@ export function DescubrimientoPage() {
                           </button>
                         </>
                       ) : (
-                        <button
-                          className={`${btnSecondary} ${tableBtn}`}
-                          type="button"
-                          disabled={cupo?.disponibles === 0}
-                          title={cupo?.disponibles === 0 ? 'Ya usaste todos tus desbloqueos' : 'Ver bases y análisis ISO con IA'}
-                          aria-label={'Desbloquear ' + l.codigo}
-                          onClick={() => pedirDesbloqueo(l)}
-                        >
-                          🔓 Desbloquear
-                        </button>
+                        <div className="relative">
+                          <div className="blur-sm select-none pointer-events-none rounded-md border border-line bg-canvas px-2.5 py-2 text-left text-[12px] leading-snug text-muted" aria-hidden="true">
+                            <strong className="text-ink">Recomendada</strong>
+                            <span className="mt-1 block">ISO 9001 · Encaje alto</span>
+                            <span className="block">Brecha: certificación pendiente</span>
+                          </div>
+                          <button
+                            className={`${btnPrimary} absolute inset-0 m-auto h-fit w-[calc(100%-8px)] px-2! py-1.5! text-[12px]! leading-tight`}
+                            type="button"
+                            aria-label={'Desbloquear ' + l.codigo}
+                            onClick={() => pedirDesbloqueo(l)}
+                          >
+                            Desbloquear con IA (1 crédito)
+                          </button>
+                        </div>
                       )}
                     </span>
                   </div>
@@ -685,7 +778,7 @@ export function DescubrimientoPage() {
               </li>
             </ul>
             <p className={dialogCupo}>
-              Usarás 1 de tus {cupo?.limite} desbloqueos · te quedarán <strong>{(cupo?.disponibles ?? 1) - 1}</strong>.
+              Usarás <strong>1 crédito</strong>. Te quedarán <strong>{Math.max(0, (cupo?.creditos ?? cupo?.disponibles ?? 1) - 1)}</strong>.
             </p>
             {errorDesbloqueo ? (
               <p className={dialogError} role="alert">
@@ -697,7 +790,7 @@ export function DescubrimientoPage() {
                 Cancelar
               </button>
               <button className={btnPrimary} type="button" disabled={desbloqueando} onClick={confirmarDesbloqueo}>
-                {desbloqueando ? 'Desbloqueando…' : '🔓 Desbloquear'}
+                {desbloqueando ? 'Desbloqueando…' : 'Desbloquear con IA (1 crédito)'}
               </button>
             </div>
           </div>
@@ -707,6 +800,7 @@ export function DescubrimientoPage() {
       {detalle ? (
         <DetalleDesbloqueo lic={detalle.lic} inicial={detalle.inicial} onCerrar={() => setDetalle(null)} />
       ) : null}
+      <PlanesModal abierto={planes} planActual={cupo?.plan} onCerrar={() => setPlanes(false)} />
     </div>
   )
 }

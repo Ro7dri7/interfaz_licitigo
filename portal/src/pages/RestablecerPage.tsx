@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import * as api from '../lib/api'
 import { mensajeError } from '../lib/api'
+import { ClaveChecklist, claveValida } from '../components/ClaveChecklist'
 import { btnPrimary, card, container } from '../lib/ui'
 
 const input =
@@ -26,7 +27,7 @@ export function RestablecerPage() {
   const enviar = (e: FormEvent) => {
     e.preventDefault()
     if (!token || enviando) return
-    if (password.length < 8) return setError('La contraseña debe tener al menos 8 caracteres.')
+    if (!claveValida(password)) return setError('La contraseña todavía no cumple las 5 reglas.')
     setEnviando(true)
     setError(null)
     api
@@ -52,7 +53,7 @@ export function RestablecerPage() {
         <form className={`${card} flex w-full max-w-[420px] flex-col p-7`} onSubmit={enviar}>
           <h1 className="text-[26px]">Nueva contraseña</h1>
           <p className="mt-2 mb-[18px] text-[14px] text-muted">
-            {listo ? 'Ya puedes entrar con tu nueva contraseña.' : 'Elige una contraseña de al menos 8 caracteres.'}
+            {listo ? 'Ya puedes entrar con tu nueva contraseña.' : 'Elige una contraseña que cumpla las 5 reglas.'}
           </p>
           {listo ? null : (
             <input
@@ -65,6 +66,7 @@ export function RestablecerPage() {
               aria-label="Nueva contraseña"
             />
           )}
+          {listo ? null : <ClaveChecklist valor={password} />}
           {error ? (
             <p className={errorBox} role="alert">
               {error}
@@ -75,7 +77,7 @@ export function RestablecerPage() {
               Ir a iniciar sesión
             </Link>
           ) : (
-            <button className={`${btnPrimary} mt-[18px] w-full`} type="submit" disabled={enviando || !token}>
+            <button className={`${btnPrimary} mt-[18px] w-full`} type="submit" disabled={enviando || !token || !claveValida(password)}>
               {enviando ? 'Un momento…' : 'Guardar contraseña'}
             </button>
           )}
