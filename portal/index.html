@@ -14,6 +14,8 @@
       href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
+    <!-- Apariencia y accesibilidad (shared/a11y): aplica tema y escala antes del primer pintado para evitar parpadeo. -->
+    <script>(function(){try{var r=document.documentElement,p=JSON.parse(localStorage.getItem('licihub_a11y_prefs')||'{}')||{},t=p.theme,d=t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme: dark)').matches);r.classList.toggle('dark',d);r.setAttribute('data-theme',d?'dark':'light');r.style.colorScheme=d?'dark':'light';if([0.9,1,1.12,1.25,1.4].indexOf(p.scale)>-1)r.style.setProperty('--lh-font-scale',String(p.scale));if(p.highlight===true)r.setAttribute('data-a11y-highlight','true')}catch(e){}})()</script>
     <title>LiciHub · Inteligencia de contrataciones públicas</title>
   </head>
   <body>

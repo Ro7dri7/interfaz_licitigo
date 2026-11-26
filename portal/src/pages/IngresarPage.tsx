@@ -5,6 +5,7 @@ import { mensajeError } from '../lib/api'
 import { logout, obtenerSesion, olvidarCierre, refrescar } from '../lib/auth'
 import type { Sesion } from '../types/models'
 import { ClaveChecklist, claveValida } from '../components/ClaveChecklist'
+import { AccessibilityButton } from '../../../shared/a11y'
 import { btnPrimary, btnSecondary, card, container, dot, pillNeutral } from '../lib/ui'
 import type { Perfil } from '../types/models'
 
@@ -307,13 +308,16 @@ export function IngresarPage() {
         <Link to="/" className="font-serif text-[26px] font-semibold">
           LiciHub<span className="text-primary">.</span>
         </Link>
-        <span className={pillNeutral}>
-          <span className={dot} style={{ background: 'var(--color-success)' }} />
-          Perú • SEACE
-        </span>
+        <div className="flex items-center gap-3">
+          <span className={pillNeutral}>
+            <span className={dot} style={{ background: 'var(--color-success)' }} />
+            Perú • SEACE
+          </span>
+          <AccessibilityButton className="inline-flex size-[34px] items-center justify-center rounded-full border border-line bg-white text-muted hover:border-primary-line hover:text-primary" />
+        </div>
       </header>
 
-      <main className="flex flex-1 items-start justify-center px-4 pt-6 pb-16">
+      <main id="main-content" tabIndex={-1} className="flex flex-1 items-start justify-center px-4 pt-6 pb-16">
         {sesionPrevia ? (
           <div className={cardClass}>
             <h1>Ya tienes una sesión abierta</h1>

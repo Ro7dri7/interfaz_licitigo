@@ -12,11 +12,13 @@ export function LandingPage() {
   return (
     <div className="landing min-h-full scroll-smooth bg-brand-bg font-landing text-brand-ink antialiased selection:bg-brand-blue selection:text-white">
       <LandingNav sesion={sesion} />
-      <LandingHero sesion={sesion} />
-      <LandingBento />
-      <LandingTelegram />
-      <LandingImpacto />
-      <LandingPrecios sesion={sesion} />
+      <main id="main-content" tabIndex={-1}>
+        <LandingHero sesion={sesion} />
+        <LandingBento />
+        <LandingTelegram />
+        <LandingImpacto />
+        <LandingPrecios sesion={sesion} />
+      </main>
       <LandingFooter />
     </div>
   )

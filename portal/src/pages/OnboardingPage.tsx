@@ -21,6 +21,7 @@ import {
   pillWarning,
 } from '../lib/ui'
 import type { AlertChannel, Company, KeywordSuggestion, TelegramLink } from '../types/models'
+import { AccessibilityButton } from '../../../shared/a11y'
 
 type BlockData =
   | { kind: 'text'; from: 'lici' | 'user'; text: string }
@@ -648,6 +649,7 @@ export function OnboardingPage() {
             Perú • SEACE 3.0
           </span>
           <span className="text-[13px] text-muted">SUNAT Online</span>
+          <AccessibilityButton className="inline-flex size-[34px] items-center justify-center rounded-full border border-line bg-white text-muted hover:border-primary-line hover:text-primary" />
           <button
             type="button"
             className="border-none bg-transparent p-0 text-[13px] font-semibold text-muted hover:text-danger"
@@ -668,7 +670,7 @@ export function OnboardingPage() {
         </span>
       </div>
 
-      <main className={`${container} grid flex-1 grid-cols-[1.6fr_1fr] items-start gap-6 pt-7 pb-10 max-[1100px]:grid-cols-[1fr]`}>
+      <main id="main-content" tabIndex={-1} className={`${container} grid flex-1 grid-cols-[1.6fr_1fr] items-start gap-6 pt-7 pb-10 max-[1100px]:grid-cols-[1fr]`}>
         <section className={`${card} flex h-[calc(100vh-190px)] min-h-[560px] flex-col max-[1100px]:h-auto`}>
           <div className="flex items-center gap-3 border-b border-line px-[22px] py-[18px]">
             <div className="inline-flex size-[38px] shrink-0 items-center justify-center rounded-full bg-primary font-bold text-white">

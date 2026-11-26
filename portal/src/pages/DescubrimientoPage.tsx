@@ -401,7 +401,7 @@ export function DescubrimientoPage() {
     <div className="min-h-full bg-canvas">
       <Topbar creditos={creditos} onMejorar={() => setPlanes(true)} />
 
-      <main className={`${container} flex flex-col gap-[22px] pt-6 pb-12 max-[720px]:pt-4`}>
+      <main id="main-content" tabIndex={-1} className={`${container} flex flex-col gap-[22px] pt-6 pb-12 max-[720px]:pt-4`}>
         {avisoPago ? <p className="rounded-md border border-line bg-white px-4 py-3 text-[14px]" role="status">{avisoPago}</p> : null}
         <section className={`${card} px-[22px] py-5 max-[720px]:p-4`}>
           <div className="mb-[18px] flex flex-wrap items-center gap-4 border-b border-line pb-[18px]">
@@ -644,7 +644,13 @@ export function DescubrimientoPage() {
 
           {items.length ? (
             <>
-              <div className={`${card} overflow-hidden transition-opacity duration-150 ${loading ? 'opacity-55' : ''}`}>
+              <div
+                className={`${card} overflow-hidden transition-opacity duration-150 ${loading ? 'opacity-55' : ''}`}
+                data-a11y-nav=""
+                aria-label="Resultados de licitaciones"
+                aria-busy={loading}
+                role="region"
+              >
                 <div
                   className={`${rowGrid} items-center! bg-canvas text-[11px]! font-bold tracking-[0.04em] text-faint uppercase max-[1200px]:hidden`}
                 >
@@ -656,7 +662,7 @@ export function DescubrimientoPage() {
                   <span>Acción</span>
                 </div>
                 {items.map((l) => (
-                  <div key={l.id} className={rowGrid}>
+                  <div key={l.id} className={rowGrid} data-a11y-item="">
                     <span>
                       {l.esNueva ? <span className={`${pillPrimary} mb-1.5 inline-block!`}>Nueva</span> : null}
                       <span className={`${mono} block text-[12px] text-muted`}>{l.codigo}</span>

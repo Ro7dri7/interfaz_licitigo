@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from './components'
 import { crmPath } from './paths'
+import { currentScale } from '../../shared/a11y'
 
 const dealUrl = (id: string) => new URL(crmPath(`/negocios/${id}`), window.location.origin).href
 
@@ -11,7 +12,9 @@ export default function DealContextMenu({ dealId, x, y, onClose, onPreview }: { 
   const [pos, setPos] = useState({ left: x, top: y })
   useEffect(() => {
     const box = ref.current
-    if (box) setPos({ left: Math.max(8, Math.min(x, window.innerWidth - box.offsetWidth - 8)), top: Math.max(8, Math.min(y, window.innerHeight - box.offsetHeight - 8)) })
+    // Con la escala de fuente (zoom en body) las coordenadas del puntero se pasan a px de CSS.
+    const s = currentScale(), vw = window.innerWidth / s, vh = window.innerHeight / s
+    if (box) setPos({ left: Math.max(8, Math.min(x / s, vw - box.offsetWidth - 8)), top: Math.max(8, Math.min(y / s, vh - box.offsetHeight - 8)) })
     box?.querySelector<HTMLElement>('button')?.focus()
     const close = () => onClose()
     const onKey = (e: KeyboardEvent) => {
@@ -36,7 +39,7 @@ export default function DealContextMenu({ dealId, x, y, onClose, onPreview }: { 
   ]
   return createPortal(<>
     <div className="ctx-backdrop" onMouseDown={onClose} onContextMenu={e => { e.preventDefault(); onClose() }} />
-    <div ref={ref} className="ctx-menu" role="menu" aria-label="Acciones del negocio" style={pos}>
+    <div ref={ref} className="ctx-menu" role="menu" data-a11y-keys="own" aria-label="Acciones del negocio" style={pos}>
       {items.map(([label, icon, run]) => <button type="button" role="menuitem" key={label} onClick={run}><Icon name={icon} size={15} />{label}</button>)}
     </div></>, document.body)
 }

@@ -1,0 +1,573 @@
+/*
+ * Apariencia y accesibilidad (WCAG 2.2 AA) compartida por el Portal y el CRM.
+ * Las preferencias llegan como atributos en <html> (ver prefs.mjs y el script de arranque
+ * de cada index.html): clase `dark`, data-theme, data-a11y-highlight y --lh-font-scale.
+ * Todo lo oscuro va dentro de @media screen: la impresión (cotización A4) sale siempre clara.
+ */
+
+:root {
+  --lh-font-scale: 1;
+  --lh-focus: #1d4ed8;
+  --lh-ui-bg: #ffffff;
+  --lh-ui-fg: #0f172a;
+  --lh-ui-muted: #4b5870;
+  --lh-ui-line: #d3d8e3;
+  --lh-ui-soft: #eef2fb;
+  --lh-ui-accent: #2f5bea;
+  --lh-ui-accent-fg: #ffffff;
+  --lh-ui-accent-text: #1e47d6;
+  --lh-primary-text: var(--color-primary, #2f5bea);
+}
+
+/* ---------- Tamaño de fuente global ----------
+ * Las vistas usan medidas en px, así que la escala se aplica con `zoom`: textos, botones
+ * y espacios crecen en proporción y el contenido refluye dentro del ancho de la ventana. */
+body {
+  zoom: var(--lh-font-scale, 1);
+}
+
+/* ---------- Saltar al contenido ---------- */
+.lh-skip-link {
+  position: fixed;
+  left: 12px;
+  top: 12px;
+  z-index: 2147483000;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.lh-skip-link:focus,
+.lh-skip-link:focus-visible {
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 12px 16px;
+  clip-path: none;
+  overflow: visible;
+  border-radius: 8px;
+  background: var(--lh-ui-bg);
+  color: var(--lh-ui-accent-text);
+  font: 600 15px/1.3 Inter, system-ui, sans-serif;
+  text-decoration: underline;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
+  outline: 3px solid var(--lh-focus);
+  outline-offset: 2px;
+}
+#main-content:focus {
+  outline: none;
+}
+
+/* ---------- Foco visible de alto contraste ---------- */
+:where(a[href], button, input, select, textarea, summary, [tabindex], [role='button'], [role='tab'], [role='link'], [role='menuitem'], [role='option'], [role='switch'], tr, path):focus-visible {
+  outline: 2px solid var(--lh-focus);
+  outline-offset: 2px;
+}
+path:focus-visible {
+  stroke: var(--lh-focus);
+  stroke-width: 3px;
+}
+tr[tabindex]:focus-visible {
+  outline-offset: -2px;
+}
+
+/* Resaltar foco y enlaces (baja visión) */
+html[data-a11y-highlight] *:focus-visible {
+  outline: 3px solid #ffbf00 !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 6px #0b1220 !important;
+}
+html[data-a11y-highlight] path:focus-visible {
+  stroke: #ffbf00 !important;
+  stroke-width: 4px !important;
+}
+html[data-a11y-highlight] a[href] {
+  text-decoration: underline !important;
+  text-decoration-thickness: 2px !important;
+  text-underline-offset: 3px !important;
+}
+html[data-a11y-highlight] a[href]:hover {
+  text-decoration-thickness: 3px !important;
+}
+html[data-a11y-highlight] :is(button, [role='button'], [role='tab'], [role='switch'], input, select, textarea):not(:disabled) {
+  outline: 1px solid currentColor;
+  outline-offset: 1px;
+}
+
+/* ---------- Modo oscuro: tokens del Portal y del CRM ---------- */
+@media screen {
+  html.dark {
+    color-scheme: dark;
+    --lh-focus: #8fb0ff;
+    --lh-ui-bg: #141d2e;
+    --lh-ui-fg: #e6ebf6;
+    --lh-ui-muted: #aab5c8;
+    --lh-ui-line: #3a4766;
+    --lh-ui-soft: #1e2940;
+    --lh-ui-accent: #2f5bea;
+    --lh-ui-accent-fg: #ffffff;
+    --lh-ui-accent-text: #a3b8ff;
+    --lh-primary-text: #a3b8ff;
+
+    --color-white: #141d2e;
+    --color-canvas: #0c1322;
+    --color-ink: #e6ebf6;
+    --color-muted: #aab5c8;
+    --color-faint: #95a2b8;
+    --color-line: #2a3550;
+    --color-line-strong: #3a4766;
+    --color-primary-soft: #1b2a52;
+    --color-primary-line: #33508f;
+    --color-success: #4ade80;
+    --color-success-soft: #0f2a1d;
+    --color-success-line: #1f5537;
+    --color-warning: #fbbf24;
+    --color-warning-soft: #2c2109;
+    --color-warning-line: #5c4512;
+    --color-danger: #fca5a5;
+    --color-danger-soft: #381518;
+    --color-danger-line: #6b2b30;
+    --color-info: #93b0ff;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.45);
+    --shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.45);
+    --shadow-panel: 0 12px 32px rgba(0, 0, 0, 0.55);
+    --lh-map-empty: #2a3550;
+    --lh-map-stroke: #0c1322;
+    --lh-map-selected: #ffffff;
+  }
+
+  html.dark body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+  }
+
+  /* La landing pública conserva su diseño claro. */
+  html.dark .landing {
+    color-scheme: light;
+    --color-white: #ffffff;
+    --color-canvas: #f6f7fb;
+    --color-ink: #0f172a;
+    --color-muted: #64748b;
+    --color-faint: #94a1b6;
+    --color-line: #e4e7ee;
+    --color-line-strong: #d3d8e3;
+    --color-primary-soft: #eaf0ff;
+    --color-primary-line: #c9d9ff;
+    --color-success: #16a34a;
+    --color-danger: #dc2626;
+    --color-warning: #d97706;
+    --lh-primary-text: #2f5bea;
+  }
+
+  /* Texto blanco sobre botones de color: no debe heredar la superficie oscura. */
+  html.dark .text-white,
+  html.dark .hover\:text-white:hover {
+    color: #ffffff;
+  }
+  html.dark :is(.text-primary, .hover\:text-primary:hover, .text-primary-dark) {
+    color: var(--lh-primary-text);
+  }
+  html.dark .bg-\[\#f1f3f8\]:not(.landing *) {
+    background-color: #1e2940;
+  }
+  html.dark .text-\[\#92660a\]:not(.landing *) {
+    color: #fcd34d;
+  }
+  html.dark .bg-\[rgba\(15\,23\,42\,0\.45\)\]:not(.landing *) {
+    background-color: rgba(0, 0, 0, 0.6);
+  }
+  html.dark ::placeholder {
+    color: #95a2b8;
+  }
+  html.dark ::selection {
+    background: #33508f;
+    color: #ffffff;
+  }
+  html.dark ::-webkit-scrollbar-thumb {
+    background: #3a4766;
+  }
+  html.dark :is(input, select, textarea) {
+    color-scheme: dark;
+  }
+}
+
+/* ---------- Botón de acceso ---------- */
+.lh-a11y-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--lh-ui-line);
+  border-radius: 999px;
+  background: var(--lh-ui-bg);
+  color: var(--lh-ui-fg);
+  font: 600 13px/1 Inter, system-ui, sans-serif;
+  cursor: pointer;
+}
+.lh-a11y-trigger:hover {
+  border-color: var(--lh-ui-accent);
+  color: var(--lh-ui-accent-text);
+}
+.lh-a11y-trigger svg {
+  flex-shrink: 0;
+}
+
+/* ---------- Panel "Apariencia y Accesibilidad" ---------- */
+.lh-a11y-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147482000;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(12, 19, 36, 0.5);
+}
+.lh-a11y-root .lh-a11y-panel {
+  width: min(440px, 100%);
+  height: 100%;
+  overflow-y: auto;
+  padding: 22px 22px 32px;
+  background: var(--lh-ui-bg);
+  color: var(--lh-ui-fg);
+  border-left: 1px solid var(--lh-ui-line);
+  box-shadow: -16px 0 40px rgba(0, 0, 0, 0.25);
+  font: 400 14px/1.5 Inter, system-ui, sans-serif;
+  text-align: left;
+}
+.lh-a11y-root .lh-a11y-panel *,
+.lh-a11y-root .lh-reader-bar * {
+  box-sizing: border-box;
+}
+.lh-a11y-root .lh-a11y-panel header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.lh-a11y-root .lh-a11y-panel h2 {
+  margin: 0;
+  font: 600 22px/1.2 'Source Serif 4', Georgia, serif;
+  color: var(--lh-ui-fg);
+}
+.lh-a11y-root .lh-a11y-panel header p {
+  margin: 6px 0 0;
+  color: var(--lh-ui-muted);
+  font-size: 13px;
+}
+.lh-a11y-root .lh-a11y-section {
+  margin: 0 0 16px;
+  padding: 16px;
+  border: 1px solid var(--lh-ui-line);
+  border-radius: 12px;
+  min-width: 0;
+}
+.lh-a11y-root .lh-a11y-section legend,
+.lh-a11y-root .lh-a11y-section h3 {
+  padding: 0 4px;
+  margin: 0 0 4px;
+  font: 700 14px/1.3 Inter, system-ui, sans-serif;
+  color: var(--lh-ui-fg);
+}
+.lh-a11y-root .lh-a11y-section h3 {
+  padding: 0;
+}
+.lh-a11y-root .lh-a11y-hint {
+  margin: 4px 0 12px;
+  color: var(--lh-ui-muted);
+  font-size: 12.5px;
+}
+.lh-a11y-root .lh-a11y-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.lh-a11y-root .lh-a11y-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  border: 1px solid var(--lh-ui-line);
+  border-radius: 10px;
+  background: var(--lh-ui-bg);
+  color: var(--lh-ui-fg);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+.lh-a11y-root .lh-a11y-option input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.lh-a11y-root .lh-a11y-option:has(input:checked) {
+  border: 2px solid var(--lh-ui-accent);
+  background: var(--lh-ui-soft);
+  color: var(--lh-ui-accent-text);
+}
+.lh-a11y-root .lh-a11y-option:has(input:focus-visible) {
+  outline: 2px solid var(--lh-focus);
+  outline-offset: 2px;
+}
+.lh-a11y-root .lh-a11y-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.lh-a11y-root .lh-a11y-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--lh-ui-line);
+  border-radius: 8px;
+  background: var(--lh-ui-bg);
+  color: var(--lh-ui-fg);
+  font: 600 13px/1.2 Inter, system-ui, sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.lh-a11y-root .lh-a11y-btn:hover:not(:disabled) {
+  border-color: var(--lh-ui-accent);
+  color: var(--lh-ui-accent-text);
+}
+.lh-a11y-root .lh-a11y-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.lh-a11y-root .lh-a11y-btn.primary {
+  border-color: var(--lh-ui-accent);
+  background: var(--lh-ui-accent);
+  color: var(--lh-ui-accent-fg);
+}
+.lh-a11y-root .lh-a11y-btn.primary:hover:not(:disabled) {
+  color: var(--lh-ui-accent-fg);
+  filter: brightness(1.08);
+}
+.lh-a11y-root .lh-a11y-btn.icon {
+  min-width: 36px;
+  padding: 6px;
+}
+.lh-a11y-root .lh-a11y-levels {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+}
+.lh-a11y-root .lh-a11y-levels .lh-a11y-option {
+  padding: 8px 2px;
+}
+.lh-a11y-root .lh-a11y-scale-value {
+  min-width: 64px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.lh-a11y-root .lh-a11y-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  padding: 10px 0;
+  border: 0;
+  border-top: 1px solid var(--lh-ui-line);
+  background: transparent;
+  color: var(--lh-ui-fg);
+  font: 600 13.5px/1.35 Inter, system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+.lh-a11y-root .lh-a11y-switch:first-of-type {
+  border-top: 0;
+}
+.lh-a11y-root .lh-a11y-switch small {
+  display: block;
+  margin-top: 2px;
+  color: var(--lh-ui-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.lh-a11y-root .lh-a11y-switch .track {
+  position: relative;
+  flex-shrink: 0;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: #8a96ab;
+  transition: background 0.15s;
+}
+.lh-a11y-root .lh-a11y-switch .track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 0.15s;
+}
+.lh-a11y-root .lh-a11y-switch[aria-checked='true'] .track {
+  background: var(--lh-ui-accent);
+}
+.lh-a11y-root .lh-a11y-switch[aria-checked='true'] .track::after {
+  transform: translateX(18px);
+}
+.lh-a11y-root .lh-a11y-switch:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.lh-a11y-root .lh-a11y-keys {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--lh-ui-muted);
+}
+.lh-a11y-root .lh-a11y-keys kbd {
+  display: inline-block;
+  min-width: 22px;
+  margin-right: 4px;
+  padding: 1px 6px;
+  border: 1px solid var(--lh-ui-line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--lh-ui-soft);
+  color: var(--lh-ui-fg);
+  font: 600 11.5px/1.5 'JetBrains Mono', ui-monospace, monospace;
+  text-align: center;
+}
+.lh-a11y-root .lh-a11y-select {
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--lh-ui-line);
+  border-radius: 8px;
+  background: var(--lh-ui-bg);
+  color: var(--lh-ui-fg);
+  font: 500 13px/1.2 Inter, system-ui, sans-serif;
+  width: auto;
+}
+.lh-a11y-root .lh-a11y-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lh-ui-fg);
+}
+.lh-a11y-root .lh-a11y-notice {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--lh-ui-line);
+  border-radius: 8px;
+  background: var(--lh-ui-soft);
+  color: var(--lh-ui-fg);
+  font-size: 12.5px;
+}
+.lh-a11y-root .lh-a11y-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+/* ---------- Barra flotante del lector de voz ---------- */
+.lh-a11y-root .lh-reader-bar {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2147481000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(360px, calc(100vw - 32px));
+  padding: 12px;
+  border: 1px solid var(--lh-ui-line);
+  border-radius: 14px;
+  background: var(--lh-ui-bg);
+  color: var(--lh-ui-fg);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.22);
+  font: 400 13px/1.4 Inter, system-ui, sans-serif;
+}
+.lh-a11y-root .lh-reader-bar header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.lh-a11y-root .lh-reader-bar h2 {
+  margin: 0;
+  font: 700 13px/1.2 Inter, system-ui, sans-serif;
+  color: var(--lh-ui-fg);
+}
+.lh-a11y-root .lh-reader-bar .lh-a11y-row {
+  gap: 6px;
+}
+.lh-a11y-root .lh-reader-bar .lh-a11y-switch {
+  padding: 6px 0 0;
+  font-size: 12.5px;
+}
+.lh-a11y-root .lh-reader-status {
+  margin: 0;
+  color: var(--lh-ui-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 520px) {
+  .lh-a11y-root .lh-a11y-panel {
+    padding: 18px 16px 28px;
+  }
+  .lh-a11y-root .lh-reader-bar {
+    right: 8px;
+    bottom: 8px;
+    width: calc(100vw - 16px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lh-a11y-root .lh-a11y-switch .track,
+  .lh-a11y-root .lh-a11y-switch .track::after {
+    transition: none;
+  }
+}
+
+/* ---------- Impresión: siempre clara, sin escala ni controles ---------- */
+@media print {
+  body {
+    zoom: 1 !important;
+  }
+  .lh-a11y-root .lh-reader-bar,
+  .lh-a11y-overlay,
+  .lh-a11y-trigger,
+  .lh-skip-link,
+  .lh-a11y-live {
+    display: none !important;
+  }
+}
+
+.lh-a11y-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

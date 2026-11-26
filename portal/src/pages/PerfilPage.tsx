@@ -285,7 +285,7 @@ export function PerfilPage() {
     <div className="min-h-full bg-canvas">
       <Topbar creditos={cupo?.creditos ?? cupo?.disponibles ?? null} onMejorar={() => setPlanes(true)} />
 
-      <main className={`${container} flex flex-col gap-[22px] pt-6 pb-12 max-[720px]:pt-4`}>
+      <main id="main-content" tabIndex={-1} className={`${container} flex flex-col gap-[22px] pt-6 pb-12 max-[720px]:pt-4`}>
         <header>
           <h1 className="text-[30px]">Mi perfil</h1>
           <p className="mt-1.5 text-[14px] text-muted">Tu cuenta, tu empresa y cómo buscamos licitaciones para ti.</p>

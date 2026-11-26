@@ -153,7 +153,7 @@ export function MisDesbloqueosPage() {
     <div className="min-h-full bg-canvas">
       <Topbar creditos={cupo?.creditos ?? cupo?.disponibles ?? null} onMejorar={() => setPlanes(true)} />
 
-      <main className={`${container} flex flex-col gap-[22px] pt-6 pb-12 max-[720px]:pt-4`}>
+      <main id="main-content" tabIndex={-1} className={`${container} flex flex-col gap-[22px] pt-6 pb-12 max-[720px]:pt-4`}>
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-[30px]">Mis desbloqueos</h1>
@@ -256,7 +256,7 @@ export function MisDesbloqueosPage() {
         ) : !visibles.length ? (
           <p className={vacio}>Ninguna licitación coincide con este filtro.</p>
         ) : (
-          <section className={`${card} overflow-hidden`}>
+          <section className={`${card} overflow-hidden`} data-a11y-nav="" aria-label="Licitaciones desbloqueadas">
             <div className={`${fila} items-center! bg-canvas text-[11px]! font-bold tracking-[0.04em] text-faint uppercase max-[1100px]:hidden`}>
               <span>Licitación</span>
               <span>Oportunidad</span>
@@ -266,7 +266,7 @@ export function MisDesbloqueosPage() {
             {visibles.map((i) => {
               const c = cierre(i)
               return (
-                <article key={i.convocatoriaId} className={fila}>
+                <article key={i.convocatoriaId} className={fila} data-a11y-item="">
                   <div className="flex flex-col items-start gap-1.5">
                     <span className={`${mono} text-[12px] break-all text-muted`}>{i.codigo}</span>
                     <span

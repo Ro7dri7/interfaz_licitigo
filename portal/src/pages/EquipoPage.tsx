@@ -61,7 +61,7 @@ export function EquipoPage() {
   return (
     <div className="min-h-full bg-canvas">
       <Topbar />
-      <main className={`${container} flex flex-col gap-[22px] pt-6 pb-14`}>
+      <main id="main-content" tabIndex={-1} className={`${container} flex flex-col gap-[22px] pt-6 pb-14`}>
         <section className="grid grid-cols-4 gap-4 max-[1300px]:grid-cols-2">
           <div className={`${card} flex flex-col gap-2 px-5 py-[18px]`}>
             <span className="text-[11px] font-bold tracking-[0.04em] text-faint uppercase">En juego por etapa · todo el equipo</span>

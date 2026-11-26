@@ -5,6 +5,7 @@ import basicSsl from '@vitejs/plugin-basic-ssl'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type UserConfig } from 'vite'
 import { prepareBrandCss, scopeStylesheet } from '../scripts/crm-shell-css.mjs'
+import { darkTwins } from '../shared/a11y/dark-css.mjs'
 
 const portalRoot = dirname(fileURLToPath(import.meta.url))
 
@@ -16,7 +17,11 @@ function crmShellCss() {
       if (!id.includes('crm-shell')) return null
       const file = id.split('?')[0].replaceAll('\\', '/')
       if (file.endsWith('/crm/src/brand.css')) return { code: scopeStylesheet(prepareBrandCss(code)), map: null }
-      if (file.endsWith('/crm/src/styles.css')) return { code: scopeStylesheet(code), map: null }
+      if (file.endsWith('/crm/src/styles.css')) {
+        // Reglas gemelas de modo oscuro (solo pantalla) para los colores fijos del CRM.
+        const scoped = scopeStylesheet(code)
+        return { code: scoped + darkTwins(scoped), map: null }
+      }
       return null
     },
   }
@@ -67,6 +72,7 @@ export default defineConfig(({ command }) => {
       },
     } : {
       port: 5173,
+      fs: { allow: [portalRoot, resolve(portalRoot, '../shared')] },
       proxy: {
         '/api': {
           target: process.env.API_URL ?? 'http://localhost:8000',

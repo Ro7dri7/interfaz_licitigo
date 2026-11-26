@@ -15,13 +15,13 @@ export function ClaveChecklist({ valor }: { valor: string }) {
   return (
     <ul
       className="mt-2 grid grid-cols-2 gap-1.5 border bg-white p-2.5"
-      style={{ borderColor: '#D1D5DB', borderRadius: 8 }}
+      style={{ borderColor: 'var(--color-line-strong)', borderRadius: 8 }}
       aria-label="Requisitos de la contraseña"
     >
       {REGLAS.map((regla) => {
         const cumple = regla.ok(valor)
         return (
-          <li key={regla.id} className="flex items-center gap-1" style={{ fontSize: 11, color: cumple ? '#10B981' : '#6B7280' }}>
+          <li key={regla.id} className="flex items-center gap-1" style={{ fontSize: 11, color: cumple ? 'var(--color-success)' : 'var(--color-muted)' }}>
             <span aria-hidden="true">{cumple ? '✓' : '○'}</span>
             {regla.texto}
           </li>

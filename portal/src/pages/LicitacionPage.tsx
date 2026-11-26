@@ -64,7 +64,7 @@ export function LicitacionPage() {
   return (
     <div className="min-h-full bg-canvas">
       <Topbar creditos={cupo?.creditos ?? cupo?.disponibles ?? abierta?.creditos ?? null} onMejorar={() => setPlanes(true)} />
-      <main className={`${container} py-6 pb-12`}>
+      <main id="main-content" tabIndex={-1} className={`${container} py-6 pb-12`}>
         {error ? <p className="mb-4 rounded-md bg-danger-soft px-3 py-2 text-[13.5px] text-danger" role="alert">{error}</p> : null}
         <DetalleDesbloqueo
           key={abierta?.desbloqueada ? 'abierta' : 'bloqueada'}

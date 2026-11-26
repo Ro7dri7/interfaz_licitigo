@@ -49,7 +49,7 @@ export function RestablecerPage() {
           LiciHub
         </Link>
       </header>
-      <main className="flex flex-1 items-start justify-center px-4 pt-6 pb-16">
+      <main id="main-content" tabIndex={-1} className="flex flex-1 items-start justify-center px-4 pt-6 pb-16">
         <form className={`${card} flex w-full max-w-[420px] flex-col p-7`} onSubmit={enviar}>
           <h1 className="text-[26px]">Nueva contraseña</h1>
           <p className="mt-2 mb-[18px] text-[14px] text-muted">
