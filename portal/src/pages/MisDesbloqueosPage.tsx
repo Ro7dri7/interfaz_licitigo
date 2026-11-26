@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { DetalleDesbloqueo, type LicitacionResumen } from '../components/DetalleDesbloqueo'
+import { Link, useNavigate } from 'react-router-dom'
 import { PlanesModal } from '../components/PlanesModal'
 import { KpiCard } from '../components/KpiCard'
 import { Topbar } from '../components/Topbar'
@@ -9,7 +8,7 @@ import { mensajeError } from '../lib/api'
 import { soles, solesCompacto } from '../lib/formato'
 import { FUENTES, descripcionFuente, etiquetaFuente } from '../lib/fuentes'
 import { btnPrimary, btnSecondary, card, container, mono, pillDanger, pillNeutral, pillSuccess, pillVeredicto, spinner } from '../lib/ui'
-import type { Cupo, Desbloqueo, DesbloqueoItem } from '../types/models'
+import type { Cupo, DesbloqueoItem } from '../types/models'
 
 type Filtro = 'todas' | 'abiertas' | 'cerradas' | 'postular'
 
@@ -77,6 +76,7 @@ const fila =
   'grid grid-cols-[1.1fr_2.6fr_1fr_0.9fr] items-start gap-[18px] border-b border-line px-5 py-4 text-[13.5px] last:border-b-0 max-[1100px]:grid-cols-[1fr] max-[1100px]:gap-2.5'
 
 export function MisDesbloqueosPage() {
+  const navigate = useNavigate()
   const [items, setItems] = useState<DesbloqueoItem[]>([])
   const [cupo, setCupo] = useState<Cupo | null>(null)
   const [loading, setLoading] = useState(true)
@@ -84,7 +84,6 @@ export function MisDesbloqueosPage() {
   const [filtro, setFiltro] = useState<Filtro>('todas')
   const [texto, setTexto] = useState('')
   const [fuente, setFuente] = useState('')
-  const [detalle, setDetalle] = useState<LicitacionResumen | null>(null)
   const [planes, setPlanes] = useState(false)
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -146,19 +145,9 @@ export function MisDesbloqueosPage() {
     }
   }, [pedir])
 
-  const abrir = (i: DesbloqueoItem) =>
-    setDetalle({ id: i.convocatoriaId, codigo: i.codigo ?? String(i.convocatoriaId), titulo: i.titulo, entidad: i.entidad })
-
-  /** El panel avisa cada cambio de estado: se refleja en la fila sin recargar toda la lista. */
-  const alActualizar = useCallback((d: Desbloqueo) => {
-    setItems((lista) =>
-      lista.map((i) =>
-        i.convocatoriaId === d.convocatoriaId
-          ? { ...i, estadoAnalisis: d.estadoAnalisis ?? i.estadoAnalisis, veredicto: d.analisis?.veredicto ?? i.veredicto }
-          : i,
-      ),
-    )
-  }, [])
+  const abrir = (i: DesbloqueoItem) => navigate(`/app/licitacion/${i.convocatoriaId}?volver=${encodeURIComponent('/app/desbloqueos')}`, {
+    state: { lic: { id: i.convocatoriaId, codigo: i.codigo ?? String(i.convocatoriaId), titulo: i.titulo, entidad: i.entidad, departamento: i.departamento, objeto: i.objeto, valorReferencial: i.valorReferencial, desbloqueada: true, fichaUrl: i.fichaUrl, basesUrl: i.basesUrl } },
+  })
 
   return (
     <div className="min-h-full bg-canvas">
@@ -354,7 +343,6 @@ export function MisDesbloqueosPage() {
         )}
       </main>
 
-      {detalle ? <DetalleDesbloqueo lic={detalle} onCerrar={() => setDetalle(null)} onActualizado={alActualizar} /> : null}
       <PlanesModal abierto={planes} planActual={cupo?.plan} onCerrar={() => setPlanes(false)} />
     </div>
   )

@@ -52,6 +52,9 @@ export function IngresarPage() {
 
   const [modo, setModo] = useState<Modo>(params.get('modo') === 'registro' ? 'registro' : 'login')
   const [nombre, setNombre] = useState('')
+  const [telefono, setTelefono] = useState('')
+  const [acepta, setAcepta] = useState(false)
+  const googleListo = acepta && telefono.replace(/\D/g, '').length >= 8
   const [email, setEmail] = useState(params.get('email') ?? '')
   const [password, setPassword] = useState('')
   const [verPassword, setVerPassword] = useState(false)
@@ -333,8 +336,18 @@ export function IngresarPage() {
                 </>
               )}
             </p>
+            {modo === 'registro' ? (
+              <div className="mb-3 flex flex-col gap-2">
+                <label className={label} htmlFor="telefono-google">Teléfono</label>
+                <input id="telefono-google" className={input} type="tel" autoComplete="tel" placeholder="+51 999 999 999" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
+                <label className="flex items-start gap-2 text-[13px] text-muted">
+                  <input type="checkbox" checked={acepta} onChange={(e) => setAcepta(e.target.checked)} />
+                  <span>Acepto los términos y condiciones para crear mi cuenta.</span>
+                </label>
+              </div>
+            ) : null}
             {modo === 'login' || modo === 'registro' ? (
-              <a className={`${btnSecondary} mb-3 w-full`} href={enlaceGoogle(volver, params.get('plan'))}>
+              <a className={`${btnSecondary} mb-3 w-full ${modo === 'registro' && !googleListo ? 'pointer-events-none opacity-50' : ''}`} href={modo === 'registro' && !googleListo ? undefined : enlaceGoogle(volver, params.get('plan'))} aria-disabled={modo === 'registro' && !googleListo} onClick={(e) => { if (modo === 'registro' && !googleListo) { e.preventDefault(); return } if (modo === 'registro') sessionStorage.setItem('lici.telefono', telefono.trim()) }}>
                 <svg className="size-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3h3.86c2.26-2.09 3.685-5.17 3.685-9.09z" fill="#4285F4" />
                   <path d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.26v3.09C3.25 21.3 7.31 24 12 24z" fill="#34A853" />

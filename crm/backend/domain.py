@@ -44,6 +44,7 @@ class Intake(Input):
     tender: str = Field(default='', max_length=160)
     deadline: date | None = None
     notes: str = Field(default='', max_length=3000)
+    sector: str = Field(default='', max_length=80)
 
 
 class AddContact(Input):
@@ -179,12 +180,42 @@ def open_deal(state, prospect, actor):
     return deal
 
 
+_SECTORES = (
+    ('min', 'Minería'), ('constru', 'Construcción'), ('educ', 'Educación'),
+    ('comerc', 'Comercio'), ('manufact', 'Manufactura'), ('fabric', 'Manufactura'), ('servic', 'Servicios'),
+)
+
+
+def _aplicar_sector(state, company, sector):
+    texto = ' '.join(str(sector).split())[:60]
+    if not texto:
+        return
+    prop = next((p for p in state['properties'] if p.get('active') and p.get('entity') == 'company' and str(p.get('name', '')).casefold() == 'sector'), None)
+    if not prop:
+        return
+    elegido = next((o for o in prop['options'] if o.casefold() == texto.casefold()), None)
+    if not elegido:
+        for clave, nombre in _SECTORES:
+            if clave in texto.casefold() and any(o.casefold() == nombre.casefold() for o in prop['options']):
+                elegido = next(o for o in prop['options'] if o.casefold() == nombre.casefold())
+                break
+    if not elegido:
+        elegido = texto
+        if elegido not in prop['options']:
+            prop['options'] = [*prop['options'], elegido][:30]
+    props = dict(company.get('props') or {})
+    props[prop['id']] = elegido
+    company['props'] = props
+
+
 def receive_intake(state, data, actor):
     # RUC is the only automatic company identity; names and shared phones are not unique.
     company = next((c for c in state['companies'] if data.ruc and c['ruc'] == data.ruc), None)
     if not company:
         company = dict(id=uid(), name=data.company, ruc=data.ruc, origin=data.origin, createdAt=now())
         state['companies'].append(company)
+    if data.sector.strip():
+        _aplicar_sector(state, company, data.sector)
     contact = next((c for c in state['contacts'] if c['companyId'] == company['id'] and data.email
                     and c['email'].casefold() == str(data.email).casefold()), None)
     if not contact and (data.contact or data.email or data.phone):
@@ -244,7 +275,7 @@ def apply_command(original, operation, payload, actor, request_id):
             except Exception as error:
                 raise ValueError('El valor no corresponde al tipo de la propiedad.') from error
             if prop['type'] == 'select' and value not in prop['options']:
-                raise ValueError('Elige una de las opciones de la lista.')
+                prop['options'] = [*prop['options'], value][:30]
         props = dict(record.get('props') or {})
         if value:
             props[prop['id']] = value

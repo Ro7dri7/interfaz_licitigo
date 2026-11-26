@@ -50,7 +50,10 @@ class CustomPropertyTests(unittest.TestCase):
         self.state = put(when, self.deal, '2026-12-31')
         self.assertEqual(self.state['companies'][0]['props'], {sector['id']: 'Minería', number['id']: '12.5'})
         self.assertEqual(self.state['deals'][0]['props'], {when['id']: '2026-12-31'})
-        for prop, record, value in [(sector, self.company, 'Pesca'), (number, self.company, 'mucho'), (when, self.deal, '31/12/2026')]:
+        self.state = put(sector, self.company, 'Pesca')
+        self.assertEqual(self.state['companies'][0]['props'][sector['id']], 'Pesca')
+        self.assertIn('Pesca', next(p['options'] for p in self.state['properties'] if p['id'] == sector['id']))
+        for prop, record, value in [(number, self.company, 'mucho'), (when, self.deal, '31/12/2026')]:
             with self.assertRaises(ValueError):
                 put(prop, record, value)
         self.state = put(sector, self.company, '')

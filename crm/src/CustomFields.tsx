@@ -8,8 +8,10 @@ const titles: Record<PropertyEntity, string> = { deal: 'del negocio', company: '
 
 function FieldInput({ prop, value, busy, onSave }: { prop: Property; value: string; busy: boolean; onSave: (value: string) => void }) {
   const [draft, setDraft] = useState(value)
-  if (prop.type === 'select') return <select aria-label={prop.name} value={draft} disabled={busy} onChange={e => { setDraft(e.target.value); onSave(e.target.value) }}>
-    <option value="">Sin definir</option>{prop.options.map(o => <option key={o} value={o}>{o}</option>)}</select>
+  if (prop.type === 'select') return <>
+    <input aria-label={prop.name} list={`opciones-${prop.id}`} value={draft} disabled={busy} maxLength={60} placeholder="Escribe o elige" onChange={e => setDraft(e.target.value)} onBlur={() => { if (draft !== value) onSave(draft) }} />
+    <datalist id={`opciones-${prop.id}`}>{prop.options.map(o => <option key={o} value={o} />)}</datalist>
+  </>
   return <input aria-label={prop.name} type={prop.type === 'number' ? 'number' : prop.type === 'date' ? 'date' : 'text'} step={prop.type === 'number' ? 'any' : undefined} maxLength={200}
     value={draft} disabled={busy} onChange={e => setDraft(e.target.value)} onBlur={() => { if (draft !== value) onSave(draft) }} onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }} />
 }

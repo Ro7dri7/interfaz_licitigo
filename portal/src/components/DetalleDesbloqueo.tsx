@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as api from '../lib/api'
 import { mensajeError } from '../lib/api'
-import { btnPrimary, btnSecondary, dialogError, mono, overlay, pillSuccess, pillVeredicto, spinner } from '../lib/ui'
+import { btnGhost, btnPrimary, btnSecondary, card, dialogError, mono, pillNeutral, pillSuccess, pillVeredicto, spinner } from '../lib/ui'
 import type { Desbloqueo } from '../types/models'
 import { SolicitarAsesor } from './SolicitarAsesor'
 
@@ -11,6 +11,12 @@ export interface LicitacionResumen {
   codigo: string
   titulo: string
   entidad: string
+  departamento?: string
+  objeto?: string
+  valorReferencial?: number
+  desbloqueada?: boolean
+  fichaUrl?: string | null
+  basesUrl?: string | null
 }
 
 interface Props {
@@ -20,21 +26,27 @@ interface Props {
   onCerrar: () => void
   /** Cada vez que llega un estado nuevo (sirve para refrescar la lista del padre). */
   onActualizado?: (d: Desbloqueo) => void
+  creditos?: number | null
+  onPlanes?: () => void
+  onDesbloquear?: () => void
+  desbloqueando?: boolean
 }
 
 const POLL_MS = 4000
 const POLL_MAX = 120 // ~8 minutos
 
 const muted = 'text-[12.5px] text-muted'
-const box = 'flex flex-col gap-1.5 rounded-md bg-canvas px-3.5 py-3 text-[13.5px] [&_ul]:flex [&_ul]:list-disc [&_ul]:flex-col [&_ul]:gap-1.5 [&_ul]:pl-[18px]'
-const sec =
-  'mt-[22px] flex flex-col gap-2.5 border-t border-line pt-[18px] [&_h4]:font-sans [&_h4]:text-[12px] [&_h4]:font-bold [&_h4]:tracking-[0.05em] [&_h4]:text-faint [&_h4]:uppercase'
+const box = 'flex flex-col gap-1.5 rounded-2xl bg-canvas px-3.5 py-3 text-[13.5px] leading-6 [&_ul]:flex [&_ul]:list-disc [&_ul]:flex-col [&_ul]:gap-1.5 [&_ul]:pl-[18px]'
 
 /**
  * Panel lateral de una licitación desbloqueada: bases, documentos, ficha SEACE y el análisis ISO con IA.
  * Mientras n8n procesa, consulta el estado cada pocos segundos. Lo usan Descubrimiento y Mis desbloqueos.
  */
-export function DetalleDesbloqueo({ lic, inicial = null, onCerrar, onActualizado }: Props) {
+function Candado() {
+  return <svg className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="1.5" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+}
+
+export function DetalleDesbloqueo({ lic, inicial = null, onCerrar, onActualizado, creditos = null, onPlanes, onDesbloquear, desbloqueando = false }: Props) {
   const [data, setData] = useState<Desbloqueo | null>(inicial?.desbloqueada ? inicial : null)
   const [error, setError] = useState<string | null>(null)
   const [reintentando, setReintentando] = useState(false)
@@ -110,87 +122,85 @@ export function DetalleDesbloqueo({ lic, inicial = null, onCerrar, onActualizado
       })
   }
 
+  const abierta = data?.desbloqueada === true
+  const saldo = data?.creditos ?? data?.disponibles ?? creditos
+  const ficha = data?.fichaUrl || lic.fichaUrl
+  const bases = data?.basesUrl || lic.basesUrl
   return (
-    <div className={`${overlay} items-stretch! justify-end! p-0!`} onClick={onCerrar}>
-      <aside
-        className="h-full w-full max-w-[520px] overflow-y-auto bg-white p-6 shadow-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="det-titulo"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="flex items-start justify-between gap-3">
-          <div>
-            <span className={pillSuccess}>Desbloqueada</span>
-            <h3 id="det-titulo" className={`${mono} mt-2 text-[16px]`}>
-              {lic.codigo}
-            </h3>
+    <article>
+      <header className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <button className={`${btnGhost} mb-3 px-0!`} type="button" onClick={onCerrar}>← Volver al listado</button>
+          <p className="text-[11px] font-bold tracking-[0.08em] text-faint">FICHA DE LICITACIÓN</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {abierta ? <span className={pillSuccess}>Desbloqueada</span> : <span className={pillNeutral}>Bloqueada</span>}
+            {lic.objeto ? <span className={pillNeutral}>{lic.objeto}</span> : null}
           </div>
-          <button
-            className="size-[34px] shrink-0 rounded-full border-none bg-canvas text-[13.33px] text-black"
-            type="button"
-            aria-label="Cerrar"
-            onClick={onCerrar}
-          >
-            ✕
-          </button>
-        </header>
-        <p className="mt-3 leading-[1.45] font-semibold">{lic.titulo}</p>
-        <p className="mt-1 text-[13px] text-muted">{lic.entidad}</p>
-
-        {error ? (
-          <p className={dialogError} role="alert">
-            {error}
-          </p>
-        ) : null}
-
-        {data ? (
-          <>
-            <section className={sec}>
-              <h4>Bases administrativas</h4>
-              <div className="flex flex-wrap gap-2.5">
-                {data.basesUrl ? (
-                  <a className={btnPrimary} href={data.basesUrl} target="_blank" rel="noopener noreferrer">
-                    ⬇ Descargar bases
-                  </a>
-                ) : (
-                  <span className={muted}>El SEACE aún no publica el documento de bases.</span>
-                )}
-                {data.fichaUrl ? (
-                  <a className={btnSecondary} href={data.fichaUrl} target="_blank" rel="noopener noreferrer">
-                    Ver ficha en SEACE
-                  </a>
+          <h1 id="det-titulo" className={`${mono} mt-3 text-[28px] leading-tight`}>{lic.codigo}</h1>
+          <p className="mt-2 text-[15px] text-muted">{lic.entidad}{lic.departamento ? ` · ${lic.departamento}` : ''}</p>
+        </div>
+        <div className="flex flex-col items-start gap-2 text-[13px] text-muted lg:items-end">
+          {saldo !== null && saldo !== undefined ? <span>Te quedan {saldo} créditos</span> : null}
+          {ficha ? <a className="font-semibold text-primary" href={ficha} target="_blank" rel="noopener noreferrer">Ver ficha en SEACE ↗</a> : null}
+        </div>
+      </header>
+      {error ? <p className={dialogError} role="alert">{error}</p> : null}
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(280px,0.9fr)]">
+        <div className="flex flex-col gap-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Mini titulo="Entidad y departamento" valor={lic.entidad} detalle={lic.departamento || 'No especificado'} />
+            <Mini titulo="Monto referencial" valor={lic.valorReferencial ? `S/ ${lic.valorReferencial.toLocaleString('es-PE')}` : 'No especificado'} />
+            <Mini titulo="Objeto / tipo" valor={lic.objeto || 'No especificado'} />
+          </div>
+          <section className={`${card} p-5`}>
+            <h2 className="mb-2 text-[16px] font-semibold">Descripción de la convocatoria</h2>
+            <p className="text-[14.5px] leading-7 text-ink">{lic.titulo || 'Sin descripción publicada.'}</p>
+          </section>
+          <section className={`${card} p-5`}>
+            <h2 className="mb-3 text-[16px] font-semibold">Análisis ISO con IA</h2>
+            {data?.desbloqueada ? <Analisis data={data} reintentando={reintentando} onReanalizar={reanalizar} /> : data && data.desbloqueada === false ? (
+              <div className="relative">
+                <div className="pointer-events-none rounded-2xl border border-line bg-canvas p-4 blur-sm select-none" aria-hidden="true">
+                  <strong>Postular</strong>
+                  <p className="mt-2">ISO 9001:2015 · Encaje con tu actividad</p>
+                  <p>Brecha: certificación pendiente</p>
+                </div>
+                {onDesbloquear ? (
+                  <button className={`${btnPrimary} absolute inset-0 m-auto h-fit w-fit`} type="button" disabled={desbloqueando} onClick={onDesbloquear}>
+                    <Candado /> {desbloqueando ? 'Desbloqueando…' : 'Desbloquear'}
+                  </button>
                 ) : null}
               </div>
-              {data.documentos?.length ? (
-                <ul className="flex flex-col gap-1.5 text-[13px] [&_a]:font-semibold [&_a]:text-primary">
-                  {data.documentos.map((doc) => (
-                    <li key={doc.url}>
-                      <a href={doc.url} target="_blank" rel="noopener noreferrer">
-                        📄 {doc.nombre}
-                      </a>{' '}
-                      <span className={muted}>{doc.archivo}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </section>
-
-            <section className={sec}>
-              <h4>Análisis ISO con IA</h4>
-              <Analisis data={data} reintentando={reintentando} onReanalizar={reanalizar} />
-            </section>
-            {data.desbloqueada && <SolicitarAsesor key={lic.id} licitacionId={lic.id} />}
-            <p className={`${muted} mt-[22px]`}>
-              Te quedan {data.creditos ?? data.disponibles} créditos.
-            </p>
-          </>
-        ) : (
-          <p className="mt-5 text-muted">Cargando…</p>
-        )}
-      </aside>
-    </div>
+            ) : <p className="text-muted">Cargando el análisis…</p>}
+          </section>
+        </div>
+        <aside className="flex flex-col gap-4 lg:sticky lg:top-6">
+          <section className={`${card} p-5`}>
+            <h2 className="mb-3 text-[16px] font-semibold">Bases administrativas y SEACE</h2>
+            {abierta && bases ? (
+              <a className={`${btnSecondary} mb-3 w-full`} href={bases} target="_blank" rel="noopener noreferrer">Descargar bases</a>
+            ) : <p className={`${muted} mb-3`}>El SEACE aún no publica el documento de bases.</p>}
+            {ficha ? <a className={`${btnSecondary} w-full`} href={ficha} target="_blank" rel="noopener noreferrer">Ver ficha en SEACE ↗</a> : null}
+            {data?.documentos?.length ? (
+              <ul className="mt-3 flex flex-col gap-1.5 text-[13px] [&_a]:font-semibold [&_a]:text-primary">
+                {data.documentos.map((doc) => <li key={doc.url}><a href={doc.url} target="_blank" rel="noopener noreferrer">{doc.nombre}</a></li>)}
+              </ul>
+            ) : null}
+            {abierta && data ? <button className={`${btnGhost} mt-3 px-0!`} type="button" disabled={reintentando} onClick={reanalizar}>Reanalizar con tu RUC</button> : null}
+          </section>
+          {abierta ? <SolicitarAsesor key={lic.id} licitacionId={lic.id} /> : null}
+          <section className={`${card} p-4 text-[13px] text-muted`}>
+            <p>{saldo !== null && saldo !== undefined ? `Te quedan ${saldo} créditos.` : 'Créditos de desbloqueo.'}</p>
+            {onPlanes ? <button className={`${btnGhost} mt-1 px-0! text-primary!`} type="button" onClick={onPlanes}>Recargar créditos</button> : null}
+          </section>
+        </aside>
+      </div>
+    </article>
   )
+}
+
+function Mini({ titulo, valor, detalle }: { titulo: string; valor: string; detalle?: string }) {
+  return <div className={`${card} p-4`}><p className="text-[11px] font-bold tracking-[0.05em] text-faint uppercase">{titulo}</p><p className="mt-2 text-[14px] font-semibold leading-snug">{valor}</p>{detalle ? <p className="mt-1 text-[12.5px] text-muted">{detalle}</p> : null}</div>
 }
 
 function Analisis({

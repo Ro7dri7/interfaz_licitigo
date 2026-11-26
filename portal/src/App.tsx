@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { LicitacionPage } from './pages/LicitacionPage'
 import { RequireAuth } from './components/RequireAuth'
 import { registrarNavegador, useSesion } from './lib/auth'
 import { DescubrimientoPage } from './pages/DescubrimientoPage'
@@ -41,6 +42,7 @@ export default function App() {
       <Route path="/onboarding" element={<RequireAuth><OnboardingPage /></RequireAuth>} />
       <Route path="/app" element={<RequireAuth><PagoRetorno /></RequireAuth>} />
       <Route path="/app/descubrimiento" element={<RequireAuth><DescubrimientoPage /></RequireAuth>} />
+      <Route path="/app/licitacion/:id" element={<RequireAuth><LicitacionPage /></RequireAuth>} />
       <Route path="/app/desbloqueos" element={<RequireAuth><MisDesbloqueosPage /></RequireAuth>} />
       <Route path="/app/perfil" element={<RequireAuth><PerfilPage /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />

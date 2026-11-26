@@ -94,6 +94,7 @@ class AsesoriaTests(unittest.IsolatedAsyncioTestCase):
         db.select.side_effect = [
             [{'id': 'perfil-1', 'ruc_empresa': '20123456789', 'nombre_completo': 'Ana'}],
             [{'razon_social': 'Empresa vigente'}],
+            [{'descripcion': 'Servicios de ingeniería'}],
             [],
         ]
         with patch('app.asesorias.get_db', return_value=db):

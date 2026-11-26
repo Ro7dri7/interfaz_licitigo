@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { DetalleDesbloqueo } from '../components/DetalleDesbloqueo'
 import { PeruMap } from '../components/PeruMap'
 import { PlanesModal } from '../components/PlanesModal'
 import { KpiCard } from '../components/KpiCard'
@@ -135,8 +134,8 @@ export function DescubrimientoPage() {
   const [desbloqueando, setDesbloqueando] = useState(false)
   const [errorDesbloqueo, setErrorDesbloqueo] = useState<string | null>(null)
   /** Panel de detalle de una licitación desbloqueada. */
-  const [detalle, setDetalle] = useState<{ lic: Licitacion; inicial: Desbloqueo | null } | null>(null)
   const [planes, setPlanes] = useState(false)
+  const [sinCreditos, setSinCreditos] = useState(false)
   const [avisoPago, setAvisoPago] = useState<string | null>(null)
 
   const filtrosRef = useRef(filtros)
@@ -211,7 +210,8 @@ export function DescubrimientoPage() {
           return
         }
         setCupo(p.desbloqueos)
-        actualizar({ keywords: p.keywords })
+        const departamento = departamentoDeUrl(searchParams.get('departamento'))
+        actualizar({ keywords: p.keywords, departamento, soloPerfil: departamento ? false : filtrosRef.current.soloPerfil })
       })
       .catch((err) => {
         if (!activo) return
@@ -243,7 +243,7 @@ export function DescubrimientoPage() {
   }
 
   const fijarDepartamento = (departamento: string) => {
-    actualizar({ departamento })
+    actualizar({ departamento, soloPerfil: departamento ? false : true })
     const next = new URLSearchParams(searchParams)
     if (departamento) next.set('departamento', departamento)
     else next.delete('departamento')
@@ -325,9 +325,14 @@ export function DescubrimientoPage() {
 
   // ----------------------------------------------------------------------- desbloqueo
 
+  const irFicha = (l: Licitacion, inicial: Desbloqueo | null = null) => {
+    const volver = `${location.pathname}${location.search}`
+    navigate(`/app/licitacion/${l.id}?volver=${encodeURIComponent(volver)}`, { state: { lic: l, inicial } })
+  }
+
   const pedirDesbloqueo = (l: Licitacion) => {
     if (l.desbloqueada) {
-      setDetalle({ lic: l, inicial: null })
+      irFicha(l)
       return
     }
     setErrorDesbloqueo(null)
@@ -357,13 +362,13 @@ export function DescubrimientoPage() {
         })
         const actualizada: Licitacion = { ...l, desbloqueada: true, basesUrl: d.basesUrl ?? null, fichaUrl: d.fichaUrl ?? null }
         setPagina((p) => (p ? { ...p, items: p.items.map((x) => (x.id === l.id ? actualizada : x)) } : p))
-        setDetalle({ lic: actualizada, inicial: d })
+        irFicha(actualizada, d)
       })
       .catch((err) => {
         setDesbloqueando(false)
         if (esSinCreditos(err)) {
           setConfirmar(null)
-          setPlanes(true)
+          setSinCreditos(true)
           return
         }
         setErrorDesbloqueo(mensajeError(err, 'No se pudo desbloquear la licitación.'))
@@ -532,6 +537,14 @@ export function DescubrimientoPage() {
                     : 'Elige un departamento en el mapa para filtrar las licitaciones abiertas.'}
                 </p>
                 {filtros.departamento ? (
+                  <ul className="flex max-h-48 flex-col gap-1 overflow-auto text-[13px]">
+                    {items.filter((l) => l.departamento.toUpperCase().includes(filtros.departamento.split(' ')[0] || filtros.departamento)).slice(0, 8).map((l) => (
+                      <li key={l.id}><button className="text-left font-semibold text-primary" type="button" onClick={() => irFicha(l)}>{l.codigo} · {l.entidad}</button></li>
+                    ))}
+                    {!items.some((l) => l.departamento.toUpperCase().includes(filtros.departamento.split(' ')[0] || filtros.departamento)) && !loading ? <li>No hay convocatorias de {filtros.departamento} en esta página.</li> : null}
+                  </ul>
+                ) : null}
+                {filtros.departamento ? (
                   <button className={`${btnGhost} self-start px-2.5! py-1.5! text-[13px]!`} type="button" onClick={() => fijarDepartamento('')}>
                     Ver todo el país
                   </button>
@@ -681,7 +694,7 @@ export function DescubrimientoPage() {
                           <button
                             className={`${btnSecondary} ${tableBtn}`}
                             type="button"
-                            onClick={() => setDetalle({ lic: l, inicial: null })}
+                            onClick={() => irFicha(l)}
                           >
                             Ver análisis
                           </button>
@@ -699,7 +712,8 @@ export function DescubrimientoPage() {
                             aria-label={'Desbloquear ' + l.codigo}
                             onClick={() => pedirDesbloqueo(l)}
                           >
-                            Desbloquear con IA (1 crédito)
+                            <svg className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="1.5" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+                            Desbloquear
                           </button>
                         </div>
                       )}
@@ -790,15 +804,21 @@ export function DescubrimientoPage() {
                 Cancelar
               </button>
               <button className={btnPrimary} type="button" disabled={desbloqueando} onClick={confirmarDesbloqueo}>
-                {desbloqueando ? 'Desbloqueando…' : 'Desbloquear con IA (1 crédito)'}
+                {desbloqueando ? 'Desbloqueando…' : 'Desbloquear'}
               </button>
             </div>
           </div>
         </div>
       ) : null}
 
-      {detalle ? (
-        <DetalleDesbloqueo lic={detalle.lic} inicial={detalle.inicial} onCerrar={() => setDetalle(null)} />
+      {sinCreditos ? (
+        <div className={overlay} onClick={() => setSinCreditos(false)}>
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-panel" role="dialog" aria-modal="true" aria-labelledby="sin-creditos" onClick={(e) => e.stopPropagation()}>
+            <h2 id="sin-creditos" className="font-serif text-[26px]">Tus créditos se acabaron</h2>
+            <p className="mt-2 text-[14px] text-muted">Ya no te quedan desbloqueos. Elige un plan para seguir abriendo licitaciones.</p>
+            <button className={`${btnPrimary} mt-5 w-full`} type="button" onClick={() => { setSinCreditos(false); setPlanes(true) }}>Ver planes</button>
+          </div>
+        </div>
       ) : null}
       <PlanesModal abierto={planes} planActual={cupo?.plan} onCerrar={() => setPlanes(false)} />
     </div>

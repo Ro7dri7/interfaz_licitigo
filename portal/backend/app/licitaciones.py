@@ -101,6 +101,11 @@ async def buscar_pagina(perfil: Perfil | None = None, *, texto: str | None = Non
         "p_offset": offset,
         "p_fuente": fuente if fuente in FUENTES else None,
     }) or []
+    if departamento:
+        propios = [f for f in filas if normalizar_departamento(f.get("departamento")) == departamento]
+        if len(propios) != len(filas) or not filas:
+            return await _pagina_departamento(departamento, objeto=objeto, fuente=fuente, texto=texto, limite=limite, offset=offset)
+        filas = propios
     ahora = ahora_lima()
     primera = filas[0] if filas else {}
     return {
@@ -260,6 +265,60 @@ _cache_resumen: tuple[float, dict] | None = None
 def invalidar_resumen_departamentos() -> None:
     global _cache_resumen
     _cache_resumen = None
+
+
+def _desde_tabla(row: dict) -> dict:
+    return {
+        "convocatoria_id": row["id"],
+        "licitacion": row.get("licitacion"),
+        "nomenclatura": row.get("nomenclatura_norm"),
+        "descripcion": row.get("objeto_descripcion") or "",
+        "entidad": row.get("entidad_convocante") or "",
+        "objeto": row.get("objeto_contratacion") or "",
+        "departamento": row.get("departamento"),
+        "monto_referencial": row.get("monto_referencial"),
+        "moneda": row.get("moneda"),
+        "fecha_publicacion": row.get("fecha_publicacion"),
+        "fecha_limite": row.get("fecha_limite"),
+        "fuente": row.get("fuente"),
+        "tipo_procedimiento": row.get("tipo_procedimiento"),
+        "puntaje": 0,
+        "motivos": [],
+        "keywords": [],
+    }
+
+
+async def _pagina_departamento(departamento: str, *, objeto: str | None, fuente: str | None, texto: str | None,
+                               limite: int, offset: int) -> dict:
+    """Si la función SQL no recorta por departamento, la lista sale de la tabla ya normalizada."""
+    patron = "SAN MART" if departamento == "SAN MARTIN" else departamento
+    params = {
+        "select": "id,licitacion,nomenclatura_norm,objeto_descripcion,entidad_convocante,objeto_contratacion,"
+                  "departamento,monto_referencial,moneda,fecha_publicacion,fecha_limite,fuente,tipo_procedimiento",
+        "abierta": "eq.true",
+        "departamento": f"ilike.*{patron}*",
+        "order": "fecha_publicacion.desc",
+    }
+    if objeto:
+        params["objeto_contratacion"] = f"eq.{objeto}"
+    if fuente:
+        params["fuente"] = f"eq.{fuente}"
+    crudas = await get_db().select("convocatorias", params, limit=offset + limite + 40)
+    filas = [_desde_tabla(f) for f in crudas if normalizar_departamento(f.get("departamento")) == departamento]
+    if texto:
+        q = texto.casefold()
+        filas = [f for f in filas if q in f"{f.get('descripcion', '')} {f.get('entidad', '')} {f.get('licitacion', '')}".casefold()]
+    pagina = filas[offset:offset + limite]
+    total = len(filas) if len(crudas) < offset + limite + 40 else await get_db().count("convocatorias", {
+        "abierta": "eq.true", "departamento": f"ilike.*{patron}*",
+    })
+    ahora = ahora_lima()
+    return {
+        "items": [a_licitacion(f, ahora) for f in pagina],
+        "total": int(total),
+        "montoTotal": float(sum(float(f.get("monto_referencial") or 0) for f in filas)),
+        "altaAfinidad": 0,
+    }
 
 
 def normalizar_departamento(valor: str | None) -> str | None:

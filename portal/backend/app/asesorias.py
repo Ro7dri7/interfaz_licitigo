@@ -11,7 +11,7 @@ import time
 import httpx
 
 from .config import get_settings
-from .supabase import get_db
+from .supabase import SupabaseError, get_db
 
 log = logging.getLogger(__name__)
 SERVICIO_GENERAL = 'Asesoría certificaciones ISO'
@@ -169,6 +169,12 @@ async def preparar(perfil_id: str, email: str, origen: str, *, servicio: str = S
         raise AsesoriaError(409, 'Completa el RUC de tu empresa en Mi perfil antes de pedir asesoría.')
     proveedores = await db.select('proveedores', {'select': 'razon_social', 'ruc': f'eq.{ruc}'}, limit=1)
     empresa = (proveedores[0].get('razon_social') if proveedores else None) or f'Empresa RUC {ruc}'
+    sector = ''
+    try:
+        actividades = await db.select('proveedor_ciiu', {'select': 'descripcion', 'ruc': f'eq.{ruc}', 'order': 'orden'}, limit=1)
+        sector = str((actividades[0].get('descripcion') if actividades else '') or '')[:80]
+    except (httpx.HTTPError, SupabaseError, TypeError, KeyError):
+        sector = ''
     notas = ['El cliente solicitó comunicarse con un asesor.', f'Cuenta del portal: {perfil_id}']
     if username and re.fullmatch(r'[A-Za-z0-9_]{5,32}', username):
         notas.append(f'Contacto Telegram: https://t.me/{username}')
@@ -181,9 +187,11 @@ async def preparar(perfil_id: str, email: str, origen: str, *, servicio: str = S
         convocatoria = filas[0].get('convocatorias') or {}
         tender = (convocatoria.get('nomenclatura_norm') or convocatoria.get('licitacion') or str(licitacion_id))[:160]
         notas.append(f'Licitación desbloqueada: {tender}')
+    if sector:
+        notas.append(f'Rubro de la empresa: {sector}')
     return dict(company=empresa[:160], ruc=ruc, contact=(perfil.get('nombre_completo') or 'Cliente del portal')[:100],
                 email=email, origin=origen, kind='advice', service=servicio[:160], evidence='none',
-                tender=tender, notes='\n'.join(notas))
+                tender=tender, notes='\n'.join(notas), sector=sector)
 
 
 async def solicitar(request_id: str, perfil_id: str, payload: dict) -> dict:

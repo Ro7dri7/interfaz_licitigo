@@ -43,7 +43,15 @@ export default function DealDetail() {
       <section className="panel" aria-label="Solicitudes del cliente"><div className="section-head"><h2>{deal.origin === 'Telegram' ? 'Lo que conversó con el chatbot' : 'Solicitudes del cliente'}</h2></div>
         {prospects.filter(p => ['advice', 'quote'].includes(p.kind)).map(p => <div className="context-item" key={p.id}>
           <div className="badge-row"><Badge tone="blue">{originLabel(p.origin)}</Badge><Badge>{kindLabels[p.kind]}</Badge></div>
-          <p>{p.notes || p.service}</p><small>{dateTime(p.createdAt)}</small>
+          <p className="preserve-lines">{p.notes || p.service}</p><small>{dateTime(p.createdAt)}</small>
+          {p.notes ? <button type="button" className="text-button" onClick={() => {
+            const archivo = new Blob([`${company?.name ?? ''}\n${p.service}\n${p.tender ?? ''}\n\n${p.notes}`], { type: 'text/plain;charset=utf-8' })
+            const enlace = document.createElement('a')
+            enlace.href = URL.createObjectURL(archivo)
+            enlace.download = `solicitud-${p.id}.txt`
+            enlace.click()
+            URL.revokeObjectURL(enlace.href)
+          }}>Descargar resumen</button> : null}
         </div>)}</section>
       <section className="panel context-panel"><div className="section-head"><h2><Icon name="radar" /> Contexto LiciHub</h2><span className="tiny-label">INTELIGENCIA COMERCIAL</span></div>
         {context.length ? context.map(p => <div className="context-item" key={p.id}><Badge tone={p.evidence === 'required' ? 'amber' : 'blue'}>{evidenceLabels[p.evidence]}</Badge><h3>{p.service}</h3><p>{p.tender || 'Sin licitación asociada'}</p><small>{p.deadline ? `Plazo del proceso: ${dateLabel(p.deadline)} · ` : ''}Registrado {dateLabel(p.createdAt)}</small>{p.notes && <p>{p.notes}</p>}</div>) : <div className="context-item"><p>Este negocio llegó por {originLabel(deal.origin)}. Puede gestionarse sin una licitación asociada.</p></div>}
