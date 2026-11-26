@@ -103,7 +103,26 @@ async def refrescar(refresh_token: str) -> dict:
     return _sesion(resp.json())
 
 
-async def registrar(nombre: str, email: str, password: str) -> dict:
+def normalizar_telefono(valor: str | None) -> str:
+    texto = re.sub(r"[^\d+]", "", (valor or "").strip())
+    return texto[:30]
+
+
+async def guardar_telefono(user_id: str, telefono: str) -> None:
+    tel = normalizar_telefono(telefono)
+    if len(re.sub(r"\D", "", tel)) < 8:
+        return
+    try:
+        await get_db().update("perfiles", {"id": f"eq.{user_id}"}, {"telefono": tel})
+    except SupabaseError as e:
+        # Columna aún no migrada: no bloquea el registro.
+        if e.status == 400 and "telefono" in e.detalle:
+            log.warning("Falta ejecutar 013_telefono_perfil.sql en Supabase")
+            return
+        raise
+
+
+async def registrar(nombre: str, email: str, password: str, telefono: str = "") -> dict:
     """Crea la cuenta (ya confirmada), su perfil y devuelve la sesión iniciada."""
     email = email.strip().lower()
     async with _http() as http:
@@ -121,6 +140,8 @@ async def registrar(nombre: str, email: str, password: str) -> dict:
         raise AuthError(503, "No pudimos crear la cuenta en este momento.")
     user_id = resp.json()["id"]
     await asegurar_perfil(user_id, nombre or email)
+    if telefono:
+        await guardar_telefono(user_id, telefono)
     return await iniciar_sesion(email, password)
 
 

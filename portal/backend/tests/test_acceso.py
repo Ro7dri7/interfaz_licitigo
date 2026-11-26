@@ -32,7 +32,7 @@ class RutasInternas(unittest.TestCase):
             Registro(nombre="Ana Perez", email="ana@empresa.pe", password="Secreta1!", rol="admin")
         self.assertEqual(validar_contrasena("Secreta1!"), "Secreta1!")
         cuenta = Registro(nombre="Ana Perez", email="ana@empresa.pe", password="Secreta1!")
-        self.assertEqual(cuenta.model_dump(), {"nombre": "Ana Perez", "email": "ana@empresa.pe", "password": "Secreta1!"})
+        self.assertEqual(cuenta.model_dump(), {"nombre": "Ana Perez", "email": "ana@empresa.pe", "password": "Secreta1!", "telefono": ""})
 
 
 def _sesion():

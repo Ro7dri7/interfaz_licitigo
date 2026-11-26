@@ -51,18 +51,21 @@ class Supabase:
             raise SupabaseError(resp.status_code, resp.text[:500])
         return resp
 
-    async def select(self, table: str, params: dict[str, str], limit: int | None = None) -> list[dict]:
+    async def select(self, table: str, params: dict[str, str], limit: int | None = None,
+                     offset: int = 0) -> list[dict]:
         """GET paginado. `params` usa la sintaxis de PostgREST (select, order, filtros col=op.valor)."""
         filas: list[dict] = []
-        offset = 0
+        cursor = max(0, int(offset or 0))
+        # Si el caller pasó offset en params, no lo reenvíes: se controla aquí.
+        consulta = {k: v for k, v in params.items() if k != "offset"}
         while True:
             page = self.PAGE if limit is None else min(self.PAGE, limit - len(filas))
-            resp = await self._request("GET", f"/{table}", params={**params, "limit": page, "offset": offset})
+            resp = await self._request("GET", f"/{table}", params={**consulta, "limit": page, "offset": cursor})
             lote = resp.json()
             filas.extend(lote)
             if len(lote) < page or (limit is not None and len(filas) >= limit):
                 return filas
-            offset += page
+            cursor += page
 
     async def count(self, table: str, params: dict[str, str] | None = None) -> int:
         resp = await self._request(

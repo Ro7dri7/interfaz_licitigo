@@ -43,6 +43,13 @@ function rutaInterna(valor: string | null): string | null {
   return valor
 }
 
+function faltantesGoogle(telefono: string, acepta: boolean): string[] {
+  const faltan: string[] = []
+  if (telefono.replace(/\D/g, '').length < 8) faltan.push('tu número de teléfono')
+  if (!acepta) faltan.push('aceptar los términos y condiciones')
+  return faltan
+}
+
 export function IngresarPage() {
   const navigate = useNavigate()
   // Query params: ?modo=registro&email=...&volver=/app/descubrimiento
@@ -52,11 +59,12 @@ export function IngresarPage() {
 
   const [modo, setModo] = useState<Modo>(params.get('modo') === 'registro' ? 'registro' : 'login')
   const [nombre, setNombre] = useState('')
+  const [apellido, setApellido] = useState('')
   const [telefono, setTelefono] = useState('')
   const [acepta, setAcepta] = useState(false)
-  const googleListo = acepta && telefono.replace(/\D/g, '').length >= 8
   const [email, setEmail] = useState(params.get('email') ?? '')
   const [password, setPassword] = useState('')
+  const [password2, setPassword2] = useState('')
   const [verPassword, setVerPassword] = useState(false)
   const [codigo, setCodigo] = useState('')
   const [codigoEnviado, setCodigoEnviado] = useState(false)
@@ -69,6 +77,10 @@ export function IngresarPage() {
     if (previa?.rol === 'admin' || previa?.rol === 'commercial') return null
     return previa?.usuario ?? null
   })
+
+  const googleFaltan = faltantesGoogle(telefono, acepta)
+  const googleListo = googleFaltan.length === 0
+  const claveLista = claveValida(password) && password === password2
 
   useEffect(() => {
     olvidarCierre()
@@ -99,7 +111,18 @@ export function IngresarPage() {
     setEnviando(true)
     api
       .canjearTicket(ticket)
-      .then(() => api.perfil())
+      .then(async () => {
+        const tel = sessionStorage.getItem('lici.telefono') || ''
+        if (tel.replace(/\D/g, '').length >= 8) {
+          try {
+            await api.guardarPerfil({ telefono: tel })
+          } catch {
+            /* la columna puede faltar hasta aplicar 013_telefono_perfil.sql */
+          }
+          sessionStorage.removeItem('lici.telefono')
+        }
+        return api.perfil()
+      })
       .then((p) => {
         if (activo) irSegunPerfil(p)
       })
@@ -174,6 +197,7 @@ export function IngresarPage() {
     setSesionPrevia(null)
     setEmail('')
     setPassword('')
+    setPassword2('')
     setError(null)
   }
 
@@ -185,13 +209,29 @@ export function IngresarPage() {
     setCodigoEnviado(false)
   }
 
+  const intentarGoogle = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (modo !== 'registro') return
+    if (!googleListo) {
+      e.preventDefault()
+      const faltan = faltantesGoogle(telefono, acepta)
+      setError(
+        faltan.length === 1
+          ? `Para registrarte con Google es necesario ${faltan[0]}.`
+          : `Para registrarte con Google es necesario ${faltan.slice(0, -1).join(', ')} y ${faltan.at(-1)}.`,
+      )
+      return
+    }
+    sessionStorage.setItem('lici.telefono', telefono.trim())
+  }
+
   const enviar = (e: FormEvent) => {
     e.preventDefault()
     if (enviando) return
     const correo = email.trim()
-    const nom = nombre.trim()
+    const nom = [nombre.trim(), apellido.trim()].filter(Boolean).join(' ')
 
-    if (modo === 'registro' && nom.length < 2) return setError('Escribe tu nombre.')
+    if (modo === 'registro' && nombre.trim().length < 2) return setError('Escribe tu nombre.')
+    if (modo === 'registro' && apellido.trim().length < 2) return setError('Escribe tu apellido.')
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) return setError('Ingresa un correo válido.')
     if (modo === 'recuperar') {
       setEnviando(true)
@@ -238,14 +278,18 @@ export function IngresarPage() {
         })
       return
     }
-    if (modo === 'registro' && !claveValida(password)) {
-      return setError('La contraseña todavía no cumple las 5 reglas.')
+    if (modo === 'registro') {
+      if (!claveValida(password)) return setError('La contraseña todavía no cumple las 5 reglas.')
+      if (password !== password2) return setError('La confirmación no coincide con la contraseña.')
+      if (telefono.replace(/\D/g, '').length < 8) return setError('Ingresa un teléfono válido (mínimo 8 dígitos).')
+      if (!acepta) return setError('Debes aceptar los términos y condiciones.')
+      sessionStorage.setItem('lici.telefono', telefono.trim())
     }
     if (!password) return setError('Ingresa tu contraseña.')
 
     setEnviando(true)
     setError(null)
-    const peticion = modo === 'registro' ? api.registro(nom, correo, password) : api.login(correo, password)
+    const peticion = modo === 'registro' ? api.registro(nom, correo, password, telefono.trim()) : api.login(correo, password)
     peticion
       .then(() => api.perfil())
       .then(irSegunPerfil)
@@ -336,45 +380,42 @@ export function IngresarPage() {
                 </>
               )}
             </p>
-            {modo === 'registro' ? (
-              <div className="mb-3 flex flex-col gap-2">
-                <label className={label} htmlFor="telefono-google">Teléfono</label>
-                <input id="telefono-google" className={input} type="tel" autoComplete="tel" placeholder="+51 999 999 999" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
-                <label className="flex items-start gap-2 text-[13px] text-muted">
-                  <input type="checkbox" checked={acepta} onChange={(e) => setAcepta(e.target.checked)} />
-                  <span>Acepto los términos y condiciones para crear mi cuenta.</span>
-                </label>
-              </div>
-            ) : null}
-            {modo === 'login' || modo === 'registro' ? (
-              <a className={`${btnSecondary} mb-3 w-full ${modo === 'registro' && !googleListo ? 'pointer-events-none opacity-50' : ''}`} href={modo === 'registro' && !googleListo ? undefined : enlaceGoogle(volver, params.get('plan'))} aria-disabled={modo === 'registro' && !googleListo} onClick={(e) => { if (modo === 'registro' && !googleListo) { e.preventDefault(); return } if (modo === 'registro') sessionStorage.setItem('lici.telefono', telefono.trim()) }}>
-                <svg className="size-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3h3.86c2.26-2.09 3.685-5.17 3.685-9.09z" fill="#4285F4" />
-                  <path d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.26v3.09C3.25 21.3 7.31 24 12 24z" fill="#34A853" />
-                  <path d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.26C.46 8.23 0 10.06 0 12s.46 3.77 1.26 5.38l4.01-3.09z" fill="#FBBC05" />
-                  <path d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.7 1.26 6.62l4.01 3.09c.95-2.85 3.6-4.96 6.73-4.96z" fill="#EA4335" />
-                </svg>
-                {modo === 'registro' ? 'Crear cuenta con Google' : 'Continuar con Google'}
-              </a>
-            ) : null}
 
             {modo === 'registro' ? (
-              <>
-                <label className={label} htmlFor="nombre">
-                  Nombre
-                </label>
-                <input
-                  id="nombre"
-                  className={input}
-                  type="text"
-                  autoComplete="name"
-                  maxLength={120}
-                  name="nombre"
-                  placeholder="Ana Pérez"
-                  value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
-                />
-              </>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className={label} htmlFor="nombre">
+                    Nombre
+                  </label>
+                  <input
+                    id="nombre"
+                    className={input}
+                    type="text"
+                    autoComplete="given-name"
+                    maxLength={60}
+                    name="nombre"
+                    placeholder="Ana"
+                    value={nombre}
+                    onChange={(e) => setNombre(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className={label} htmlFor="apellido">
+                    Apellido
+                  </label>
+                  <input
+                    id="apellido"
+                    className={input}
+                    type="text"
+                    autoComplete="family-name"
+                    maxLength={60}
+                    name="apellido"
+                    placeholder="Pérez"
+                    value={apellido}
+                    onChange={(e) => setApellido(e.target.value)}
+                  />
+                </div>
+              </div>
             ) : null}
 
             <label className={label} htmlFor="email">
@@ -418,9 +459,51 @@ export function IngresarPage() {
                     {verPassword ? 'Ocultar' : 'Ver'}
                   </button>
                 </div>
-                {modo === 'registro' ? <ClaveChecklist valor={password} /> : null}
+                {modo === 'registro' && password.length > 0 ? <ClaveChecklist valor={password} /> : null}
               </>
             ) : null}
+
+            {modo === 'registro' ? (
+              <>
+                <label className={label} htmlFor="password2">
+                  Confirmar contraseña
+                </label>
+                <input
+                  id="password2"
+                  className={input}
+                  type={verPassword ? 'text' : 'password'}
+                  maxLength={72}
+                  autoComplete="new-password"
+                  name="password2"
+                  placeholder="Repite tu contraseña"
+                  value={password2}
+                  onChange={(e) => setPassword2(e.target.value)}
+                />
+                {password2.length > 0 && password !== password2 ? (
+                  <p className="mt-1.5 text-[12.5px] text-danger" role="status">
+                    Las contraseñas no coinciden.
+                  </p>
+                ) : null}
+
+                <label className={label} htmlFor="telefono-google">
+                  Teléfono
+                </label>
+                <input
+                  id="telefono-google"
+                  className={input}
+                  type="tel"
+                  autoComplete="tel"
+                  placeholder="+51 999 999 999"
+                  value={telefono}
+                  onChange={(e) => setTelefono(e.target.value)}
+                />
+                <label className="mt-3 flex items-start gap-2 text-[13px] text-muted">
+                  <input type="checkbox" checked={acepta} onChange={(e) => setAcepta(e.target.checked)} />
+                  <span>Acepto los términos y condiciones para crear mi cuenta.</span>
+                </label>
+              </>
+            ) : null}
+
             {modo === 'codigo' && codigoEnviado ? (
               <>
                 <label className={label} htmlFor="codigo">
@@ -449,7 +532,33 @@ export function IngresarPage() {
               </p>
             ) : null}
 
-            <button className={`${btnPrimary} mt-[18px] w-full`} type="submit" disabled={enviando || (modo === 'registro' && !claveValida(password))}>
+            {modo === 'login' || modo === 'registro' ? (
+              <a
+                className={`${btnSecondary} mt-[18px] w-full ${modo === 'registro' && !googleListo ? 'opacity-50' : ''}`}
+                href={modo === 'registro' && !googleListo ? undefined : enlaceGoogle(volver, params.get('plan'))}
+                aria-disabled={modo === 'registro' && !googleListo}
+                onClick={intentarGoogle}
+              >
+                <svg className="size-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3h3.86c2.26-2.09 3.685-5.17 3.685-9.09z" fill="#4285F4" />
+                  <path d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.26v3.09C3.25 21.3 7.31 24 12 24z" fill="#34A853" />
+                  <path d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.26C.46 8.23 0 10.06 0 12s.46 3.77 1.26 5.38l4.01-3.09z" fill="#FBBC05" />
+                  <path d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.7 1.26 6.62l4.01 3.09c.95-2.85 3.6-4.96 6.73-4.96z" fill="#EA4335" />
+                </svg>
+                {modo === 'registro' ? 'Crear cuenta con Google' : 'Continuar con Google'}
+              </a>
+            ) : null}
+            {modo === 'registro' && !googleListo ? (
+              <p className="mt-2 text-center text-[12.5px] text-muted">
+                Para Google: completa teléfono y acepta los términos.
+              </p>
+            ) : null}
+
+            <button
+              className={`${btnPrimary} mt-2.5 w-full`}
+              type="submit"
+              disabled={enviando || (modo === 'registro' && (!claveLista || !googleListo))}
+            >
               {enviando
                 ? 'Un momento…'
                 : modo === 'registro'

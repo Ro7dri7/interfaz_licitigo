@@ -86,12 +86,17 @@ async def buscar_pagina(perfil: Perfil | None = None, *, texto: str | None = Non
                         orden: str = "afinidad", desde: datetime | None = None, limite: int = 10,
                         offset: int = 0) -> dict:
     """Una página de convocatorias abiertas + totales del conjunto filtrado."""
+    # Filtro por departamento: lectura directa a la tabla (más rápida y fiable que el RPC).
+    if departamento:
+        return await _pagina_departamento(
+            departamento, objeto=objeto, fuente=fuente, texto=texto, limite=limite, offset=offset,
+        )
     filas = await get_db().rpc("buscar_licitaciones", {
         "p_ruc": perfil.ruc if perfil else None,
         "p_ciius": perfil.ciius if perfil and perfil.ciius else None,
         "p_keywords": perfil.keywords if perfil and perfil.keywords else None,
         "p_q": (texto or "").strip() or None,
-        "p_departamento": departamento or None,
+        "p_departamento": None,
         "p_objeto": objeto or None,
         "p_keyword": keyword or None,
         "p_modo": "perfil" if perfil and solo_perfil else "todas",
@@ -101,11 +106,6 @@ async def buscar_pagina(perfil: Perfil | None = None, *, texto: str | None = Non
         "p_offset": offset,
         "p_fuente": fuente if fuente in FUENTES else None,
     }) or []
-    if departamento:
-        propios = [f for f in filas if normalizar_departamento(f.get("departamento")) == departamento]
-        if len(propios) != len(filas) or not filas:
-            return await _pagina_departamento(departamento, objeto=objeto, fuente=fuente, texto=texto, limite=limite, offset=offset)
-        filas = propios
     ahora = ahora_lima()
     primera = filas[0] if filas else {}
     return {
@@ -290,7 +290,7 @@ def _desde_tabla(row: dict) -> dict:
 
 async def _pagina_departamento(departamento: str, *, objeto: str | None, fuente: str | None, texto: str | None,
                                limite: int, offset: int) -> dict:
-    """Si la función SQL no recorta por departamento, la lista sale de la tabla ya normalizada."""
+    """Lista por departamento con paginación acotada (evita escanear toda la tabla)."""
     patron = "SAN MART" if departamento == "SAN MARTIN" else departamento
     params = {
         "select": "id,licitacion,nomenclatura_norm,objeto_descripcion,entidad_convocante,objeto_contratacion,"
@@ -303,20 +303,25 @@ async def _pagina_departamento(departamento: str, *, objeto: str | None, fuente:
         params["objeto_contratacion"] = f"eq.{objeto}"
     if fuente:
         params["fuente"] = f"eq.{fuente}"
-    crudas = await get_db().select("convocatorias", params, limit=offset + limite + 40)
+    if texto and texto.strip():
+        q = texto.strip().replace(",", " ")[:120]
+        params["or"] = f"(objeto_descripcion.ilike.*{q}*,entidad_convocante.ilike.*{q}*,licitacion.ilike.*{q}*)"
+    # Pedimos un poco de margen por si hay filas de "OTROS" que no pasan normalizar_departamento.
+    ventana = max(limite * 3, limite + 20)
+    crudas = await get_db().select("convocatorias", params, limit=ventana, offset=max(0, offset))
     filas = [_desde_tabla(f) for f in crudas if normalizar_departamento(f.get("departamento")) == departamento]
-    if texto:
-        q = texto.casefold()
-        filas = [f for f in filas if q in f"{f.get('descripcion', '')} {f.get('entidad', '')} {f.get('licitacion', '')}".casefold()]
-    pagina = filas[offset:offset + limite]
-    total = len(filas) if len(crudas) < offset + limite + 40 else await get_db().count("convocatorias", {
-        "abierta": "eq.true", "departamento": f"ilike.*{patron}*",
-    })
+    pagina = filas[:limite]
+    filtros_count = {"abierta": "eq.true", "departamento": f"ilike.*{patron}*"}
+    if objeto:
+        filtros_count["objeto_contratacion"] = f"eq.{objeto}"
+    if fuente:
+        filtros_count["fuente"] = f"eq.{fuente}"
+    total = await get_db().count("convocatorias", filtros_count)
     ahora = ahora_lima()
     return {
         "items": [a_licitacion(f, ahora) for f in pagina],
         "total": int(total),
-        "montoTotal": float(sum(float(f.get("monto_referencial") or 0) for f in filas)),
+        "montoTotal": float(sum(float(f.get("monto_referencial") or 0) for f in pagina)),
         "altaAfinidad": 0,
     }
 

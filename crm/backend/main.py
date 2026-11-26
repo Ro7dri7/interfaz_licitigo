@@ -387,8 +387,8 @@ def create_app(settings=None, repository=None):
             raise HTTPException(401, 'Credencial de integración no válida.')
         if data.payload.get('origin') not in ['Lici', 'Telegram']:
             raise HTTPException(422, 'Este canal solo recibe solicitudes del portal o Telegram.')
-        if data.payload.get('kind') not in ['advice', 'quote']:
-            raise HTTPException(422, 'Solo se registran solicitudes explícitas de asesoría o cotización.')
+        if data.payload.get('kind') not in ['advice', 'quote', 'sale']:
+            raise HTTPException(422, 'Solo se registran asesorías, cotizaciones o ventas de plan.')
         for _ in range(3):
             snapshot = await repo.load(request_id=f'lici:{data.requestId}')
             updated = apply_command(snapshot['data'], 'intake', data.payload, f'Integración {data.payload["origin"]}', f'lici:{data.requestId}')

@@ -26,6 +26,17 @@ class CommercialFlowTests(unittest.TestCase):
         self.assertEqual(self.state['deals'][0]['stage'], 'new')
         self.assertEqual(len(self.state['deals'][0]['prospectIds']), 2)
 
+    def test_plan_sale_creates_won_deal_for_licihub_portal(self):
+        payload = self.intake('sale', owner='Licihub Portal', amount='189.90', notes='Pago Stripe sesion-1')
+        payload['service'] = 'Plan Comercial (100 créditos)'
+        self.run_command('intake', payload)
+        self.assertEqual(len(self.state['deals']), 1)
+        deal = self.state['deals'][0]
+        self.assertEqual(deal['stage'], 'won')
+        self.assertEqual(deal['owner'], 'Licihub Portal')
+        self.assertEqual(deal['amount'], 18990)
+        self.assertIsNotNone(deal['closedAt'])
+
     def test_duplicate_delivery_is_idempotent_and_changed_payload_conflicts(self):
         payload = self.intake('quote')
         self.run_command('intake', payload, 'event-1')

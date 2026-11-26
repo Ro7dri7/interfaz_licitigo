@@ -112,6 +112,7 @@ export interface Cupo {
 export interface Perfil {
   usuario: Usuario
   ruc: string | null
+  telefono?: string | null
   keywords: string[]
   empresa: Company | null
   desbloqueos: Cupo

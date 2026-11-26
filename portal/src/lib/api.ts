@@ -121,8 +121,8 @@ export async function login(email: string, password: string): Promise<Sesion> {
   return s
 }
 
-export async function registro(nombre: string, email: string, password: string): Promise<Sesion> {
-  const s = await request<Sesion>('/api/auth/registro', { method: 'POST', body: { nombre, email, password } })
+export async function registro(nombre: string, email: string, password: string, telefono = ''): Promise<Sesion> {
+  const s = await request<Sesion>('/api/auth/registro', { method: 'POST', body: { nombre, email, password, telefono } })
   guardarSesion(s)
   return s
 }
@@ -172,7 +172,7 @@ export function perfil(): Promise<Perfil> {
   return request<Perfil>('/api/perfil')
 }
 
-export function guardarPerfil(cambios: { nombre?: string; ruc?: string; keywords?: string[] }): Promise<Perfil> {
+export function guardarPerfil(cambios: { nombre?: string; ruc?: string; keywords?: string[]; telefono?: string }): Promise<Perfil> {
   return request<Perfil>('/api/perfil', { method: 'PUT', body: cambios })
 }
 

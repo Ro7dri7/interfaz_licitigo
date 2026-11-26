@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useDeferredValue, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Badge, Empty, Icon, PageHead } from './components'
 import { DealForm } from './Forms'
@@ -45,7 +45,7 @@ export function Pipeline({ onCreate }: { onCreate: () => void }) {
   const [dragId, setDragId] = useState<string | null>(null), [over, setOver] = useState<Stage | null>(null)
   const [moving, setMoving] = useState<Record<string, Stage>>({}), [moveError, setMoveError] = useState('')
   const [lost, setLost] = useState<Deal | null>(null), [action, setAction] = useState<{ deal: Deal; type: string } | null>(null), [panel, setPanel] = useState(false), [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null), [importing, setImporting] = useState(false)
-  const view = params.get('vista') ?? 'board', search = (params.get('q') ?? '').toLocaleLowerCase()
+  const view = params.get('vista') ?? 'board', search = useDeferredValue((params.get('q') ?? '').toLocaleLowerCase())
   const mine = params.get('mios') === '1', order = orders.some(([id]) => id === params.get('orden')) ? params.get('orden')! : 'recientes'
   const setParam = (key: string, value: string) => setParams(p => { if (value) p.set(key, value); else p.delete(key); return p }, { replace: true })
   const me = session.user.name.toLocaleLowerCase(), isMine = (d: Deal) => d.owner.toLocaleLowerCase() === me
@@ -72,7 +72,9 @@ export function Pipeline({ onCreate }: { onCreate: () => void }) {
   }
   const needsAttention = (d: Deal) => Boolean(slaOf(d)) || overdue(d)
   const num = (key: string) => params.get(key) ? Number(params.get(key)) : null, minAmount = num('min'), maxAmount = num('max'), from = params.get('desde'), to = params.get('hasta')
+  const empresaId = params.get('empresa')
   const scoped = data.deals.filter(d => `${data.companies.find(c => c.id === d.companyId)?.name} ${d.service}`.toLocaleLowerCase().includes(search)
+    && (!empresaId || d.companyId === empresaId)
     && (!params.get('origen') || (d.origin === params.get('origen') || data.prospects.some(p => p.dealId === d.id && p.origin === params.get('origen')))) && (!params.get('etapa') || d.stage === params.get('etapa'))
     && (!params.get('responsable') || d.owner === params.get('responsable')) && (!params.get('prioridad') || (d.priority ?? 'normal') === params.get('prioridad'))
     && (minAmount === null || d.amount >= minAmount * 100) && (maxAmount === null || d.amount <= maxAmount * 100)
@@ -118,7 +120,8 @@ export function Pipeline({ onCreate }: { onCreate: () => void }) {
       <button type="button" className={`attention ${attention ? 'alert' : ''}`} aria-pressed={params.get('atencion') === '1'} onClick={() => setParam('atencion', params.get('atencion') === '1' ? '' : '1')}><small>Requieren atención</small><strong>{attention}</strong><span>Sin atender, sin actividad o con acción vencida</span></button></div>
     <div className="tabs" role="group" aria-label="Alcance de los negocios">{[[false, 'Todos los negocios', scoped.length], [true, 'Mis negocios', scoped.filter(isMine).length]].map(([own, name, count]) =>
       <button key={String(own)} aria-pressed={mine === own} className={mine === own ? 'active' : ''} onClick={() => setParam('mios', own ? '1' : '')}>{name} <span>{count}</span></button>)}</div>
-    <Filters preserve={['vista', 'mios', 'orden', 'ver']}><select aria-label="Filtrar por responsable" value={params.get('responsable') ?? ''} onChange={e => setParam('responsable', e.target.value)}><option value="">Todo el equipo</option>{[...new Set(data.deals.map(d => d.owner))].map(o => <option key={o}>{o}</option>)}</select>
+    <Filters preserve={['vista', 'mios', 'orden', 'ver']}><select aria-label="Filtrar por responsable" value={params.get('responsable') ?? ''} onChange={e => setParam('responsable', e.target.value)}><option value="">Todo el equipo</option>{[...new Set(data.deals.map(d => d.owner))].sort((a, b) => a.localeCompare(b, 'es')).map(o => <option key={o}>{o}</option>)}</select>
+      <select aria-label="Filtrar por empresa" value={empresaId ?? ''} onChange={e => setParam('empresa', e.target.value)}><option value="">Todas las empresas</option>{data.companies.slice().sort((a, b) => a.name.localeCompare(b.name, 'es')).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
       <select aria-label="Ordenar negocios" value={order} onChange={e => setParam('orden', e.target.value === 'recientes' ? '' : e.target.value)}>{orders.map(([id, text]) => <option key={id} value={id}>{text}</option>)}</select>
       <button type="button" aria-expanded={panel} onClick={() => setPanel(v => !v)}><Icon name="filter" size={15} /> Filtros{activeAdvanced > 0 && <span className="count-pill">{activeAdvanced}</span>}</button></Filters>
     {panel && <section className="panel filter-panel" aria-label="Filtros avanzados"><div className="form-grid">
@@ -140,7 +143,7 @@ export function Pipeline({ onCreate }: { onCreate: () => void }) {
         onDragOver={e => { if (!dragId) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (over !== s.id) setOver(s.id) }}
         onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(null) }}
         onDrop={e => { e.preventDefault(); const id = dragId ?? e.dataTransfer.getData('text/plain'); if (id) void move(id, s.id) }}>
-        <header><span className="status-dot" style={{ background: s.color }} /><h2>{s.name}</h2><span>{deals.length}</span></header>
+        <header><span className="status-dot" style={{ background: s.color }} /><h2>{s.name}</h2><span title={`${deals.length} negocios · ${money(deals.reduce((v, d) => v + d.amount, 0))}`}>{deals.length}</span></header>
         <div className="board-cards">{deals.map(d => {
           const c = data.companies.find(c => c.id === d.companyId), due = dueOf.get(d.id), person = contactOf(d), sla = slaOf(d)
           return <article className={`deal-card ${dragId === d.id ? 'dragging' : ''} ${moving[d.id] ? 'saving' : ''} ${needsAttention(d) ? 'attention' : ''} ${preview?.id === d.id ? 'selected' : ''}`} key={d.id} draggable tabIndex={0} aria-label={`Ver resumen de ${c?.name}`} aria-current={preview?.id === d.id || undefined}

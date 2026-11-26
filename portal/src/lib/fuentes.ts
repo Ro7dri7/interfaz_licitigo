@@ -6,7 +6,8 @@ export const FUENTES = [
 ] as const
 
 export function etiquetaFuente(fuente: string | null | undefined): string {
-  return FUENTES.find((f) => f.valor === fuente)?.label ?? fuente ?? '—'
+  if (!fuente || fuente === 'undefined' || fuente === 'null') return '—'
+  return FUENTES.find((f) => f.valor === fuente)?.label ?? fuente
 }
 
 export function descripcionFuente(fuente: string | null | undefined): string {

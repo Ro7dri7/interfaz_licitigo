@@ -306,7 +306,7 @@ async def listar(perfil: dict) -> list[dict]:
     db = get_db()
     filas = await db.select("desbloqueos", {
         "select": "convocatoria_id,estado,created_at,veredicto:resultado->recomendacion->>recomendacion,"
-                  "convocatorias(fuente,licitacion,objeto_descripcion,entidad_convocante,objeto_contratacion,departamento,"
+                  "convocatorias(fuente,licitacion,nomenclatura_norm,objeto_descripcion,entidad_convocante,objeto_contratacion,departamento,"
                   "fecha_publicacion,fecha_limite,monto_referencial,moneda,abierta,url_bases_pdf,ver_proceso_url)",
         "perfil_id": f"eq.{perfil['id']}", "order": "created_at.desc",
     })
@@ -330,7 +330,7 @@ async def listar(perfil: dict) -> list[dict]:
             "estadoAnalisis": f["estado"],
             "veredicto": f.get("veredicto") or guardados.get(f["convocatoria_id"]),
             "desbloqueadaEl": f["created_at"],
-            "codigo": c.get("licitacion"),
+            "codigo": c.get("licitacion") or c.get("nomenclatura_norm") or str(f["convocatoria_id"]),
             "fuente": c.get("fuente"),
             "titulo": (c.get("objeto_descripcion") or "").strip(),
             "entidad": c.get("entidad_convocante") or "",

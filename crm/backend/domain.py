@@ -37,7 +37,7 @@ class Intake(Input):
     email: EmailStr | Literal[''] = ''
     phone: str = Field(default='', max_length=30, pattern=r'^[+\d\s()\-]*$')
     origin: Literal['Lici', 'Telegram', 'WhatsApp', 'Referido', 'Campaña', 'Manual', 'Partner'] = 'Manual'
-    kind: Literal['signal', 'advice', 'quote', 'manual'] = 'manual'
+    kind: Literal['signal', 'advice', 'quote', 'manual', 'sale'] = 'manual'
     service: str = Field(min_length=2, max_length=160)
     owner: str = Field(default='Sin asignar', min_length=2, max_length=80)
     evidence: Literal['required', 'recommended', 'pending', 'none'] = 'none'
@@ -45,6 +45,8 @@ class Intake(Input):
     deadline: date | None = None
     notes: str = Field(default='', max_length=3000)
     sector: str = Field(default='', max_length=80)
+    # Monto en soles para ventas de plan (kind=sale). Se guarda en céntimos.
+    amount: Decimal = Field(default=Decimal('0'), ge=0, le=Decimal('10000000'))
 
 
 class AddContact(Input):
@@ -229,7 +231,22 @@ def receive_intake(state, data, actor):
                     tender=data.tender, deadline=data.deadline.isoformat() if data.deadline else None,
                     notes=data.notes, createdAt=now(), dealId=None)
     state['prospects'].append(prospect)
-    if data.kind in ['advice', 'quote']:
+    if data.kind == 'sale':
+        # Venta de plan del portal: entra directo en Ganado, asignada a Licihub Portal.
+        monto = cents(Decimal(data.amount) * 100)
+        deal = dict(
+            id=uid(), companyId=company['id'], contactId=contact['id'] if contact else None,
+            service=data.service, origin=data.origin, owner=data.owner or 'Licihub Portal',
+            stage='won', amount=monto, createdAt=now(), updatedAt=now(), closedAt=now(),
+            lossReason='', prospectIds=[prospect['id']], priority='normal', expectedClose=None,
+        )
+        prospect['dealId'] = deal['id']
+        state['deals'].append(deal)
+        log(state, deal['id'], 'created', f'Venta de plan LiciHub: {data.service}.', actor)
+        if data.notes.strip():
+            log(state, deal['id'], 'note', data.notes.strip()[:2000], actor)
+        log(state, deal['id'], 'stage', f'Etapa: {LABELS["won"]}', actor)
+    elif data.kind in ['advice', 'quote']:
         deal = open_deal(state, prospect, actor)
         log(state, deal['id'], 'request', 'Cotización solicitada' if data.kind == 'quote' else 'Asesoría solicitada', actor)
         if data.notes.strip():

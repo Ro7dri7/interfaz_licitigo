@@ -4,10 +4,58 @@ import { mensajeError } from '../lib/api'
 import { btnPrimary, btnSecondary, overlay } from '../lib/ui'
 
 export const PLANES = [
-  { id: 'free', nombre: 'Free', precio: 'S/ 0', creditos: '5 desbloqueos iniciales', pago: false, popular: false },
-  { id: 'explorador', nombre: 'Explorador', precio: 'S/ 79.90', creditos: '30 desbloqueos', pago: true, popular: false },
-  { id: 'comercial', nombre: 'Comercial', precio: 'S/ 189.90', creditos: '100 desbloqueos', pago: true, popular: true },
-  { id: 'empresarial', nombre: 'Empresarial', precio: 'S/ 349.90', creditos: '250 desbloqueos', pago: true, popular: false },
+  {
+    id: 'free',
+    nombre: 'Free',
+    detalle: 'Para empezar hoy',
+    precio: 'S/ 0',
+    unidad: '/ mes',
+    creditos: '5',
+    nota: 'Vigencia permanente',
+    items: ['Búsqueda por RUC y RNP', 'Match de licitaciones SEACE', 'Acceso al bot de Telegram', 'Registro rápido con Google'],
+    pago: false,
+    popular: false,
+    cta: 'Incluido al crear la cuenta',
+  },
+  {
+    id: 'explorador',
+    nombre: 'Explorador',
+    detalle: 'Paquete único para proveedores',
+    precio: 'S/ 79.90',
+    unidad: '/ paquete',
+    creditos: '30',
+    nota: 'S/ 2.66 por licitación',
+    items: ['Análisis IA de documentos SEACE', 'Recomendación ISO por licitación', 'Historial permanente de desbloqueos', 'Soporte vía Telegram'],
+    pago: true,
+    popular: false,
+    cta: 'Elegir Explorador',
+  },
+  {
+    id: 'comercial',
+    nombre: 'Comercial',
+    detalle: 'Para contratistas frecuentes',
+    precio: 'S/ 189.90',
+    unidad: '/ paquete',
+    creditos: '100',
+    nota: 'S/ 1.89 por licitación',
+    items: ['Todo lo del plan Explorador', 'Detección de Packs ISO de mayor puntaje', 'Derivación prioritaria al equipo comercial', 'Ideal para postulaciones frecuentes'],
+    pago: true,
+    popular: true,
+    cta: 'Elegir Comercial',
+  },
+  {
+    id: 'empresarial',
+    nombre: 'Empresarial',
+    detalle: 'Consorcios y constructoras',
+    precio: 'S/ 349.90',
+    unidad: '/ paquete',
+    creditos: '250',
+    nota: 'S/ 1.39 por licitación',
+    items: ['Todo lo del plan Comercial', 'Cobertura multi-rubro y nacional', 'Asesoría dedicada en certificaciones ISO', 'Soporte comercial prioritario'],
+    pago: true,
+    popular: false,
+    cta: 'Elegir Empresarial',
+  },
 ] as const
 
 interface Props {
@@ -39,7 +87,7 @@ export function PlanesModal({ abierto, planActual = 'free', onCerrar }: Props) {
   return (
     <div className={overlay} onClick={onCerrar}>
       <div
-        className="w-full max-w-[920px] rounded-lg bg-white p-6 shadow-panel"
+        className="max-h-[92vh] w-full max-w-[1100px] overflow-y-auto rounded-lg bg-white p-6 shadow-panel"
         role="dialog"
         aria-modal="true"
         aria-labelledby="planes-titulo"
@@ -52,33 +100,59 @@ export function PlanesModal({ abierto, planActual = 'free', onCerrar }: Props) {
           </div>
           <button className={btnSecondary} type="button" onClick={onCerrar}>Cerrar</button>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {PLANES.map((plan) => {
             const actual = (planActual || 'free') === plan.id
             return (
               <article
                 key={plan.id}
-                className={`flex flex-col gap-3 rounded-md border p-4 ${plan.popular ? 'border-primary shadow-[0_0_0_3px_var(--color-primary-soft)]' : 'border-line'}`}
+                className={`relative flex flex-col justify-between rounded-xl border p-5 ${
+                  plan.popular ? 'border-primary shadow-[0_0_0_3px_var(--color-primary-soft)]' : 'border-line'
+                }`}
               >
-                <div className="flex items-center justify-between gap-2">
+                {plan.popular ? (
+                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-bold text-white">
+                    Más popular
+                  </span>
+                ) : null}
+                <div>
                   <h3 className="text-[16px] font-semibold">{plan.nombre}</h3>
-                  {plan.popular ? <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-bold text-white">Más popular</span> : null}
+                  <p className="mt-0.5 text-[12.5px] text-muted">{plan.detalle}</p>
+                  <p className="mt-3 font-serif text-[28px] text-ink">
+                    {plan.precio}
+                    <span className="ml-1 text-[12px] font-sans text-muted">{plan.unidad}</span>
+                  </p>
+                  <div className="mt-3 rounded-md border border-line bg-canvas px-3 py-2.5">
+                    <p className="text-[13.5px] font-semibold text-ink">
+                      <span className="text-primary">{plan.creditos}</span> créditos de desbloqueo
+                    </p>
+                    <p className="text-[12px] text-muted">{plan.nota}</p>
+                  </div>
+                  <ul className="mt-3 space-y-2 text-[12.5px] text-muted">
+                    {plan.items.map((item) => (
+                      <li key={item} className="flex gap-2">
+                        <span className="font-bold text-success" aria-hidden="true">✓</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {actual ? <p className="mt-3 text-[12.5px] font-bold text-success">Plan actual</p> : null}
                 </div>
-                <p className="font-serif text-[26px] text-ink">{plan.precio}</p>
-                <p className="text-[13.5px] text-muted">{plan.creditos}</p>
-                {actual ? <span className="text-[12.5px] font-bold text-success">Plan actual</span> : <span className="text-[12.5px] text-transparent">.</span>}
                 {plan.pago ? (
-                  <button className={btnPrimary} type="button" disabled={cargando !== null} onClick={() => pagar(plan.id)}>
-                    {cargando === plan.id ? 'Abriendo pago…' : 'Elegir plan'}
+                  <button className={`${btnPrimary} mt-5 w-full`} type="button" disabled={cargando !== null} onClick={() => pagar(plan.id)}>
+                    {cargando === plan.id ? 'Abriendo pago…' : plan.cta}
                   </button>
                 ) : (
-                  <button className={btnSecondary} type="button" disabled>Incluido al crear la cuenta</button>
+                  <button className={`${btnSecondary} mt-5 w-full`} type="button" disabled>
+                    {plan.cta}
+                  </button>
                 )}
               </article>
             )
           })}
         </div>
-        {error ? <p className="mt-4 text-[13.5px] text-danger" role="alert">{error}</p> : null}
+        <p className="mt-5 text-center text-[12.5px] text-muted">Pagos protegidos con Stripe · Visa / Mastercard · PEN</p>
+        {error ? <p className="mt-3 text-[13.5px] text-danger" role="alert">{error}</p> : null}
       </div>
     </div>
   )

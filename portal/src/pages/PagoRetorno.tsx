@@ -13,14 +13,19 @@ export function PagoRetorno() {
     const pago = params.get('pago')
     const sessionId = params.get('session_id')
     let vigente = true
-    const ir = (state: { pago: string; creditos?: number; mensaje: string }) => {
+    const ir = (state: { pago: string; creditos?: number; plan?: string; mensaje: string }) => {
       if (vigente) navigate('/app/descubrimiento', { replace: true, state })
     }
     if (pago === 'exito' && sessionId) {
       setTexto('Confirmando el pago…')
       api
         .verificarPago(sessionId)
-        .then((r) => ir({ pago: 'exito', creditos: r.creditos, mensaje: `Pago acreditado. Ahora tienes ${r.creditos} créditos.` }))
+        .then((r) => ir({
+          pago: 'exito',
+          creditos: r.creditos,
+          plan: r.plan,
+          mensaje: `Pago acreditado. Ahora tienes ${r.creditos} créditos.`,
+        }))
         .catch((err) => ir({ pago: 'error', mensaje: mensajeError(err, 'No se pudo confirmar el pago. Si se cobró, recarga en unos segundos.') }))
     } else if (pago === 'cancelado') {
       setTexto('Volviendo al portal…')

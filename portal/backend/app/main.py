@@ -205,6 +205,7 @@ class Registro(BaseModel):
     nombre: str = Field(min_length=2, max_length=120)
     email: EmailStr
     password: str = Field(min_length=8, max_length=72)
+    telefono: str = Field(default="", max_length=30)
 
     @field_validator("nombre")
     @classmethod
@@ -215,6 +216,11 @@ class Registro(BaseModel):
     @classmethod
     def _clave(cls, v: str) -> str:
         return auth.validar_contrasena(v)
+
+    @field_validator("telefono")
+    @classmethod
+    def _telefono(cls, v: str) -> str:
+        return auth.normalizar_telefono(v)
 
 
 class Login(BaseModel):
@@ -267,7 +273,10 @@ def _origen(request: Request) -> str:
 
 @app.post("/api/auth/registro")
 async def registro(body: Registro, response: Response) -> dict:
-    return await _cerrar(response, await auth.registrar(body.nombre, body.email, body.password))
+    return await _cerrar(
+        response,
+        await auth.registrar(body.nombre, body.email, body.password, telefono=body.telefono),
+    )
 
 
 @app.post("/api/auth/login")
@@ -404,6 +413,7 @@ async def _respuesta_perfil(usuario: Usuario, p: dict) -> dict:
     return {
         "usuario": {"id": usuario.id, "email": usuario.email, "nombre": p.get("nombre_completo") or usuario.nombre},
         "ruc": ruc,
+        "telefono": p.get("telefono") or None,
         "keywords": p.get("keywords") or [],
         "empresa": empresa_db,
         "desbloqueos": cupo,
@@ -419,6 +429,14 @@ class CambiosPerfil(BaseModel):
     nombre: str | None = Field(default=None, min_length=2, max_length=120)
     ruc: str | None = None
     keywords: list[str] | None = Field(default=None, max_length=100)
+    telefono: str | None = Field(default=None, max_length=30)
+
+    @field_validator("telefono")
+    @classmethod
+    def _tel(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        return auth.normalizar_telefono(v)
 
 
 @app.put("/api/perfil")
@@ -445,6 +463,10 @@ async def actualizar_perfil(body: CambiosPerfil, usuario: UsuarioActual) -> dict
         cambios["keywords"] = limpiar_keywords(body.keywords)
     if body.nombre is not None:
         cambios["nombre_completo"] = re.sub(r"\s+", " ", body.nombre).strip()
+    if body.telefono is not None:
+        if len(re.sub(r"\D", "", body.telefono)) < 8:
+            raise HTTPException(422, "Ingresa un teléfono válido (mínimo 8 dígitos).")
+        cambios["telefono"] = body.telefono
     if cambios:
         cambios["updated_at"] = datetime.now(timezone.utc).isoformat()
         await get_db().update("perfiles", {"id": f"eq.{usuario.id}"}, cambios)
@@ -567,9 +589,10 @@ async def billing_checkout(body: CheckoutBody, usuario: UsuarioActual) -> dict:
 async def billing_webhook(request: Request) -> dict:
     # Stripe llama sin Origin. El cuerpo se lee crudo para validar la firma.
     payload = await request.body()
-    evento = billing.evento_firmado(payload, request.headers.get("stripe-signature", ""))
-    if evento["type"] == "checkout.session.completed":
-        sesion = evento["data"]["object"]
+    evento = billing.como_dict(billing.evento_firmado(payload, request.headers.get("stripe-signature", "")))
+    if evento.get("type") == "checkout.session.completed":
+        data = billing.como_dict(evento.get("data"))
+        sesion = billing.como_dict(data.get("object"))
         if sesion.get("payment_status") == "paid":
             await billing.acreditar_pago_stripe(sesion)
     return {"received": True}
@@ -577,14 +600,15 @@ async def billing_webhook(request: Request) -> dict:
 
 @app.post("/api/billing/verify-session")
 async def billing_verificar(body: VerificarPago, usuario: UsuarioActual) -> dict:
-    sesion = billing.recuperar_sesion(body.session_id)
+    sesion = billing.como_dict(billing.recuperar_sesion(body.session_id))
     if sesion.get("payment_status") != "paid":
         raise HTTPException(409, "El pago todavía no está confirmado.")
-    perfil_id = str((sesion.get("metadata") or {}).get("perfil_id") or "")
+    meta = billing.como_dict(sesion.get("metadata"))
+    perfil_id = str(meta.get("perfil_id") or "")
     if perfil_id != usuario.id:
         raise HTTPException(403, "Esta sesión de pago no corresponde a tu cuenta.")
     creditos = await billing.acreditar_pago_stripe(sesion)
-    plan = str((sesion.get("metadata") or {}).get("plan_id") or "free")
+    plan = str(meta.get("plan_id") or "free")
     return {"creditos": creditos, "plan": plan}
 
 

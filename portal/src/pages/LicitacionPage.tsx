@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { DetalleDesbloqueo, type LicitacionResumen } from '../components/DetalleDesbloqueo'
 import { PlanesModal } from '../components/PlanesModal'
@@ -30,8 +30,21 @@ export function LicitacionPage() {
   const [error, setError] = useState<string | null>(null)
   const [abierta, setAbierta] = useState<Desbloqueo | null>(inicial)
 
+  useEffect(() => {
+    let activo = true
+    api.perfil().then((p) => {
+      if (activo && p.desbloqueos) setCupo(p.desbloqueos)
+    }).catch(() => {})
+    return () => { activo = false }
+  }, [])
+
   const desbloquear = () => {
     if (desbloqueando) return
+    const saldo = cupo?.creditos ?? cupo?.disponibles ?? abierta?.creditos ?? abierta?.disponibles
+    if (typeof saldo === 'number' && saldo <= 0) {
+      setSinCreditos(true)
+      return
+    }
     setDesbloqueando(true)
     setError(null)
     api.desbloquear(lic.id).then((d) => {

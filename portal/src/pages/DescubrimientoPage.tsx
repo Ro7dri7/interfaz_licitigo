@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { PeruMap } from '../components/PeruMap'
+import { CompraExitosa } from '../components/CompraExitosa'
 import { PlanesModal } from '../components/PlanesModal'
 import { KpiCard } from '../components/KpiCard'
 import { Topbar } from '../components/Topbar'
@@ -137,6 +138,7 @@ export function DescubrimientoPage() {
   const [planes, setPlanes] = useState(false)
   const [sinCreditos, setSinCreditos] = useState(false)
   const [avisoPago, setAvisoPago] = useState<string | null>(null)
+  const [compraExito, setCompraExito] = useState<{ plan?: string | null; creditos: number } | null>(null)
 
   const filtrosRef = useRef(filtros)
   const paginaRef = useRef(pagina)
@@ -147,16 +149,24 @@ export function DescubrimientoPage() {
   const busquedaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    const state = location.state as { pago?: string; creditos?: number; mensaje?: string } | null
+    const state = location.state as { pago?: string; creditos?: number; plan?: string; mensaje?: string } | null
     if (!state?.pago && !state?.mensaje) return
     if (typeof state.creditos === 'number') {
       const creditosPago = state.creditos
+      const planPago = state.plan || 'free'
       setCupo((c) => (c
-        ? { ...c, creditos: creditosPago, disponibles: creditosPago }
-        : { usados: 0, limite: creditosPago, disponibles: creditosPago, creditos: creditosPago, plan: 'free' }))
+        ? { ...c, creditos: creditosPago, disponibles: creditosPago, plan: planPago, limite: Math.max(c.limite, creditosPago) }
+        : { usados: 0, limite: creditosPago, disponibles: creditosPago, creditos: creditosPago, plan: planPago }))
+      if (state.pago === 'exito') setCompraExito({ plan: state.plan, creditos: creditosPago })
     }
-    setAvisoPago(state.mensaje || null)
+    if (state.pago !== 'exito') setAvisoPago(state.mensaje || null)
     if (state.pago === 'cancelado' || state.pago === 'error') setPlanes(true)
+    // Refresca el cupo desde el perfil para no quedar en 0 si el listado aún no actualizó.
+    if (state.pago === 'exito') {
+      api.perfil().then((p) => {
+        if (p.desbloqueos) setCupo(p.desbloqueos)
+      }).catch(() => {})
+    }
     navigate(location.pathname, { replace: true, state: null })
   }, [location.pathname, location.state, navigate])
 
@@ -178,7 +188,14 @@ export function DescubrimientoPage() {
         if (ctrl.signal.aborted) return
         setLoading(false)
         setPagina(p)
-        setCupo(p.desbloqueos)
+        // No bajar el saldo si acabamos de acreditar un pago (evita parpadeo a 0).
+        setCupo((prev) => {
+          const next = p.desbloqueos
+          if (!prev || !next) return next
+          const prevCred = prev.creditos ?? prev.disponibles ?? 0
+          const nextCred = next.creditos ?? next.disponibles ?? 0
+          return nextCred >= prevCred ? next : { ...next, creditos: prevCred, disponibles: prevCred, plan: next.plan || prev.plan }
+        })
         // Si la página quedó fuera de rango (p. ej. cambió el total), se vuelve a la última.
         if (!p.items.length && p.total > 0 && filtrosRef.current.pagina > p.totalPaginas) {
           actualizar({ pagina: p.totalPaginas }, false)
@@ -333,6 +350,11 @@ export function DescubrimientoPage() {
   const pedirDesbloqueo = (l: Licitacion) => {
     if (l.desbloqueada) {
       irFicha(l)
+      return
+    }
+    const saldo = cupo?.creditos ?? cupo?.disponibles ?? 0
+    if (saldo <= 0) {
+      setSinCreditos(true)
       return
     }
     setErrorDesbloqueo(null)
@@ -821,6 +843,12 @@ export function DescubrimientoPage() {
         </div>
       ) : null}
       <PlanesModal abierto={planes} planActual={cupo?.plan} onCerrar={() => setPlanes(false)} />
+      <CompraExitosa
+        abierto={Boolean(compraExito)}
+        planId={compraExito?.plan}
+        creditos={compraExito?.creditos ?? 0}
+        onCerrar={() => setCompraExito(null)}
+      />
     </div>
   )
 }
