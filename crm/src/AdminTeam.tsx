@@ -51,7 +51,7 @@ export default function AdminTeam() {
     {error && <p className="error" role="alert">{error}</p>}
     <form className="panel filters" onSubmit={agregar}>
       <label className="search-field">Nombre<input type="text" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ana Pérez" aria-label="Nombre del nuevo miembro" maxLength={100} /></label>
-      <label className="search-field">Correo<input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="ana@empresa.pe" aria-label="Correo del nuevo miembro" /></label>
+      <label className="search-field">Correo<input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="ana@empresa.pe" aria-label="Correo del nuevo miembro" autoComplete="email" /></label>
       <label className="search-field">Contraseña<input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Si la cuenta es nueva" aria-label="Contraseña del nuevo miembro" autoComplete="new-password" maxLength={72} /></label>
       <select aria-label="Rol del nuevo miembro" value={rol} onChange={e => setRol(e.target.value as 'admin' | 'commercial')}>
         <option value="commercial">Comercial</option><option value="admin">Administración</option>

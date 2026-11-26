@@ -23,27 +23,61 @@ export default function QuoteDocument({ quote, onClose }: { quote: Quote; onClos
   const writable = (session.mode === 'demo' || (snapshot.schemaVersion ?? 1) >= 2) && !['won', 'lost'].includes(deal?.stage ?? '')
   const events = q.events ?? []
   const begin = (next: QuoteEvent['status']) => { setAction(next); setError(''); setNote(''); requestId.current = crypto.randomUUID() }
-  return <Modal title={`${q.number} · versión ${q.version}`} onClose={onClose} wide>
+  return <Modal title={`${q.number} · versión ${q.version}`} onClose={onClose} className="quote-dialog">
     <article className="quote-sheet">
-      <div className="quote-letterhead"><div><div className="brand">LiciHub<span>.</span><small>PROPUESTA COMERCIAL</small></div><p className="document-issuer">{q.issuerName || session.issuer?.name || 'INTERCERT LATAM S.A.C.'}</p><p>RUC {q.issuerRuc || session.issuer?.ruc || '20612137880'}</p></div>
-        <div className="quote-reference"><strong>{q.number}</strong><span>Versión {q.version}</span><Badge tone={q.status === 'accepted' ? 'green' : q.status === 'sent' ? 'blue' : ''}>{quoteStatusLabels[q.status]}</Badge></div></div>
+      <header className="quote-letterhead">
+        <div>
+          <div className="brand">LiciHub<span>.</span><small>PROPUESTA COMERCIAL</small></div>
+          <p className="document-issuer">{q.issuerName || session.issuer?.name || 'INTERCERT LATAM S.A.C.'}</p>
+          <p>RUC {q.issuerRuc || session.issuer?.ruc || '20612137880'}</p>
+        </div>
+        <div className="quote-reference">
+          <strong>{q.number}</strong>
+          <span>Versión {q.version}</span>
+          <span>Fecha {documentDate(q.createdAt)}</span>
+          <span className="no-print"><Badge tone={q.status === 'accepted' ? 'green' : q.status === 'sent' ? 'blue' : ''}>{quoteStatusLabels[q.status]}</Badge></span>
+        </div>
+      </header>
       <p className="issuer-address">{q.issuerAddress || session.issuer?.address}</p>
-      <h2>Cotización comercial</h2><p className="quote-title">{q.title || deal?.service}</p>
-      <div className="quote-parties"><section><h3>Preparada para</h3><strong>{q.customerName || company?.name}</strong><p>RUC {q.customerRuc || company?.ruc || 'por completar'}</p>{q.contactName && <p>Atención: {q.contactName}{person && <> · <Link className="text-link no-print" to={crmPath(`/contactos/${person.id}`)} onClick={onClose}>Ver ficha del contacto</Link></>}</p>}{q.contactEmail && <p>{q.contactEmail}</p>}</section>
-        <section><h3>Datos de la propuesta</h3><p>Emitida: {documentDate(q.createdAt)}</p><p>Vigente hasta: {documentDate(q.validUntil)}</p><p>Asesor: {q.owner || deal?.owner}</p><p>Moneda: PEN · Sol peruano</p></section></div>
-      <div className="table-wrap"><table className="quote-item-table"><thead><tr><th>N.º</th><th>Certificación / servicio</th><th>Cant.</th><th>Precio unitario</th><th>Importe</th></tr></thead><tbody>{q.items.map((item, index) => <tr key={index}>
+      <h2>Cotización comercial</h2>
+      <p className="quote-title">{q.title || deal?.service}</p>
+      <div className="quote-parties">
+        <section>
+          <h3>Cliente</h3>
+          <dl>
+            <div><dt>Empresa</dt><dd>{q.customerName || company?.name || 'Por completar'}</dd></div>
+            <div><dt>RUC</dt><dd>{q.customerRuc || company?.ruc || 'Por completar'}</dd></div>
+            <div><dt>Contacto</dt><dd>{q.contactName || 'Por completar'}{q.contactEmail ? ` · ${q.contactEmail}` : ''}{person && <> · <Link className="text-link no-print" to={crmPath(`/contactos/${person.id}`)} onClick={onClose}>Ver ficha</Link></>}</dd></div>
+            <div><dt>Asesor responsable</dt><dd>{q.owner || deal?.owner || 'Sin asignar'}</dd></div>
+          </dl>
+        </section>
+        <section>
+          <h3>Propuesta</h3>
+          <dl>
+            <div><dt>Número</dt><dd>{q.number}</dd></div>
+            <div><dt>Emitida</dt><dd>{documentDate(q.createdAt)}</dd></div>
+            <div><dt>Válida hasta</dt><dd>{documentDate(q.validUntil)}</dd></div>
+            <div><dt>Moneda</dt><dd>Soles (PEN)</dd></div>
+          </dl>
+        </section>
+      </div>
+      <div className="table-wrap"><table className="quote-item-table"><thead><tr><th>N.º</th><th>Norma / servicio</th><th>Cantidad</th><th>Precio unitario</th><th>Subtotal</th></tr></thead><tbody>{q.items.map((item, index) => <tr key={index}>
         <td>{index + 1}</td><td>{item.productName}</td><td>{item.quantity}</td><td>{money(item.unitPrice)}</td><td>{money(item.unitPrice * item.quantity)}</td></tr>)}</tbody></table></div>
-      <p className="hint">{q.taxIncluded ? 'Los precios de las partidas incluyen el impuesto indicado; el desglose no aumenta el total.' : 'Los precios de las partidas son importes antes del impuesto indicado.'}</p>
-      <dl className="quote-totals"><div><dt>{q.taxIncluded ? 'Importe de partidas, IGV incluido' : 'Subtotal'}</dt><dd>{money(q.subtotal)}</dd></div>
-        <div><dt>Descuento ({q.discountPercent} %)</dt><dd>− {money(q.discountAmount)}</dd></div>
-        {q.taxIncluded && <div><dt>Base sin impuesto</dt><dd>{money(q.total - q.taxAmount)}</dd></div>}
-        <div><dt>IGV / impuesto ({q.taxPercent} %){q.taxIncluded ? ' incluido' : ''}</dt><dd>{money(q.taxAmount)}</dd></div>
-        <div className="total"><dt>Total de la propuesta</dt><dd>{money(q.total)}</dd></div></dl>
-      <section className="quote-conditions"><h3>Alcance, condiciones comerciales y de pago</h3><p className="preserve-lines">{q.terms || 'Condiciones pendientes de acordar con el cliente.'}</p></section>
+      <p className="hint no-print">{q.taxIncluded ? 'Los precios de las partidas incluyen el impuesto indicado; el desglose no aumenta el total.' : 'Los precios de las partidas son importes antes del impuesto indicado.'}</p>
+      <dl className="quote-totals">
+        <div><dt>Subtotal</dt><dd>{money(q.taxIncluded ? q.total - q.taxAmount : q.subtotal)}</dd></div>
+        {q.discountAmount > 0 && <div><dt>Descuento ({q.discountPercent} %)</dt><dd>− {money(q.discountAmount)}</dd></div>}
+        <div><dt>IGV ({q.taxPercent} %)</dt><dd>{money(q.taxAmount)}</dd></div>
+        <div className="total"><dt>Total en soles (PEN)</dt><dd>{money(q.total)}</dd></div>
+      </dl>
+      <section className="quote-conditions"><h3>Alcance y condiciones</h3><p className="preserve-lines">{q.terms || 'Condiciones pendientes de acordar con el cliente.'}</p></section>
       {q.status === 'accepted' && events.at(-1) && <section className="quote-acceptance"><h3>Aceptación registrada</h3><p>{events.at(-1)?.recipient} · {dateTime(events.at(-1)!.createdAt)}</p><p className="preserve-lines">{events.at(-1)?.note}</p></section>}
-      <div className="quote-document-footer"><strong>{q.issuerName || session.issuer?.name}</strong><p>{q.number} · v{q.version} · Este documento es una propuesta comercial; no acredita pago ni certificación.</p></div>
+      <footer className="quote-document-footer">
+        <p>Vigencia de la propuesta: hasta {documentDate(q.validUntil)}.</p>
+        <p>{q.number} · versión {q.version} · Importes en soles (PEN). Esta propuesta no acredita pago ni certificación.</p>
+      </footer>
     </article>
-    <section className="quote-management"><div className="section-head"><h3>Seguimiento de la propuesta</h3>{expired && q.status !== 'accepted' && <Badge tone="amber">Vigencia vencida</Badge>}</div>
+    <section className="quote-management no-print"><div className="section-head"><h3>Seguimiento de la propuesta</h3>{expired && q.status !== 'accepted' && <Badge tone="amber">Vigencia vencida</Badge>}</div>
       <p className="hint">Registra lo realizado por correo, WhatsApp u otro canal. Estas acciones no envían mensajes ni firman por el cliente.</p>
       {!!events.length && <ol className="quote-event-list">{events.map(event => <li key={event.id}><strong>{quoteStatusLabels[event.status]}</strong><span>{event.recipient} · {event.channel} · {dateTime(event.createdAt)}</span><p>{event.note}</p><small>Registrado por {event.actor}</small></li>)}</ol>}
       {writable && !action && <div className="quote-state-actions">{q.status === 'draft' && <button disabled={expired} onClick={() => begin('sent')}>Registrar envío</button>}
@@ -58,6 +92,6 @@ export default function QuoteDocument({ quote, onClose }: { quote: Quote; onClos
         <label>Detalle o evidencia *<textarea required minLength={2} maxLength={2000} rows={3} value={note} onChange={e => setNote(e.target.value)} placeholder="Referencia del correo, mensaje o confirmación recibida" /></label>
         {error && <p role="alert" className="error">{error}</p>}<div className="quote-state-actions"><button type="button" disabled={busy} onClick={() => setAction('')}>Cancelar registro</button><button type="submit" className="primary" disabled={busy}>{busy ? 'Guardando…' : 'Guardar registro'}</button></div></form>}
     </section>
-    <footer><button onClick={onClose}>Cerrar</button><button className="primary" onClick={() => window.print()}><Icon name="file" /> Imprimir / guardar PDF</button></footer>
+    <footer className="no-print"><button type="button" onClick={onClose}>Cerrar</button><button type="button" className="primary" onClick={() => window.print()}><Icon name="file" /> Imprimir / guardar PDF</button></footer>
   </Modal>
 }

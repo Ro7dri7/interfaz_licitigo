@@ -111,10 +111,15 @@ def create_app(settings=None, repository=None):
         return response
 
     def _cabeceras():
-        headers = {'apikey': config.supabase_secret_key}
-        if config.supabase_secret_key.startswith('eyJ'):
-            headers['Authorization'] = f'Bearer {config.supabase_secret_key}'
-        return headers
+        # La API admin de Auth exige la clave secreta también en Authorization.
+        clave = config.supabase_secret_key
+        return {'apikey': clave, 'Authorization': f'Bearer {clave}'}
+
+    def _json_cuerpo(respuesta):
+        try:
+            return respuesta.json()
+        except ValueError:
+            return None
 
     def _poner_cookies(response, access, refresh, expires_in):
         response.set_cookie('lici_crm_session', access, httponly=True, secure=True, samesite='strict',
@@ -231,7 +236,9 @@ def create_app(settings=None, repository=None):
                                          headers=_cabeceras(), params={'filter': correo, 'page': 1, 'per_page': 50})
         if respuesta.status_code >= 400:
             raise HTTPException(503, 'No pudimos consultar las cuentas. Inténtalo de nuevo.')
-        cuerpo = respuesta.json()
+        cuerpo = _json_cuerpo(respuesta)
+        if cuerpo is None:
+            raise HTTPException(503, 'Supabase no devolvió las cuentas. Revisa la clave del CRM y vuelve a intentarlo.')
         usuarios = cuerpo.get('users') if isinstance(cuerpo, dict) else cuerpo
         for usuario in usuarios or []:
             if str(usuario.get('email') or '').lower() == correo:
@@ -270,8 +277,16 @@ def create_app(settings=None, repository=None):
                 'user_metadata': {'nombre': (data.nombre or data.email.split('@')[0])[:100]},
             })
             if creado.status_code >= 400:
-                raise HTTPException(422, 'No se pudo crear la cuenta. Revisa el correo y la contraseña.')
-            usuario = creado.json()
+                detalle = _json_cuerpo(creado)
+                mensaje = ''
+                if isinstance(detalle, dict):
+                    mensaje = str(detalle.get('msg') or detalle.get('message') or detalle.get('error_description') or '')
+                raise HTTPException(422, mensaje or 'No se pudo crear la cuenta. Revisa el correo y la contraseña.')
+            usuario = _json_cuerpo(creado) or {}
+            if isinstance(usuario, dict) and isinstance(usuario.get('user'), dict):
+                usuario = usuario['user']
+            if not isinstance(usuario, dict) or not usuario.get('id'):
+                usuario = await _usuario_por_correo(data.email)
         else:
             if data.password:
                 cambio = await _auth_admin('PUT', f"/admin/users/{usuario['id']}", {'password': data.password})
@@ -347,6 +362,8 @@ def create_app(settings=None, repository=None):
             raise HTTPException(403, 'Solo administración puede agregar servicios al catálogo.')
         if data.operation.startswith('property_') and actor['role'] != 'admin':
             raise HTTPException(403, 'Solo administración puede crear y editar propiedades.')
+        if data.operation == 'assign_company_owner' and actor['role'] != 'admin':
+            raise HTTPException(403, 'Solo administración puede asignar el comercial de una empresa.')
         snapshot = await repo.load(request_id=data.requestId)
         if data.operation.startswith('property_') and snapshot.get('schemaVersion', 1) < 3:
             raise HTTPException(503, 'Falta ejecutar 010_propiedades.sql en Supabase para habilitar las propiedades personalizadas.')

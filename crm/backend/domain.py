@@ -78,6 +78,11 @@ class AssignOwner(Input):
     owner: str = Field(min_length=2, max_length=80)
 
 
+class AssignCompany(Input):
+    companyId: str
+    owner: str = Field(min_length=2, max_length=80)
+
+
 class Convert(Input):
     prospectId: str
 
@@ -148,7 +153,7 @@ class PropertyValue(Input):
 
 
 SCHEMAS = {'property_create': PropertyNew, 'property_archive': PropertyArchive, 'property_set': PropertyValue,
-           'intake': Intake, 'contact': AddContact, 'deal_details': DealDetails, 'assign_owner': AssignOwner, 'contact_create': NewContact, 'contact_edit': EditContact, 'convert': Convert, 'stage': Move, 'activity': Activity,
+           'intake': Intake, 'contact': AddContact, 'deal_details': DealDetails, 'assign_owner': AssignOwner, 'assign_company_owner': AssignCompany, 'contact_create': NewContact, 'contact_edit': EditContact, 'convert': Convert, 'stage': Move, 'activity': Activity,
            'task': Task, 'complete_task': Complete, 'product': Product, 'quote': Quote, 'quote_status': QuoteState, 'import_iso': Input}
 
 
@@ -196,6 +201,8 @@ def receive_intake(state, data, actor):
     if data.kind in ['advice', 'quote']:
         deal = open_deal(state, prospect, actor)
         log(state, deal['id'], 'request', 'Cotización solicitada' if data.kind == 'quote' else 'Asesoría solicitada', actor)
+        if data.notes.strip():
+            log(state, deal['id'], 'note', f'Resumen de la solicitud:\n{data.notes.strip()}'[:2000], actor)
     elif data.kind == 'signal' and matching_deal(state, prospect):
         deal = open_deal(state, prospect, actor)
         log(state, deal['id'], 'signal', 'Nueva señal vinculada al negocio existente; no implica una solicitud.', actor)
@@ -296,6 +303,18 @@ def apply_command(original, operation, payload, actor, request_id):
         if deal['owner'] != data.owner:
             deal.update(owner=data.owner, updatedAt=now())
             log(state, deal['id'], 'note', f'Responsable: {data.owner}', actor)
+    elif operation == 'assign_company_owner':
+        company = find(state['companies'], data.companyId)
+        negocios = [d for d in state['deals'] if d['companyId'] == company['id']]
+        solicitudes = [p for p in state['prospects'] if p['companyId'] == company['id']]
+        if not negocios and not solicitudes:
+            raise ValueError('Esta empresa todavía no tiene negocios para asignar.')
+        for deal in negocios:
+            if deal['owner'] != data.owner:
+                deal.update(owner=data.owner, updatedAt=now())
+                log(state, deal['id'], 'note', f'Responsable: {data.owner}', actor)
+        for prospect in solicitudes:
+            prospect['owner'] = data.owner
     elif operation == 'activity':
         find(state['deals'], data.dealId)
         log(state, data.dealId, data.kind, data.text, actor)

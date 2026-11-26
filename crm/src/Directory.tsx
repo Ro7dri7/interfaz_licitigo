@@ -2,11 +2,12 @@ import { Link, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { Badge, Empty, Icon, PageHead } from './components'
 import { Filters } from './Collections'
 import { useCRM } from './crm-context'
+import { OwnerPicker } from './OwnerPicker'
 import { money, openDeal, originLabel } from './types'
 import { crmPath } from './paths'
 
 export default function Directory({ onCreate }: { onCreate: () => void }) {
-  const { snapshot: { data } } = useCRM(), [params] = useSearchParams(), location = useLocation()
+  const { snapshot: { data }, session } = useCRM(), [params] = useSearchParams(), location = useLocation()
   // Enlaces antiguos (?vista=contactos) ahora viven en la pantalla Contactos.
   if (params.get('vista') === 'contactos') {
     const next = new URLSearchParams(params); next.delete('vista')
@@ -26,12 +27,13 @@ export default function Directory({ onCreate }: { onCreate: () => void }) {
     <Filters />
     {companyId && <div className="info-strip"><Icon name="company" /><span>Registros de {companyById.get(companyId)?.name ?? 'la empresa seleccionada'}.</span></div>}
     <section className="panel table-wrap" aria-label="Lista de empresas">
-      <table><thead><tr><th>Empresa / RUC</th><th>Contactos</th><th>Negocios abiertos</th><th>Asesores</th><th>Valor abierto</th></tr></thead><tbody>{rows.map(company => {
+      <table><thead><tr><th>Empresa / RUC</th><th>Contactos</th><th>Negocios abiertos</th><th>{session.user.role === 'admin' ? 'Comercial' : 'Asesores'}</th><th>Valor abierto</th></tr></thead><tbody>{rows.map(company => {
         const contacts = data.contacts.filter(p => p.companyId === company.id), deals = data.deals.filter(d => d.companyId === company.id && openDeal(d))
+        const asignados = owners(company.id).join(', ')
         return <tr key={company.id}><td><Link className="record-button" state={from} to={crmPath(`/directorio/empresas/${company.id}`)}>{company.name}</Link><small>{company.ruc || 'RUC por completar'} · {originLabel(company.origin)}</small></td>
           <td><strong>{contacts[0]?.name || 'Sin contactos registrados'}</strong>{contacts[0]?.email && <small>{contacts[0].email}</small>}<Link className="text-link" to={crmPath(`/contactos?empresa=${company.id}`)}>{contacts.length} {contacts.length === 1 ? 'contacto' : 'contactos'}<Icon name="arrow" size={14} /></Link></td>
           <td>{deals.length ? <Badge tone="blue">{deals.length} {deals.length === 1 ? 'negocio abierto' : 'negocios abiertos'}</Badge> : <Badge>Sin negocios abiertos</Badge>}</td>
-          <td>{owners(company.id).join(', ') || 'Sin asignar'}</td><td><strong>{money(deals.reduce((sum, d) => sum + d.amount, 0))}</strong></td></tr>
+          <td><OwnerPicker companyId={company.id} actual={asignados} /></td><td><strong>{money(deals.reduce((sum, d) => sum + d.amount, 0))}</strong></td></tr>
       })}</tbody></table>
       {!rows.length && <Empty>No hay empresas que coincidan con esos filtros.</Empty>}
       <div className="table-foot">{rows.length} {rows.length === 1 ? 'empresa' : 'empresas'} · Abre una empresa para consultar sus contactos, negocios y cotizaciones.</div>

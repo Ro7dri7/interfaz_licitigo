@@ -109,7 +109,7 @@ export function Pipeline({ onCreate }: { onCreate: () => void }) {
   const rowKey = (id: string) => (e: React.KeyboardEvent) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select(id) } }
   const metrics = [['Cartera abierta', money(open.reduce((s, d) => s + d.amount, 0)), `${open.length} negocios abiertos`], ['Ganado', money(won.reduce((s, d) => s + d.amount, 0)), `${won.length} negocios`],
     ['Pronóstico ponderado', weighted(open), 'Según la probabilidad de cada etapa'], ['Tasa de cierre', closed ? `${Math.round(won.length / closed * 100)}%` : '—', closed ? `${won.length} de ${closed} cerrados` : 'Aún sin cierres']]
-  return <><PageHead title="Negocios" description={`${filtered.length} negocios · ${money(filtered.filter(d => !['won', 'lost'].includes(d.stage)).reduce((s, d) => s + d.amount, 0))} en cartera abierta`}>
+  return <><PageHead title="Negocios" description={`${filtered.length} negocios ${mine ? 'tuyos' : 'de todo el equipo'} · ${money(filtered.filter(d => !['won', 'lost'].includes(d.stage)).reduce((s, d) => s + d.amount, 0))} en cartera abierta`}>
     <div className="segmented">{[['board', 'Tablero'], ['list', 'Lista']].map(([id, text]) => <button key={id} aria-pressed={view === id} className={view === id ? 'active' : ''} onClick={() => setParams(p => { p.set('vista', id); return p })}><Icon name={id} />{text}</button>)}</div>
     <button onClick={() => setImporting(true)}><Icon name="upload" size={16} /> Importar</button>
     <button onClick={exportCsv} disabled={!filtered.length}><Icon name="download" size={16} /> Exportar</button>

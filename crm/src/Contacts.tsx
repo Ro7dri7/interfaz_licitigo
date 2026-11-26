@@ -4,6 +4,7 @@ import { Badge, Empty, Icon, PageHead } from './components'
 import { Filters } from './Collections'
 import { ContactForm } from './Forms'
 import { useCRM } from './crm-context'
+import { OwnerPicker } from './OwnerPicker'
 import { initials, openDeal } from './types'
 import { downloadCsv, limaDay, whatsappNumber } from './utils'
 import { crmPath } from './paths'
@@ -49,7 +50,7 @@ export default function Contacts({ onCreate }: { onCreate: () => void }) {
           <td>{person.email ? <a href={`mailto:${person.email}`}>{person.email}</a> : 'Sin correo'}</td>
           <td>{person.phone ? <a href={`tel:${person.phone}`}>{person.phone}</a> : 'Sin teléfono'}</td>
           <td>{open ? <Badge tone="blue">{open} {open === 1 ? 'negocio abierto' : 'negocios abiertos'}</Badge> : <Badge>Sin negocios abiertos</Badge>}</td>
-          <td>{owners(company.id).join(', ') || 'Sin asignar'}</td>
+          <td><OwnerPicker companyId={company.id} actual={owners(company.id).join(', ')} /></td>
           <td><div className="row-actions"><Link className="qa" aria-label={`Abrir ficha de ${person.name}`} title="Abrir ficha" to={crmPath(`/contactos/${person.id}`)}><Icon name="users" size={14} /></Link>
             {person.phone && <a className="qa" aria-label={`Llamar a ${person.name}`} title="Llamar" href={`tel:${person.phone}`}><Icon name="phone" size={14} /></a>}
             {person.email && <a className="qa" aria-label={`Escribir a ${person.name}`} title="Correo" href={`mailto:${person.email}`}><Icon name="mail" size={14} /></a>}

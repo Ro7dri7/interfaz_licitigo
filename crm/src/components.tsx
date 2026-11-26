@@ -33,14 +33,14 @@ export function Empty({ title = 'No hay resultados', children }: { title?: strin
 export function PageHead({ eyebrow = 'ESPACIO COMERCIAL', title, description, children }: { eyebrow?: string; title: string; description: string; children?: ReactNode }) {
   return <div className="page-head"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{description}</p></div><div className="head-actions">{children}</div></div>
 }
-export function Modal({ title, children, onClose, wide = false }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean }) {
+export function Modal({ title, children, onClose, wide = false, className = '' }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean; className?: string }) {
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => {
     const dialog = ref.current, trigger = document.activeElement
     dialog?.showModal()
     return () => { dialog?.close(); if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus() }
   }, [])
-  return createPortal(<dialog ref={ref} className={`modal ${wide ? 'wide' : ''}`} onCancel={event => { event.preventDefault(); onClose() }} aria-labelledby="dialog-title" onKeyDown={event => {
+  return createPortal(<dialog ref={ref} className={`modal ${wide ? 'wide' : ''} ${className}`} onCancel={event => { event.preventDefault(); onClose() }} onClick={event => { if (event.target === event.currentTarget) onClose() }} aria-labelledby="dialog-title" onKeyDown={event => {
     if (event.key !== 'Tab') return
     const elements = [...event.currentTarget.querySelectorAll<HTMLElement>('button, input, select, textarea, summary, a[href], [tabindex]')]
       .filter(el => el.tabIndex >= 0 && !el.matches(':disabled') && el.getClientRects().length > 0)

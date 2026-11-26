@@ -2,20 +2,26 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge, Empty, Icon, PageHead } from './components'
 import { useCRM } from './crm-context'
-import { dateLabel, dateTime, money, quoteStatusLabels } from './types'
+import { dateLabel, dateTime, money, originLabel, quoteStatusLabels } from './types'
 import type { Quote } from './types'
 import QuotePreview from './QuoteDocument'
 import { crmPath } from './paths'
 
 export function Agenda() {
-  const { snapshot: { data }, command, now } = useCRM(), [completed, setCompleted] = useState(false)
-  const [error, setError] = useState(''), [busy, setBusy] = useState('')
-  const tasks = data.tasks.filter(t => t.done === completed).slice().sort((a, b) => a.dueAt.localeCompare(b.dueAt))
-  return <><PageHead title="Agenda comercial" description="Seguimientos y compromisos del equipo · hora de Perú." />
-    <div className="tabs"><button className={!completed ? 'active' : ''} onClick={() => setCompleted(false)}>Pendientes <span>{data.tasks.filter(t => !t.done).length}</span></button><button className={completed ? 'active' : ''} onClick={() => setCompleted(true)}>Completadas</button></div>
+  const { snapshot: { data }, session, command, now } = useCRM(), [completed, setCompleted] = useState(false)
+  const [error, setError] = useState(''), [busy, setBusy] = useState(''), [owner, setOwner] = useState(session.user.role === 'admin' ? '' : session.user.name)
+  const mine = (task: typeof data.tasks[number]) => {
+    const deal = data.deals.find(d => d.id === task.dealId)
+    return !owner || deal?.owner === owner
+  }
+  const tasks = data.tasks.filter(t => t.done === completed && mine(t)).slice().sort((a, b) => a.dueAt.localeCompare(b.dueAt))
+  const responsables = [...new Set(data.deals.map(d => d.owner))]
+  return <><PageHead title="Agenda comercial" description="Seguimientos reales de los negocios. Cada fila es una tarea pendiente o completada, con su empresa y su responsable." />
+    <div className="filters"><label>Responsable<select aria-label="Filtrar agenda por responsable" value={owner} onChange={e => setOwner(e.target.value)}><option value="">{session.user.role === 'admin' ? 'Todo el equipo' : 'Todos'}</option>{responsables.map(nombre => <option key={nombre}>{nombre}</option>)}</select></label></div>
+    <div className="tabs"><button className={!completed ? 'active' : ''} onClick={() => setCompleted(false)}>Pendientes <span>{data.tasks.filter(t => !t.done && mine(t)).length}</span></button><button className={completed ? 'active' : ''} onClick={() => setCompleted(true)}>Completadas <span>{data.tasks.filter(t => t.done && mine(t)).length}</span></button></div>
     {error && <p className="error" role="alert">{error}</p>}<section className="panel"><div className="task-list">{tasks.map(t => {
       const d = data.deals.find(d => d.id === t.dealId), company = data.companies.find(c => c.id === d?.companyId), late = !t.done && new Date(t.dueAt).getTime() < now
-      return <div className="task-row" key={t.id}><span className="task-symbol"><Icon name={t.done ? 'check' : 'calendar'} /></span><div><Link to={crmPath(`/negocios/${t.dealId}`)}><strong>{t.title}</strong></Link><p>{company?.name} · {d?.owner}</p></div><span className={late ? 'due late' : 'due'}>{late ? 'Vencida · ' : ''}{dateTime(t.dueAt)}</span>{!t.done && <button disabled={busy === t.id} onClick={async () => {
+      return <div className="task-row" key={t.id}><span className="task-symbol"><Icon name={t.done ? 'check' : 'calendar'} /></span><div><Link to={crmPath(`/negocios/${t.dealId}`)}><strong>{t.title}</strong></Link><p>{company?.name ?? 'Sin empresa'} · {d?.owner ?? 'Sin asignar'} · {d ? originLabel(d.origin) : ''}</p></div><span className={late ? 'due late' : 'due'}>{late ? 'Vencida · ' : ''}{dateTime(t.dueAt)}</span>{!t.done && <button disabled={busy === t.id} onClick={async () => {
         setBusy(t.id); setError(''); try { await command('complete_task', { taskId: t.id }) } catch (e) { setError((e as Error).message) } finally { setBusy('') }
       }}>Completar</button>}</div>
     })}{!tasks.length && <Empty title={completed ? 'Sin tareas completadas' : 'No hay tareas pendientes'}>Programa una acción desde la ficha de un negocio.</Empty>}</div></section></>

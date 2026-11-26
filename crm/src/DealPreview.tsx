@@ -17,7 +17,13 @@ function Section({ title, count, action, children }: { title: string; count?: nu
     <Icon name="chevron" size={14} />{title}{count !== undefined && <span>({count})</span>}</button>{action}</header>{open && <div className="pv-body">{children}</div>}</section>
 }
 
-const go = (href: string) => { if (href.startsWith('http')) window.open(href, '_blank', 'noopener,noreferrer'); else window.location.assign(href) }
+const go = (href: string) => {
+  if (href.startsWith('http')) { window.open(href, '_blank', 'noopener,noreferrer'); return }
+  const enlace = document.createElement('a')
+  enlace.href = href
+  enlace.rel = 'noopener'
+  enlace.click()
+}
 
 const Field = ({ label, children }: { label: string; children: ReactNode }) => <div className="pv-field"><dt>{label}</dt><dd>{children}</dd></div>
 
@@ -43,7 +49,7 @@ export default function DealPreview({ deal, sla, onClose, onForm }: { deal: Deal
   const quick: [string, string, string, () => void, boolean, string][] = [
     ['Nota', 'file', 'Registrar una nota o actividad', () => onForm('activity'), true, ''],
     ['Tarea', 'calendar', 'Programar una tarea', () => onForm('task'), true, ''],
-    ['Correo', 'mail', person?.email ?? '', () => go(`mailto:${person?.email}`), Boolean(person?.email), 'El contacto no tiene correo'],
+    ['Correo', 'mail', 'Abre el correo de tu equipo. El CRM no envía el mensaje.', () => go(`mailto:${person?.email}`), Boolean(person?.email), 'El contacto no tiene correo'],
     ['Llamada', 'phone', person?.phone ?? '', () => go(`tel:${person?.phone.replace(/[^\d+]/g, '')}`), Boolean(person?.phone), 'El contacto no tiene teléfono'],
     ['WhatsApp', 'chat', person?.phone ?? '', () => go(`https://wa.me/${wa}`), Boolean(wa), 'El contacto no tiene teléfono'],
   ]

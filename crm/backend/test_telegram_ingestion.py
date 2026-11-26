@@ -38,6 +38,7 @@ class TelegramIngestionTests(unittest.TestCase):
         self.assertEqual(data['deals'][0]['stage'], 'new')
         self.assertEqual(len(data['tasks']), 1)
         self.assertIn('@ana_prueba', data['prospects'][0]['notes'])
+        self.assertTrue(any('Resumen de la solicitud' in a['text'] and '@ana_prueba' in a['text'] for a in data['activities']))
 
     def test_only_explicit_requests_can_enter_from_integration(self):
         for kind in ['signal', 'manual']:

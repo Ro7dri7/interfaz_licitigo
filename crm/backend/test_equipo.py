@@ -70,6 +70,18 @@ class EquipoAdminTests(unittest.TestCase):
         })
         self.assertEqual(response.status_code, 422)
 
+    def test_alta_explica_si_supabase_responde_vacio(self):
+        self._sesion('admin')
+        vacio = unittest.mock.Mock(status_code=200, text='')
+        vacio.json.side_effect = ValueError('Expecting value: line 1 column 1 (char 0)')
+        import backend.main as principal
+        principal.httpx.AsyncClient.return_value.__aenter__.return_value.get = AsyncMock(side_effect=[self.user, vacio])
+        response = self.client.post('/api/crm/team', json={
+            'email': 'julio.comercial@licihub.com', 'rol': 'commercial', 'nombre': 'Julio Cesar', 'password': 'Comercial1!',
+        })
+        self.assertEqual(response.status_code, 503)
+        self.assertNotIn('Expecting value', response.json()['detail'])
+
 
 class ResponsableTests(unittest.TestCase):
     def test_reasigna_el_responsable_del_negocio(self):
@@ -92,3 +104,10 @@ class ResponsableTests(unittest.TestCase):
         })
         self.assertEqual(moved.status_code, 200)
         self.assertEqual(moved.json()['data']['deals'][0]['owner'], 'Ana Admin')
+        company = created.json()['data']['companies'][0]['id']
+        assigned = client.post('/api/crm/commands', json={
+            'revision': 2, 'requestId': 'empresa', 'operation': 'assign_company_owner',
+            'payload': {'companyId': company, 'owner': 'Luis Ventas'},
+        })
+        self.assertEqual(assigned.status_code, 200)
+        self.assertEqual(assigned.json()['data']['deals'][0]['owner'], 'Luis Ventas')
