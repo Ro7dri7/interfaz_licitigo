@@ -124,17 +124,33 @@ async def registrar(nombre: str, email: str, password: str) -> dict:
     return await iniciar_sesion(email, password)
 
 
+_COLUMNAS_PERFIL_NUEVO = ("rol", "creditos_desbloqueo", "plan_actual")
+
+
+async def perfil_existe(user_id: str) -> bool:
+    filas = await get_db().select("perfiles", {"select": "id", "id": f"eq.{user_id}"}, limit=1)
+    return bool(filas)
+
+
 async def asegurar_perfil(user_id: str, nombre: str) -> None:
-    """Crea el perfil de cliente si no existe. No cambia el rol comercial ni pisa un perfil ya creado."""
-    fila = {"id": user_id, "nombre_completo": nombre[:120], "creditos_desbloqueo": 5, "plan_actual": "free"}
-    try:
-        await get_db().insert("perfiles", fila, on_conflict="id", ignore_duplicates=True)
-    except SupabaseError as e:
-        if e.status == 400 and ("creditos_desbloqueo" in e.detalle or "plan_actual" in e.detalle):
-            await get_db().insert("perfiles", {"id": user_id, "nombre_completo": nombre[:120]},
-                                  on_conflict="id", ignore_duplicates=True)
+    """Crea el perfil de cliente si no existe. No pisa créditos, RUC ni un perfil ya creado, ni escribe en miembros."""
+    fila = {
+        "id": user_id,
+        "nombre_completo": nombre[:120],
+        "rol": "cliente",
+        "creditos_desbloqueo": 5,
+        "plan_actual": "free",
+    }
+    for _ in range(len(_COLUMNAS_PERFIL_NUEVO) + 1):
+        try:
+            await get_db().insert("perfiles", fila, on_conflict="id", ignore_duplicates=True)
             return
-        raise
+        except SupabaseError as e:
+            faltan = [col for col in _COLUMNAS_PERFIL_NUEVO if col in fila and col in e.detalle]
+            if e.status != 400 or not faltan:
+                raise
+            for col in faltan:
+                fila.pop(col, None)
 
 
 async def _usuario_de_token(token: str) -> dict:
@@ -203,6 +219,22 @@ def volver_seguro(valor: str | None) -> str | None:
     return valor
 
 
+def volver_cliente(valor: str | None) -> str | None:
+    """Retorno del OAuth de clientes. El espacio comercial no se arrastra por esta entrada."""
+    ruta = volver_seguro(valor)
+    if not ruta or ruta == "/comercial" or ruta.startswith("/comercial/"):
+        return None
+    return ruta
+
+
+PLANES_CLIENTE = frozenset({"explorador", "comercial", "empresarial"})
+
+
+def plan_seguro(valor: str | None) -> str | None:
+    plan = (valor or "").strip().lower()
+    return plan if plan in PLANES_CLIENTE else None
+
+
 def codigo_pkce() -> tuple[str, str]:
     verifier = secrets.token_urlsafe(64)
     digest = hashlib.sha256(verifier.encode()).digest()
@@ -237,8 +269,8 @@ def poner_cookies_crm(response: Response, access: str, refresh: str, expires_in:
 
 
 def borrar_cookie_pkce(response: Response) -> None:
-    response.delete_cookie("lici_pkce", path="/api/auth/google", secure=True, httponly=True, samesite="lax")
-    response.delete_cookie("lici_volver", path="/api/auth/google", secure=True, httponly=True, samesite="lax")
+    for nombre in ("lici_pkce", "lici_volver", "lici_plan"):
+        response.delete_cookie(nombre, path="/api/auth/google", secure=True, httponly=True, samesite="lax")
 
 
 def borrar_cookies_crm(response: Response) -> None:
@@ -288,13 +320,15 @@ def origen_de_peticion(proto: str, host: str) -> str:
 
 
 async def url_google(redirect_to: str, challenge: str) -> str:
-    """Pide a Supabase la redirección a Google. La clave de servidor no sale del backend.
+    """Pide a Supabase la redirección a Google.
 
-    /authorize es un endpoint público: la clave publicable (sb_publishable_ o anon JWT) es la que
-    GoTrue acepta. La clave secreta suele responder HTTP 400.
+    /authorize solo acepta la clave publicable. La clave secreta no se envía: GoTrue responde 400.
     """
     s = get_settings()
-    clave = (s.supabase_publishable_key or "").strip() or s.supabase_secret_key
+    clave = (s.supabase_publishable_key or "").strip()
+    if not clave:
+        log.warning("Falta SUPABASE_PUBLISHABLE_KEY para iniciar Google")
+        raise AuthError(503, "Google todavía no está disponible. Actívalo en Supabase Auth y vuelve a intentarlo.")
     headers = {"apikey": clave}
     if clave.startswith("eyJ"):
         headers["Authorization"] = f"Bearer {clave}"

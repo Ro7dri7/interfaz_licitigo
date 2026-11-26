@@ -324,8 +324,14 @@ def _origen_publico(request: Request) -> str:
     return _origen(request)
 
 
+def _cookie_oauth(respuesta: RedirectResponse, nombre: str, valor: str) -> None:
+    respuesta.set_cookie(nombre, valor, max_age=600, httponly=True, secure=True, samesite="lax",
+                         path="/api/auth/google")
+
+
 @app.get("/api/auth/google")
-async def google(request: Request, volver: str | None = None) -> RedirectResponse:
+async def google(request: Request, volver: str | None = None, plan: str | None = None) -> RedirectResponse:
+    """Inicio de Google solo para clientes. redirect_to usa el origen público, nunca el Host de Nginx."""
     verifier, challenge = auth.codigo_pkce()
     destino = f"{_origen_publico(request)}/api/auth/google/callback"
     try:
@@ -333,32 +339,36 @@ async def google(request: Request, volver: str | None = None) -> RedirectRespons
     except AuthError:
         return RedirectResponse("/ingresar?error=google", status_code=302)
     respuesta = RedirectResponse(ubicacion, status_code=302)
-    respuesta.set_cookie("lici_pkce", verifier, max_age=600, httponly=True, secure=True, samesite="lax",
-                         path="/api/auth/google")
-    ruta = auth.volver_seguro(volver)
-    # El retorno de Google no arrastra /comercial: el rol se decide después del canje.
-    if ruta and ruta.startswith("/comercial"):
-        ruta = None
+    _cookie_oauth(respuesta, "lici_pkce", verifier)
+    ruta = auth.volver_cliente(volver)
     if ruta:
-        respuesta.set_cookie("lici_volver", ruta, max_age=600, httponly=True, secure=True, samesite="lax",
-                             path="/api/auth/google")
+        _cookie_oauth(respuesta, "lici_volver", ruta)
+    elegido = auth.plan_seguro(plan)
+    if elegido:
+        _cookie_oauth(respuesta, "lici_plan", elegido)
     return respuesta
 
 
 @app.get("/api/auth/google/callback")
-async def google_callback(request: Request, code: str | None = None) -> RedirectResponse:
+async def google_callback(request: Request, code: str | None = None, error: str | None = None) -> RedirectResponse:
     verifier = request.cookies.get("lici_pkce")
-    volver = auth.volver_seguro(request.cookies.get("lici_volver"))
-    if volver and volver.startswith("/comercial"):
-        volver = None
-    if not code or not verifier:
+    volver = auth.volver_cliente(request.cookies.get("lici_volver"))
+    plan = auth.plan_seguro(request.cookies.get("lici_plan"))
+    if error or not code or not verifier:
         respuesta = RedirectResponse("/ingresar?error=google", status_code=302)
     else:
         try:
             datos = await auth.intercambiar_codigo(code, verifier)
             user = datos.get("user") or {}
-            if user.get("id"):
-                await auth.asegurar_perfil(user["id"], auth.nombre_de_usuario(user))
+            user_id = user.get("id") or ""
+            if user_id and not await auth.perfil_existe(user_id):
+                rol = await auth.rol_comercial(user_id)
+                if rol in ("admin", "commercial"):
+                    respuesta = RedirectResponse("/ingresar?error=google_equipo", status_code=302)
+                    auth.borrar_cookies_crm(respuesta)
+                    auth.borrar_cookie_pkce(respuesta)
+                    return respuesta
+                await auth.asegurar_perfil(user_id, auth.nombre_de_usuario(user))
             sesion = await auth.con_rol(datos)
         except AuthError:
             respuesta = RedirectResponse("/ingresar?error=google", status_code=302)
@@ -367,7 +377,10 @@ async def google_callback(request: Request, code: str | None = None) -> Redirect
             destino = f"/ingresar?ticket={quote(ticket)}"
             if volver:
                 destino += f"&volver={quote(volver)}"
+            if plan:
+                destino += f"&plan={quote(plan)}"
             respuesta = RedirectResponse(destino, status_code=302)
+            # Cliente: no deja cookies del CRM. Admin o comercial que ya tenían perfil conservan su rol.
             auth.aplicar_cookies(respuesta, sesion)
     auth.borrar_cookie_pkce(respuesta)
     return respuesta

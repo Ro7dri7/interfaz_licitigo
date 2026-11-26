@@ -402,7 +402,20 @@ export function OnboardingPage() {
     push({ kind: 'done' })
   }
 
-  const irADescubrimiento = () => navigate('/app/descubrimiento')
+  const irADescubrimiento = () => {
+    const plan = sessionStorage.getItem('lici.plan')
+    if (plan === 'explorador' || plan === 'comercial' || plan === 'empresarial') {
+      sessionStorage.removeItem('lici.plan')
+      api
+        .checkout(plan)
+        .then(({ checkout_url }) => {
+          window.location.assign(checkout_url)
+        })
+        .catch(() => navigate('/app/descubrimiento'))
+      return
+    }
+    navigate('/app/descubrimiento')
+  }
 
   const renderBlock = (block: Block) => {
     switch (block.kind) {
