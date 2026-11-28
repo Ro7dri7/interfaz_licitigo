@@ -1,7 +1,7 @@
 import type { Sesion } from '../../types/models'
 
 export const TELEGRAM_BOT =
-  (import.meta.env.VITE_TELEGRAM_BOT_URL as string | undefined) || 'https://t.me/licihub_asistente_bot'
+  (import.meta.env.VITE_TELEGRAM_BOT_URL as string | undefined) || 'https://t.me/licihub_asist_bot'
 
 export const REGISTRO = '/ingresar?modo=registro'
 
