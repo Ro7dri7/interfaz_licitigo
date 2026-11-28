@@ -87,7 +87,7 @@ test('mobile navigation and form fit, trap focus and close with Escape', async (
   await page.getByRole('link', { name: 'Negocios', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Negocios', exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-  await page.getByRole('button', { name: 'Nueva oportunidad' }).click()
+  await page.getByRole('button', { name: 'Nuevo negocio' }).click()
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
   for (let i = 0; i < 23; i++) {
@@ -98,7 +98,7 @@ test('mobile navigation and form fit, trap focus and close with Escape', async (
   expect(box!.width).toBeLessThanOrEqual(375)
   await page.keyboard.press('Escape')
   await expect(dialog).not.toBeVisible()
-  await expect(page.getByRole('button', { name: 'Nueva oportunidad' })).toBeFocused()
+  await expect(page.getByRole('button', { name: 'Nuevo negocio' })).toBeFocused()
 })
 
 test('empty filters and failed API have a recovery path', async ({ page }) => {

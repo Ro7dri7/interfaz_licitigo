@@ -4,26 +4,52 @@ import { useCRM } from './crm-context'
 import { originLabel, evidenceLabels, kindLabels, money, origins, priorityLabels } from './types'
 import type { Contact, Deal } from './types'
 import QuoteForm from './QuoteForm'
+import { ownerOptions } from './utils'
 
+// «Nuevo negocio» en panel lateral (como el de HubSpot): datos del negocio, empresa asociada, contacto y contexto.
 export function IntakeForm({ onClose }: { onClose: () => void }) {
   const { session, snapshot: { data } } = useCRM()
-  const owners = [...new Set(['Sin asignar', ...(session.advisors ?? []), ...data.deals.map(d => d.owner)])]
-  const [kind, setKind] = useState('advice')
-  return <Modal title="Nuevo negocio" onClose={onClose}><CommandForm operation="intake" onClose={onClose} label="Crear negocio" prepare={f => ({ ...Object.fromEntries(f), deadline: f.get('deadline') || null })}>
-    <p className="form-intro">Registra la solicitud del cliente y su procedencia. Se creará un negocio con una tarea de primera atención.</p>
-    <div className="form-grid"><label>Empresa *<input name="company" required minLength={2} maxLength={160} placeholder="Razón social o nombre comercial" /></label>
-    <label>RUC<input name="ruc" inputMode="numeric" pattern="[0-9]{11}" maxLength={11} placeholder="11 dígitos · opcional" /></label>
-    <label>Persona de contacto<input name="contact" maxLength={100} placeholder="Nombre y apellido" /></label><label>Correo<input name="email" type="email" placeholder="nombre@empresa.com" /></label>
-    <label>Teléfono<input name="phone" type="tel" maxLength={30} placeholder="+51" /></label><label>Responsable<select name="owner" defaultValue="Sin asignar">{owners.map(owner => <option key={owner}>{owner}</option>)}</select></label>
-    <label>Origen<select name="origin" defaultValue="Manual">{origins.map(v => <option key={v} value={v}>{originLabel(v)}</option>)}</select></label>
-    <label>Tipo de entrada<select name="kind" value={kind} onChange={e => setKind(e.target.value)}>{Object.entries(kindLabels).filter(([value]) => ['advice', 'quote'].includes(value)).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div>
-    <label>Servicio de interés *<input name="service" required minLength={2} maxLength={160} placeholder="Ej. ISO 9001" list="services" /></label>
-    <details><summary>Contexto de la licitación</summary><div className="form-grid">
-      <label>Análisis<select name="evidence" defaultValue="none">{Object.entries(evidenceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-      <label>Código de licitación<input name="tender" maxLength={160} placeholder="Código del proceso" /></label><label>Plazo del proceso<input name="deadline" type="date" /></label>
-    </div><p className="hint">Un requisito detectado no confirma que la empresa carezca de la certificación.</p></details>
-    <label>Notas<textarea name="notes" rows={3} maxLength={3000} placeholder="¿Qué necesita esta empresa?" /></label>
-  </CommandForm></Modal>
+  const me = session.user.role === 'commercial' ? session.user.name : ''
+  const owners = ['Sin asignar', ...ownerOptions(session.advisors, data.deals, me)]
+  const [company, setCompany] = useState(''), [ruc, setRuc] = useState('')
+  // El backend asocia el negocio a una empresa existente por su RUC; sin RUC registra una empresa nueva.
+  const byRuc = ruc.length === 11 ? data.companies.find(c => c.ruc === ruc) : undefined
+  const byName = data.companies.find(c => c.name.trim().toLocaleLowerCase() === company.trim().toLocaleLowerCase())
+  const association = byRuc ? { tone: 'ok', text: `Se asociará a la empresa registrada «${byRuc.name}».` }
+    : byName && !ruc ? { tone: 'warn', text: byName.ruc ? `«${byName.name}» ya está registrada con RUC ${byName.ruc}. Escribe el RUC para asociar el negocio a esa empresa.` : `«${byName.name}» ya existe sin RUC. Sin RUC se registrará como una empresa nueva.` }
+      : byName && byName.ruc && byName.ruc !== ruc && ruc.length === 11 ? { tone: 'warn', text: `El RUC no coincide con «${byName.name}» (RUC ${byName.ruc}). Se registrará otra empresa.` } : null
+  const pickCompany = (value: string) => {
+    setCompany(value)
+    const match = data.companies.find(c => c.name.trim().toLocaleLowerCase() === value.trim().toLocaleLowerCase())
+    if (match?.ruc && !ruc) setRuc(match.ruc)
+  }
+  return <Modal drawer title="Nuevo negocio" description="Registra la solicitud del cliente y su procedencia. Se creará un negocio en la etapa Nuevo con una tarea de primera atención." onClose={onClose}>
+    <CommandForm operation="intake" onClose={onClose} label="Crear negocio" another="Crear y agregar otro" savedMessage="Negocio creado. Puedes registrar el siguiente."
+      onReset={() => { setCompany(''); setRuc('') }} prepare={f => ({ ...Object.fromEntries(f), deadline: f.get('deadline') || null })}>
+      <section className="form-section" aria-labelledby="intake-deal"><h3 id="intake-deal">Negocio</h3>
+        <label>Servicio de interés *<input name="service" required minLength={2} maxLength={160} placeholder="Ej. ISO 9001" list="services" autoComplete="off" data-autofocus /></label>
+        <div className="form-grid"><label>Tipo de entrada<select name="kind" defaultValue="advice">{Object.entries(kindLabels).filter(([value]) => ['advice', 'quote'].includes(value)).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label>Origen<select name="origin" defaultValue="Manual">{origins.map(v => <option key={v} value={v}>{originLabel(v)}</option>)}</select></label></div>
+        <label>Responsable<select name="owner" defaultValue={me || 'Sin asignar'}>{owners.map(owner => <option key={owner} value={owner}>{owner === me ? `${owner} (tú)` : owner}</option>)}</select></label>
+      </section>
+      <section className="form-section" aria-labelledby="intake-company"><h3 id="intake-company">Empresa</h3>
+        <label>Empresa *<input name="company" required minLength={2} maxLength={160} placeholder="Razón social o nombre comercial" list="intake-companies" autoComplete="off" value={company} onChange={e => pickCompany(e.target.value)} /></label>
+        <datalist id="intake-companies">{data.companies.map(c => <option key={c.id} value={c.name}>{c.ruc ? `RUC ${c.ruc}` : 'Sin RUC'}</option>)}</datalist>
+        <label>RUC<input name="ruc" inputMode="numeric" pattern="[0-9]{11}" maxLength={11} placeholder="11 dígitos · opcional" title="El RUC tiene 11 dígitos" value={ruc} onChange={e => setRuc(e.target.value.replace(/\D/g, ''))} /></label>
+        {association && <p className={`association-hint ${association.tone}`} role="status">{association.text}</p>}
+      </section>
+      <section className="form-section" aria-labelledby="intake-contact"><h3 id="intake-contact">Contacto</h3>
+        <label>Persona de contacto<input name="contact" maxLength={100} placeholder="Nombre y apellido" autoComplete="off" /></label>
+        <div className="form-grid"><label>Correo<input name="email" type="email" placeholder="nombre@empresa.com" autoComplete="off" /></label>
+          <label>Teléfono<input name="phone" type="tel" maxLength={30} placeholder="+51" pattern="[+0-9\s\(\)\-]*" title="Solo números, espacios, +, ( ) y -" autoComplete="off" /></label></div>
+      </section>
+      <details className="form-section"><summary>Contexto de la licitación</summary><div className="form-grid">
+        <label>Análisis<select name="evidence" defaultValue="none">{Object.entries(evidenceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <label>Plazo del proceso<input name="deadline" type="date" /></label></div>
+        <label>Código de licitación<input name="tender" maxLength={160} placeholder="Código del proceso" /></label>
+        <p className="hint">Un requisito detectado no confirma que la empresa carezca de la certificación.</p></details>
+      <label>Notas<textarea name="notes" rows={4} maxLength={3000} placeholder="¿Qué necesita esta empresa?" /></label>
+    </CommandForm></Modal>
 }
 
 export function ProductForm({ onClose }: { onClose: () => void }) {

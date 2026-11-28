@@ -8,7 +8,7 @@ import ImportDeals from './ImportDeals'
 import { useCRM } from './crm-context'
 import { originLabel, dateLabel, dateTime, initials, money, origins, priorityLabels, stageProbability, stages } from './types'
 import type { Contact, Deal, Stage } from './types'
-import { downloadCsv, limaDay, whatsappNumber } from './utils'
+import { downloadCsv, limaDay, ownerOptions, whatsappNumber } from './utils'
 import { crmPath } from './paths'
 
 export function Filters({ children, preserve = [] }: { children?: React.ReactNode; preserve?: string[] }) {
@@ -115,12 +115,12 @@ export function Pipeline({ onCreate }: { onCreate: () => void }) {
     <div className="segmented">{[['board', 'Tablero'], ['list', 'Lista']].map(([id, text]) => <button key={id} aria-pressed={view === id} className={view === id ? 'active' : ''} onClick={() => setParams(p => { p.set('vista', id); return p })}><Icon name={id} />{text}</button>)}</div>
     <button onClick={() => setImporting(true)}><Icon name="upload" size={16} /> Importar</button>
     <button onClick={exportCsv} disabled={!filtered.length}><Icon name="download" size={16} /> Exportar</button>
-    <button className="primary" onClick={onCreate}><Icon name="plus" /> Nueva oportunidad</button></PageHead>
+    <button className="primary" onClick={onCreate}><Icon name="plus" /> Nuevo negocio</button></PageHead>
     <div className="metrics" aria-label="Resumen de negocios">{metrics.map(([name, value, hint]) => <div key={name}><small>{name}</small><strong>{value}</strong><span>{hint}</span></div>)}
       <button type="button" className={`attention ${attention ? 'alert' : ''}`} aria-pressed={params.get('atencion') === '1'} onClick={() => setParam('atencion', params.get('atencion') === '1' ? '' : '1')}><small>Requieren atención</small><strong>{attention}</strong><span>Sin atender, sin actividad o con acción vencida</span></button></div>
     <div className="tabs" role="group" aria-label="Alcance de los negocios">{[[false, 'Todos los negocios', scoped.length], [true, 'Mis negocios', scoped.filter(isMine).length]].map(([own, name, count]) =>
       <button key={String(own)} aria-pressed={mine === own} className={mine === own ? 'active' : ''} onClick={() => setParam('mios', own ? '1' : '')}>{name} <span>{count}</span></button>)}</div>
-    <Filters preserve={['vista', 'mios', 'orden', 'ver']}><select aria-label="Filtrar por responsable" value={params.get('responsable') ?? ''} onChange={e => setParam('responsable', e.target.value)}><option value="">Todo el equipo</option>{[...new Set(data.deals.map(d => d.owner))].sort((a, b) => a.localeCompare(b, 'es')).map(o => <option key={o}>{o}</option>)}</select>
+    <Filters preserve={['vista', 'mios', 'orden', 'ver']}><select aria-label="Filtrar por responsable" value={params.get('responsable') ?? ''} onChange={e => setParam('responsable', e.target.value)}><option value="">Todo el equipo</option>{ownerOptions(session.advisors, data.deals, params.get('responsable') ?? '').map(o => <option key={o} value={o}>{o}</option>)}<option value="Sin asignar">Sin asignar</option></select>
       <select aria-label="Filtrar por empresa" value={empresaId ?? ''} onChange={e => setParam('empresa', e.target.value)}><option value="">Todas las empresas</option>{data.companies.slice().sort((a, b) => a.name.localeCompare(b.name, 'es')).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
       <select aria-label="Ordenar negocios" value={order} onChange={e => setParam('orden', e.target.value === 'recientes' ? '' : e.target.value)}>{orders.map(([id, text]) => <option key={id} value={id}>{text}</option>)}</select>
       <button type="button" aria-expanded={panel} onClick={() => setPanel(v => !v)}><Icon name="filter" size={15} /> Filtros{activeAdvanced > 0 && <span className="count-pill">{activeAdvanced}</span>}</button></Filters>

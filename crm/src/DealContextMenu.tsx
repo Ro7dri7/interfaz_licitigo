@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from './components'
+import { overlayRoot } from './overlay'
 import { crmPath } from './paths'
 import { currentScale } from '../../shared/a11y'
 
@@ -41,5 +42,5 @@ export default function DealContextMenu({ dealId, x, y, onClose, onPreview }: { 
     <div className="ctx-backdrop" onMouseDown={onClose} onContextMenu={e => { e.preventDefault(); onClose() }} />
     <div ref={ref} className="ctx-menu" role="menu" data-a11y-keys="own" aria-label="Acciones del negocio" style={pos}>
       {items.map(([label, icon, run]) => <button type="button" role="menuitem" key={label} onClick={run}><Icon name={icon} size={15} />{label}</button>)}
-    </div></>, document.body)
+    </div></>, overlayRoot())
 }

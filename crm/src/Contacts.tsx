@@ -35,7 +35,7 @@ export default function Contacts({ onCreate }: { onCreate: () => void }) {
     ...people.map(p => { const c = companyById.get(p.companyId)!; return [p.name, c.name, c.ruc, p.email, p.phone, openCount(c.id), owners(c.id).join(', ')] })])
   return <><PageHead title="Contactos" description="Personas con quienes conversas: correo, teléfono y la empresa a la que pertenecen.">
     <button onClick={exportCsv} disabled={!people.length}><Icon name="download" size={16} /> Exportar</button>
-    <button onClick={onCreate}>Registrar prospecto</button>
+    <button onClick={onCreate}><Icon name="deals" size={16} /> Nuevo negocio</button>
     <button className="primary" onClick={() => setCreating(true)}><Icon name="plus" /> Nuevo contacto</button></PageHead>
     <div className="info-strip"><Icon name="users" />Una empresa puede tener varios contactos: compras, gerencia o administración. Cada persona conserva sus propios datos.</div>
     <Filters preserve={['orden', 'empresa']}><select aria-label="Filtrar por datos" value={filter} onChange={e => setParam('datos', e.target.value)}>{dataFilters.map(([id, text]) => <option key={id} value={id}>{text}</option>)}</select>

@@ -27,12 +27,12 @@ export default function AdminProperties() {
     setBusy(id); setError('')
     try { await command('property_archive', { propertyId: id, active }) } catch (e) { setError((e as Error).message) } finally { setBusy('') }
   }
-  return <><Link className="association-link" to={crmPath("/admin")}><Icon name="arrow" size={14} />Volver al panel</Link>
+  return <><Link className="association-link" to={crmPath("/admin")}><Icon name="back" size={14} />Volver al panel</Link>
     <PageHead eyebrow="ADMINISTRACIÓN" title="Propiedades personalizadas" description="Campos propios para negocios, empresas y contactos. Solo administración puede crearlos, llenarlos y filtrar con ellos.">
       <button className="primary" disabled={!ready} onClick={() => setCreating(true)}><Icon name="plus" /> Nueva propiedad</button></PageHead>
     {!ready && <p className="hint">Actualización pendiente: ejecuta 010_propiedades.sql en Supabase para habilitar las propiedades.</p>}
     {error && <p className="error" role="alert">{error}</p>}
-    {(Object.keys(propertyEntityLabels) as PropertyEntity[]).map(entity => {
+    <div className="stack">{(Object.keys(propertyEntityLabels) as PropertyEntity[]).map(entity => {
       const list = data.properties.filter(p => p.entity === entity)
       return <section className="panel" key={entity} aria-label={`Propiedades de ${propertyEntityLabels[entity].toLocaleLowerCase()}`}><div className="section-head"><div><h2>{propertyEntityLabels[entity]}</h2><p>Se llenan desde la ficha de cada registro.</p></div><Badge>{list.length}</Badge></div>
         {list.length ? <div className="table-wrap"><table><thead><tr><th>Nombre</th><th>Tipo</th><th>Opciones</th><th>Con valor</th><th></th></tr></thead><tbody>{list.map(p => <tr key={p.id} className={p.active ? '' : 'archived'}>
@@ -40,7 +40,7 @@ export default function AdminProperties() {
           <td>{records[entity].filter(r => r.props?.[p.id]).length} de {records[entity].length}</td>
           <td><button type="button" disabled={busy === p.id} onClick={() => void toggle(p.id, !p.active)}>{p.active ? 'Archivar' : 'Activar'}</button></td></tr>)}</tbody></table></div>
           : <Empty title={`Sin propiedades de ${propertyEntityLabels[entity].toLocaleLowerCase()}`}>Crea una con «Nueva propiedad».</Empty>}</section>
-    })}
+    })}</div>
     <p className="hint">Archivar una propiedad la oculta de las fichas y los filtros, pero conserva los valores ya guardados.</p>
     {creating && <PropertyForm onClose={() => setCreating(false)} />}</>
 }

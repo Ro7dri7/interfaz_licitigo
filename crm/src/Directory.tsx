@@ -6,25 +6,25 @@ import { useCRM } from './crm-context'
 import { OwnerPicker } from './OwnerPicker'
 import { money, openDeal, originLabel } from './types'
 import { crmPath } from './paths'
-import { limaDay } from './utils'
+import { limaDay, ownerOptions } from './utils'
 
 export default function Directory({ onCreate }: { onCreate: () => void }) {
   const { snapshot: { data }, session } = useCRM(), [params, setParams] = useSearchParams(), location = useLocation()
+  // Antes del posible redireccionamiento: los hooks deben llamarse siempre en el mismo orden.
+  const query = useDeferredValue((params.get('q') ?? '').toLocaleLowerCase())
   // Enlaces antiguos (?vista=contactos) ahora viven en la pantalla Contactos.
   if (params.get('vista') === 'contactos') {
     const next = new URLSearchParams(params); next.delete('vista')
     return <Navigate replace to={crmPath(`/contactos${next.size ? '?' + next.toString() : ''}`)} />
   }
   const setParam = (key: string, value: string) => setParams(p => { if (value) p.set(key, value); else p.delete(key); return p }, { replace: true })
-  const query = useDeferredValue((params.get('q') ?? '').toLocaleLowerCase()), companyId = params.get('empresa')
+  const companyId = params.get('empresa')
   const responsable = params.get('responsable') ?? '', from = params.get('desde'), to = params.get('hasta')
   const owners = (id: string) => [...new Set([
     ...data.deals.filter(d => d.companyId === id).map(d => d.owner),
     ...data.prospects.filter(p => p.companyId === id).map(p => p.owner),
   ])].filter(owner => owner !== 'Sin asignar')
-  const comerciales = [...new Set(data.deals.map(d => d.owner).concat(data.prospects.map(p => p.owner)))]
-    .filter(o => o && o !== 'Sin asignar')
-    .sort((a, b) => a.localeCompare(b, 'es'))
+  const comerciales = ownerOptions(session.advisors, [...data.deals, ...data.prospects], responsable)
   const companies = data.companies.filter(c => {
     if (companyId && c.id !== companyId) return false
     if (params.get('origen') && c.origin !== params.get('origen')) return false
@@ -40,7 +40,7 @@ export default function Directory({ onCreate }: { onCreate: () => void }) {
   const rows = companies.filter(c => `${c.name} ${c.ruc} ${data.contacts.filter(p => p.companyId === c.id).map(p => `${p.name} ${p.email}`).join(' ')}`.toLocaleLowerCase().includes(query))
   const back = { from: location.pathname + location.search }
   return <><PageHead title="Directorio" description="Empresas identificadas por su RUC, con sus contactos, negocios y cotizaciones.">
-    <button className="primary" onClick={onCreate}><Icon name="plus" /> Registrar prospecto</button></PageHead>
+    <button className="primary" onClick={onCreate}><Icon name="plus" /> Nuevo negocio</button></PageHead>
     <Filters>
       <select aria-label="Filtrar por comercial" value={responsable} onChange={e => setParam('responsable', e.target.value)}>
         <option value="">Todo el equipo</option>

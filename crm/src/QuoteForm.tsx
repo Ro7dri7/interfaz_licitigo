@@ -3,9 +3,10 @@ import { CommandForm, Icon, Modal } from './components'
 import { useCRM } from './crm-context'
 import { money } from './types'
 import type { Deal } from './types'
+import { limaDay } from './utils'
 
 export default function QuoteForm({ deal, onClose }: { deal: Deal; onClose: () => void }) {
-  const { snapshot: { data } } = useCRM()
+  const { snapshot: { data }, now } = useCRM()
   const [search, setSearch] = useState(''), [discount, setDiscount] = useState(0), [tax, setTax] = useState(18), [included, setIncluded] = useState(true)
   const [lines, setLines] = useState([{ key: crypto.randomUUID(), productId: '', quantity: 1 }])
   const choices = data.products.filter(p => p.active && `${p.name} ${p.sku ?? ''}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()))
@@ -37,7 +38,7 @@ export default function QuoteForm({ deal, onClose }: { deal: Deal; onClose: () =
     {!data.products.length && <p className="hint">Importa primero las certificaciones desde Catálogo.</p>}
     <div className="form-grid"><label>Descuento (%)<input name="discount" type="number" min="0" max="100" step="0.01" value={discount} onChange={e => setDiscount(Number(e.target.value))} required /></label>
       <label>IGV / impuesto (%)<input name="tax" type="number" min="0" max="100" step="0.01" value={tax} onChange={e => setTax(Number(e.target.value))} required /></label>
-      <label>Válida hasta<input name="validUntil" type="date" required /></label></div>
+      <label>Válida hasta<input name="validUntil" type="date" min={limaDay(now)} required /></label></div>
     <label className="checkbox-label"><input type="checkbox" checked={included} onChange={e => setIncluded(e.target.checked)} /> Los precios incluyen IGV / impuesto</label>
     <div className="quote-estimate"><span>{included ? 'IGV incluido, sin recargo adicional' : 'Impuesto agregado al importe neto'}</span><strong>Total estimado: {money(total)}</strong><small>El servidor confirma el cálculo y redondeo al guardar.</small></div>
     <label>Condiciones comerciales y de pago *<textarea name="terms" rows={4} minLength={2} maxLength={4000} required placeholder="Forma de pago, alcance, entregables, plazos y exclusiones acordadas" /></label>

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import { PeruMap } from '../components/PeruMap'
 import { CompraExitosa } from '../components/CompraExitosa'
 import { PlanesModal } from '../components/PlanesModal'
+import { Dialogo } from '../components/Dialogo'
 import { KpiCard } from '../components/KpiCard'
 import { Topbar } from '../components/Topbar'
 import * as api from '../lib/api'
@@ -22,7 +23,6 @@ import {
   dialogLic,
   dialogLista,
   mono,
-  overlay,
   pillNeutral,
   pillPrimary,
 } from '../lib/ui'
@@ -799,14 +799,7 @@ export function DescubrimientoPage() {
       </main>
 
       {confirmar ? (
-        <div className={overlay} onClick={cancelarDesbloqueo}>
-          <div
-            className={dialog}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="dlg-titulo"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <Dialogo className={dialog} tituloId="dlg-titulo" onCerrar={cancelarDesbloqueo}>
             <h3 id="dlg-titulo">¿Desbloquear esta licitación?</h3>
             <p className={dialogLic}>
               <span className={mono}>{confirmar.codigo}</span> · {confirmar.titulo}
@@ -835,18 +828,15 @@ export function DescubrimientoPage() {
                 {desbloqueando ? 'Desbloqueando…' : 'Desbloquear'}
               </button>
             </div>
-          </div>
-        </div>
+        </Dialogo>
       ) : null}
 
       {sinCreditos ? (
-        <div className={overlay} onClick={() => setSinCreditos(false)}>
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-panel" role="dialog" aria-modal="true" aria-labelledby="sin-creditos" onClick={(e) => e.stopPropagation()}>
+        <Dialogo className="w-full max-w-md rounded-2xl bg-white p-6 shadow-panel" tituloId="sin-creditos" onCerrar={() => setSinCreditos(false)}>
             <h2 id="sin-creditos" className="font-serif text-[26px]">Tus créditos se acabaron</h2>
             <p className="mt-2 text-[14px] text-muted">Ya no te quedan desbloqueos. Elige un plan para seguir abriendo licitaciones.</p>
             <button className={`${btnPrimary} mt-5 w-full`} type="button" onClick={() => { setSinCreditos(false); setPlanes(true) }}>Ver planes</button>
-          </div>
-        </div>
+        </Dialogo>
       ) : null}
       <PlanesModal abierto={planes} planActual={cupo?.plan} onCerrar={() => setPlanes(false)} />
       <CompraExitosa

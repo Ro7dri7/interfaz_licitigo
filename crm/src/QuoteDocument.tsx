@@ -47,7 +47,7 @@ export default function QuoteDocument({ quote, onClose }: { quote: Quote; onClos
           <dl>
             <div><dt>Empresa</dt><dd>{q.customerName || company?.name || 'Por completar'}</dd></div>
             <div><dt>RUC</dt><dd>{q.customerRuc || company?.ruc || 'Por completar'}</dd></div>
-            <div><dt>Contacto</dt><dd>{q.contactName || 'Por completar'}{q.contactEmail ? ` · ${q.contactEmail}` : ''}{person && <> · <Link className="text-link no-print" to={crmPath(`/contactos/${person.id}`)} onClick={onClose}>Ver ficha</Link></>}</dd></div>
+            <div><dt>Contacto</dt><dd>{q.contactName || 'Por completar'}{q.contactEmail ? ` · ${q.contactEmail}` : ''}{person && <> · <Link className="text-link no-print" aria-label="Ver ficha del contacto" to={crmPath(`/contactos/${person.id}`)} onClick={onClose}>Ver ficha</Link></>}</dd></div>
             <div><dt>Asesor responsable</dt><dd>{q.owner || deal?.owner || 'Sin asignar'}</dd></div>
           </dl>
         </section>

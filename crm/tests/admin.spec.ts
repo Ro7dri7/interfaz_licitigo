@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import type { Snapshot } from '../src/types'
 
 test('admin home: charts, custom properties, and filters by property and date', async ({ page, request }) => {
+  test.setTimeout(90_000) // recorre muchas fichas; con la suite completa supera los 30 s por defecto
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   const state = async (): Promise<Snapshot> => (await request.get('/api/crm/state')).json()
@@ -10,6 +11,14 @@ test('admin home: charts, custom properties, and filters by property and date', 
       revision: (await state()).revision, requestId: crypto.randomUUID(), operation, payload,
     } })
     expect(response.ok()).toBe(true)
+  }
+  const setProperty = async (label: string, value: string) => {
+    const field = page.getByLabel(label, { exact: true })
+    // Solo se guarda si cambia (p. ej. el sector puede venir asignado automáticamente).
+    const changed = (await field.inputValue()) !== value
+    await field.fill(value)
+    if (!changed) return
+    await Promise.all([page.waitForResponse(r => r.url().endsWith('/api/crm/commands') && r.ok()), field.press('Enter')])
   }
   const ids: string[] = []
   for (const [i, origin] of ['Telegram', 'Telegram', 'Lici'].entries())
@@ -47,11 +56,12 @@ test('admin home: charts, custom properties, and filters by property and date', 
   // Se llena desde la ficha del negocio, junto con la propiedad Sector de la empresa.
   for (const [i, id] of ids.entries()) {
     await page.goto(`/negocios/${id}`)
-    await page.getByLabel('Canal E2E', { exact: true }).selectOption(i < 2 ? 'Alfa' : 'Beta')
+    // Las propiedades de lista se escriben o eligen de sus sugerencias; Enter guarda el valor.
+    await setProperty('Canal E2E', i < 2 ? 'Alfa' : 'Beta')
     await expect(page.getByLabel('Canal E2E', { exact: true })).toHaveValue(i < 2 ? 'Alfa' : 'Beta')
   }
   await page.goto(`/negocios/${ids[0]}`)
-  await page.getByLabel('Sector', { exact: true }).selectOption('Minería')
+  await setProperty('Sector', 'Minería')
   await page.reload()
   await expect(page.getByLabel('Sector', { exact: true })).toHaveValue('Minería')
   await expect(page.getByLabel('Canal E2E', { exact: true })).toHaveValue('Alfa')

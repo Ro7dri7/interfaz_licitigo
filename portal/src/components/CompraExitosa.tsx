@@ -1,5 +1,6 @@
 import { PLANES } from './PlanesModal'
-import { btnPrimary, overlay } from '../lib/ui'
+import { btnPrimary } from '../lib/ui'
+import { Dialogo } from './Dialogo'
 
 interface Props {
   abierto: boolean
@@ -14,14 +15,7 @@ export function CompraExitosa({ abierto, planId, creditos, onCerrar }: Props) {
   const adquiridos = plan && plan.pago ? plan.creditos : null
 
   return (
-    <div className={overlay} onClick={onCerrar}>
-      <div
-        className="w-full max-w-md rounded-2xl bg-white p-7 text-center shadow-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="compra-exito-titulo"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Dialogo className="w-full max-w-md rounded-2xl bg-white p-7 text-center shadow-panel" tituloId="compra-exito-titulo" onCerrar={onCerrar}>
         <div
           className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-success)_18%,white)] text-[28px] font-bold text-success"
           aria-hidden="true"
@@ -57,7 +51,6 @@ export function CompraExitosa({ abierto, planId, creditos, onCerrar }: Props) {
         <button className={`${btnPrimary} mt-6 w-full`} type="button" onClick={onCerrar}>
           Seguir desbloqueando
         </button>
-      </div>
-    </div>
+    </Dialogo>
   )
 }

@@ -23,3 +23,7 @@ playwright-report/
 .vscode/
 .idea/
 .DS_Store
+
+# Extracción local del informe de grupo (no versionar)
+docs/capitulos_md/
+docs/MAPA_INFORME_GRUPO.md

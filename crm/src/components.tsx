@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { FormEvent, ReactNode } from 'react'
 import { useCRM } from './crm-context'
+import { overlayRoot } from './overlay'
 
 const paths: Record<string, ReactNode> = {
   home: <><path d="m3 10 9-7 9 7v10H3z" /><path d="M9 20v-7h6v7" /></>,
@@ -13,7 +14,7 @@ const paths: Record<string, ReactNode> = {
   box: <><path d="m12 3 9 5v9l-9 5-9-5V8zM3 8l9 5 9-5m-9 5v9M7 5l10 5" /></>,
   settings: <><circle cx="12" cy="12" r="4" /><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2" /></>,
   search: <><circle cx="10" cy="10" r="6" /><path d="m15 15 6 6" /></>,
-  plus: <path d="M12 4v16M4 12h16" />, arrow: <path d="M4 12h16m-6-6 6 6-6 6" />,
+  plus: <path d="M12 4v16M4 12h16" />, arrow: <path d="M4 12h16m-6-6 6 6-6 6" />, back: <path d="M20 12H4m6-6-6 6 6 6" />,
   close: <path d="m6 6 12 12M6 18 18 6" />, check: <path d="m5 12 4 4L20 5" />,
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
   radar: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><path d="m12 12 6-7" /><circle cx="12" cy="12" r="1" /></>,
@@ -33,14 +34,18 @@ export function Empty({ title = 'No hay resultados', children }: { title?: strin
 export function PageHead({ eyebrow = 'ESPACIO COMERCIAL', title, description, children }: { eyebrow?: string; title: string; description: string; children?: ReactNode }) {
   return <div className="page-head"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{description}</p></div><div className="head-actions">{children}</div></div>
 }
-export function Modal({ title, children, onClose, wide = false, className = '' }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean; className?: string }) {
+export function Modal({ title, description, children, onClose, wide = false, drawer = false, className = '' }: {
+  title: string; description?: string; children: ReactNode; onClose: () => void; wide?: boolean; drawer?: boolean; className?: string;
+}) {
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => {
     const dialog = ref.current, trigger = document.activeElement
     dialog?.showModal()
+    // showModal enfoca el primer control (el botón Cerrar); un formulario puede pedir empezar en su primer campo.
+    dialog?.querySelector<HTMLElement>('[data-autofocus]')?.focus()
     return () => { dialog?.close(); if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus() }
   }, [])
-  return createPortal(<dialog ref={ref} className={`modal ${wide ? 'wide' : ''} ${className}`} onCancel={event => { event.preventDefault(); onClose() }} onClick={event => { if (event.target === event.currentTarget) onClose() }} aria-labelledby="dialog-title" onKeyDown={event => {
+  return createPortal(<dialog ref={ref} className={['modal', wide && 'wide', drawer && 'drawer', className].filter(Boolean).join(' ')} onCancel={event => { event.preventDefault(); onClose() }} onClick={event => { if (event.target === event.currentTarget) onClose() }} aria-labelledby="dialog-title" aria-describedby={description ? 'dialog-description' : undefined} onKeyDown={event => {
     if (event.key !== 'Tab') return
     const elements = [...event.currentTarget.querySelectorAll<HTMLElement>('button, input, select, textarea, summary, a[href], [tabindex]')]
       .filter(el => el.tabIndex >= 0 && !el.matches(':disabled') && el.getClientRects().length > 0)
@@ -48,21 +53,35 @@ export function Modal({ title, children, onClose, wide = false, className = '' }
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
     if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
   }}>
-    <header><div><p className="eyebrow">LICIHUB CRM</p><h2 id="dialog-title">{title}</h2></div><button type="button" className="icon-button" aria-label="Cerrar" onClick={onClose}><Icon name="close" /></button></header>
+    <header><div><p className="eyebrow">LICIHUB CRM</p><h2 id="dialog-title">{title}</h2>{description && <p id="dialog-description" className="dialog-description">{description}</p>}</div><button type="button" className="icon-button" aria-label="Cerrar" onClick={onClose}><Icon name="close" /></button></header>
     {children}
-  </dialog>, document.body)
+  </dialog>, overlayRoot())
 }
-export function CommandForm({ operation, children, onClose, prepare, label = 'Guardar' }: {
+/**
+ * Formulario que envía un comando del CRM. `another` agrega el botón «… y agregar otro» (como en HubSpot):
+ * guarda, limpia el formulario y lo deja abierto con un nuevo identificador de solicitud.
+ */
+export function CommandForm({ operation, children, onClose, prepare, label = 'Guardar', another, savedMessage = 'Guardado.', onReset }: {
   operation: string; children: ReactNode; onClose: () => void; prepare: (data: FormData) => unknown; label?: string;
+  another?: string; savedMessage?: string; onReset?: () => void;
 }) {
   const { command } = useCRM()
-  const [error, setError] = useState(''), [busy, setBusy] = useState(false)
+  const [error, setError] = useState(''), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false)
   const requestId = useRef(crypto.randomUUID())
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setError('')
-    try { await command(operation, prepare(new FormData(event.currentTarget)), requestId.current); onClose() }
+    event.preventDefault()
+    const form = event.currentTarget, again = (event.nativeEvent as SubmitEvent).submitter?.getAttribute('data-another') === 'true'
+    setBusy(true); setError(''); setNotice('')
+    try {
+      await command(operation, prepare(new FormData(form)), requestId.current)
+      if (!again) { onClose(); return }
+      // Un registro nuevo necesita su propio identificador; reutilizarlo devolvería el guardado anterior.
+      requestId.current = crypto.randomUUID()
+      form.reset(); setNotice(savedMessage)
+      form.querySelector<HTMLElement>('input:not([type=hidden]), select, textarea')?.focus()
+    }
     catch (e) { setError((e as Error).message) } finally { setBusy(false) }
   }
-  return <form onSubmit={e => void submit(e)}><div className="form-body">{children}{error && <p className="error" role="alert">{error}</p>}</div>
-    <footer><button type="button" onClick={onClose} disabled={busy}>Cancelar</button><button className="primary" disabled={busy}>{busy ? 'Guardando…' : label}</button></footer></form>
+  return <form onSubmit={e => void submit(e)} onReset={onReset}><div className="form-body">{notice && <p className="notice" role="status">{notice}</p>}{children}{error && <p className="error" role="alert">{error}</p>}</div>
+    <footer><button type="button" onClick={onClose} disabled={busy}>Cancelar</button>{another && <button type="submit" data-another="true" disabled={busy}>{another}</button>}<button type="submit" className="primary" disabled={busy}>{busy ? 'Guardando…' : label}</button></footer></form>
 }

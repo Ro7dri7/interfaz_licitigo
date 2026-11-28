@@ -6,3 +6,13 @@ export function downloadCsv(filename: string, rows: (string | number)[][]) {
   const url = URL.createObjectURL(new Blob(['\uFEFF' + rows.map(row => row.map(csvCell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' })), link = document.createElement('a')
   link.href = url; link.download = filename; link.click(); URL.revokeObjectURL(url)
 }
+
+/**
+ * Responsables para filtros y formularios: el equipo habilitado más quienes ya tienen negocios
+ * (incluidos los nombres de integraciones), sin «Sin asignar», ordenados. `extra` asegura que
+ * el valor elegido siempre tenga su opción en la lista.
+ */
+export function ownerOptions(advisors: string[] | undefined, deals: { owner: string }[], ...extra: string[]) {
+  return [...new Set([...(advisors ?? []), ...deals.map(d => d.owner), ...extra])]
+    .filter(name => name && name !== 'Sin asignar').sort((a, b) => a.localeCompare(b, 'es'))
+}

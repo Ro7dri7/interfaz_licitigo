@@ -12,13 +12,16 @@ export default function CompanyDetail() {
   const { id } = useParams(), location = useLocation(), { snapshot: { data } } = useCRM()
   const [quote, setQuote] = useState<Quote | null>(null)
   const from = location.state?.from
-  const back = typeof from === 'string' && /^\/directorio(?:\?|$)/.test(from) ? from : '/directorio'
+  // El origen llega con la base del CRM (/comercial en el Portal); antes se comparaba sin ella y el enlace salía del CRM.
+  const lists = [[crmPath('/directorio'), 'Volver al directorio'], [crmPath('/contactos'), 'Volver a contactos']]
+  const origin = typeof from === 'string' ? lists.find(([path]) => from === path || from.startsWith(`${path}?`)) : undefined
+  const [back, backLabel] = origin ? [from as string, origin[1]] : lists[0]
   const company = data.companies.find(c => c.id === id)
   if (!company) return <Empty title="Empresa no encontrada"><Link to={crmPath("/directorio")}>Volver al directorio</Link></Empty>
   const contacts = data.contacts.filter(c => c.companyId === company.id), deals = data.deals.filter(d => d.companyId === company.id)
   const dealIds = new Set(deals.map(d => d.id)), quotes = data.quotes.filter(q => dealIds.has(q.dealId)).slice().reverse()
   const active = deals.filter(openDeal)
-  return <><Link className="association-link" to={back}><Icon name="arrow" size={14} />Volver al directorio</Link>
+  return <><Link className="association-link" to={back}><Icon name="back" size={14} />{backLabel}</Link>
     <PageHead title={company.name} eyebrow="DIRECTORIO · FICHA DE EMPRESA" description={`RUC ${company.ruc || 'por completar'} · ${originLabel(company.origin)} · Registrada el ${dateLabel(company.createdAt)}`} />
     <section className="company-summary" aria-label="Resumen de la empresa">
       <div><small>Contactos</small><strong>{contacts.length}</strong></div><div><small>Negocios abiertos</small><strong>{active.length}</strong></div>

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import * as api from '../lib/api'
 import { mensajeError } from '../lib/api'
-import { btnPrimary, btnSecondary, overlay } from '../lib/ui'
+import { btnPrimary, btnSecondary } from '../lib/ui'
+import { Dialogo } from './Dialogo'
 
 export const PLANES = [
   {
@@ -85,14 +86,7 @@ export function PlanesModal({ abierto, planActual = 'free', onCerrar }: Props) {
   }
 
   return (
-    <div className={overlay} onClick={onCerrar}>
-      <div
-        className="max-h-[92vh] w-full max-w-[1100px] overflow-y-auto rounded-lg bg-white p-6 shadow-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="planes-titulo"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Dialogo className="max-h-[92vh] w-full max-w-[1100px] overflow-y-auto rounded-lg bg-white p-6 shadow-panel" tituloId="planes-titulo" onCerrar={onCerrar}>
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 id="planes-titulo" className="font-serif text-[28px] text-ink">Planes y precios</h2>
@@ -153,7 +147,6 @@ export function PlanesModal({ abierto, planActual = 'free', onCerrar }: Props) {
         </div>
         <p className="mt-5 text-center text-[12.5px] text-muted">Pagos protegidos con Stripe · Visa / Mastercard · PEN</p>
         {error ? <p className="mt-3 text-[13.5px] text-danger" role="alert">{error}</p> : null}
-      </div>
-    </div>
+    </Dialogo>
   )
 }

@@ -5,7 +5,8 @@ import { PlanesModal } from '../components/PlanesModal'
 import { Topbar } from '../components/Topbar'
 import * as api from '../lib/api'
 import { esSinCreditos, mensajeError } from '../lib/api'
-import { btnPrimary, container, overlay } from '../lib/ui'
+import { btnPrimary, container } from '../lib/ui'
+import { Dialogo } from '../components/Dialogo'
 import type { Cupo, Desbloqueo } from '../types/models'
 
 export function LicitacionPage() {
@@ -78,13 +79,11 @@ export function LicitacionPage() {
         />
       </main>
       {sinCreditos ? (
-        <div className={overlay} onClick={() => setSinCreditos(false)}>
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-panel" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-serif text-[26px]">Tus créditos se acabaron</h2>
+        <Dialogo className="w-full max-w-md rounded-2xl bg-white p-6 shadow-panel" tituloId="sin-creditos" onCerrar={() => setSinCreditos(false)}>
+            <h2 id="sin-creditos" className="font-serif text-[26px]">Tus créditos se acabaron</h2>
             <p className="mt-2 text-[14px] text-muted">Ya no te quedan desbloqueos. Elige un plan para seguir viendo el análisis ISO.</p>
             <button className={`${btnPrimary} mt-5 w-full`} type="button" onClick={() => { setSinCreditos(false); setPlanes(true) }}>Ver planes</button>
-          </div>
-        </div>
+        </Dialogo>
       ) : null}
       <PlanesModal abierto={planes} planActual={cupo?.plan} onCerrar={() => setPlanes(false)} />
     </div>
